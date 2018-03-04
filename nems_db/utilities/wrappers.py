@@ -1,8 +1,12 @@
 import os
+import io
+import json
 import random
 import numpy as np
 import matplotlib.pyplot as plt
 import logging
+
+import boto3
 
 import nems
 import nems.initializers
@@ -15,7 +19,7 @@ import nems.metrics.api
 import nems.analysis.api
 import nems.utils
 import nems.utilities.baphy as nb
-import nems.db as nd
+import nems_db.db as nd
 
 from nems.recording import Recording
 from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
@@ -55,7 +59,7 @@ def run_loader_baphy(cellid,batch,loader):
     log.info('Withholding validation set data...')
 
     est, val = rec.split_using_epoch_occurrence_counts(epoch_regex='^STIM_')
-    
+
     est = preproc.average_away_epoch_occurrences(est, epoch_regex='^STIM_')
     val = preproc.average_away_epoch_occurrences(val, epoch_regex='^STIM_')
 
@@ -81,16 +85,16 @@ def fit_model_baphy(cellid,batch,modelname,
     fitter = kws[-1]
 
     est,val = run_loader_baphy(cellid,batch,loader)
-    
+
     modelspecs_dir = '/auto/data/tmp/modelspecs/{0}/{1}'.format(batch,cellid)
     figures_dir = modelspecs_dir
-    
+
     log.info('Initializing modelspec(s) for cell/batch {0}/{1}...'.format(cellid,batch))
 
     # Method #1: create from "shorthand" keyword string
     modelspec = nems.initializers.from_keywords(modelspecname)
     modelspec[0]['fn_kwargs']['i']='stim'
-    
+
     meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
             'loader': loader, 'fitter': fitter, 'modelspecname': modelspecname,
             'username': 'svd', 'labgroup': 'lbhb', 'public': 1}
@@ -105,7 +109,7 @@ def fit_model_baphy(cellid,batch,modelname,
     #modelspec[0]['meta']['batch'] = batch
     #modelspec[0]['meta']['cellid'] = cellid
     #modelspec[0]['meta']['modelname'] = modelname
-    
+
     log.info('Fitting modelspec(s)...')
 
     # Option 1: Use gradient descent on whole data set(Fast)
@@ -132,42 +136,74 @@ def fit_model_baphy(cellid,batch,modelname,
     r_fit = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_rec]
     modelspecs[0][0]['meta']['r_fit']=np.mean(r_fit)
     modelspecs[0][0]['meta']['r_test']=np.mean(r_test)
-    
+
     log.info("r_fit={0} r_test={1}".format(modelspecs[0][0]['meta']['r_fit'],
           modelspecs[0][0]['meta']['r_test']))
     print("r_fit={0} r_test={1}".format(modelspecs[0][0]['meta']['r_fit'],
           modelspecs[0][0]['meta']['r_test']))
-    
-    savepath=ms.save_modelspecs(modelspecs_dir, modelspecs)
+
+    #savepath=ms.save_modelspecs(modelspecs_dir, modelspecs)
+    savepath = save_modelspecs_to_s3(modelspecs, batch, cellid, modelname)
     log.info('Saved modelspec(s) to {0} ...'.format(savepath))
-    
+
     if autoPlot:
         # GENERATE PLOTS
         log.info('Generating summary plot...')
 
         # Generate a summary plot
         fig = nplt.plot_summary(val, modelspecs)
-        figpath = nplt.save_figure(fig, modelspecs=modelspecs,
-                                   save_dir=figures_dir)
+        #figpath = nplt.save_figure(fig, modelspecs=modelspecs,
+        #                           save_dir=figures_dir)
+        figpath = save_fig_to_s3(fig, cellid, batch, modelname)
         # Pause before quitting
         plt.show()
-        
+
         modelspecs[0][0]['meta']['figurefile']=figpath
-        
+
     # save in database
     if saveInDB:
-        
+
         # TODO : db results
-        
+
         logging.info('Saved results to {0}'.format(savepath))
         modelspecs[0][0]['meta']['modelpath']=savepath
 
         nd.update_results_table(modelspecs[0])
         return savepath
     else:
-        
+
         return modelspecs
 
+def save_fig_to_s3(fig, cellid, batch, modelname):
+    buffer = io.BytesIO()
+    fig.savefig(buffer, format='png')
+    buffer.seek(0)
+    s3 = boto3.resource('s3')
+    # TODO: specify bucket in config? or just hardcode it since
+    #       this will be lab-specific stuff now?
+    bucket = 'nemsdata'
+    path = os.path.join('nems_saved_images', batch, cellid, modelname)
+    s3.Object(bucket, path).put(Body=buffer)
+
+    return os.path.join('s3://', path)
+
+def save_modelspecs_to_s3(modelspecs, cellid, batch, modelname):
+    paths = []
+    for i, modelspec in enumerate(modelspecs):
+        buffer = io.BytesIO()
+        json.dump(modelspec, buffer)
+        buffer.seek(0)
+        s3 = boto3.resource('s3')
+        bucket = 'nemsdata'
+        model = modelname + '.%04d'%i
+        path = os.path.joi('nems_saved_models', batch, cellid, model)
+        s3.Object(bucket, path).put(Body=buffer)
+        paths.append(path)
+
+    # TODO: not sure what to do about multiple modelspecs going to the
+    #       same path. Should this even happen now that loader/preproc/etc
+    #       are part of the modelname?
+    return os.path.join('s3://', paths[0])
 
 def load_model_baphy(filepath,loadrec=True):
 
@@ -181,12 +217,12 @@ def load_model_baphy(filepath,loadrec=True):
 
     if loadrec:
         est,val = run_loader_baphy(cellid,batch,loader)
-        
+
         return modelspec,est,val
     else:
         return modelspec
-    
-    
+
+
 def examine_recording(rec, epoch_regex='TRIAL', occurrence=0):
     # plot example spectrogram and psth from one trial
     # todo: regex matching (currently just does exatract string matching)
@@ -212,18 +248,18 @@ def fit_batch(batch, modelname="ozgf100ch18_wc18x1_lvl1_fir15x1_dexp1_fit01"):
     plt.close('all')
     cell_data=nd.get_batch_cells(batch=batch)
     cellids=list(cell_data['cellid'].unique())
-    
+
     for cellid in cellids:
         fit_model_baphy(cellid,batch,modelname, autoPlot=True, saveInDB=True)
-        
-    
-def quick_inspect(cellid="chn020f-b1", batch=271, 
+
+
+def quick_inspect(cellid="chn020f-b1", batch=271,
                modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"):
     d=nd.get_results_file(batch,[modelname],[cellid])
     savepath=d['modelpath'][0]
     modelspec,est,val=load_model_baphy(savepath)
     fig = nplt.plot_summary(val, [modelspec])
-    
+
     return modelspec,est,val
 
 """
