@@ -94,7 +94,6 @@ def fit_model_baphy(cellid,batch,modelname,
     # Method #1: create from "shorthand" keyword string
     modelspec = nems.initializers.from_keywords(modelspecname)
     modelspec[0]['fn_kwargs']['i']='stim'
-
     meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
             'loader': loader, 'fitter': fitter, 'modelspecname': modelspecname,
             'username': 'svd', 'labgroup': 'lbhb', 'public': 1}
@@ -154,7 +153,7 @@ def fit_model_baphy(cellid,batch,modelname,
         fig = nplt.plot_summary(val, modelspecs)
         #figpath = nplt.save_figure(fig, modelspecs=modelspecs,
         #                           save_dir=figures_dir)
-        figpath = save_fig_to_s3(fig, cellid, batch, modelname)
+        figpath = save_fig_to_s3(fig, batch, cellid, modelname)
         # Pause before quitting
         plt.show()
 
@@ -174,7 +173,8 @@ def fit_model_baphy(cellid,batch,modelname,
 
         return modelspecs
 
-def save_fig_to_s3(fig, cellid, batch, modelname):
+def save_fig_to_s3(fig, batch, cellid, modelname):
+    batch = 'batch' + str(batch)
     buffer = io.BytesIO()
     fig.savefig(buffer, format='png')
     buffer.seek(0)
@@ -182,22 +182,22 @@ def save_fig_to_s3(fig, cellid, batch, modelname):
     # TODO: specify bucket in config? or just hardcode it since
     #       this will be lab-specific stuff now?
     bucket = 'nemsdata'
-    path = os.path.join('nems_saved_images', batch, cellid, modelname)
+    model = modelname + '.png'
+    path = os.path.join('nems_saved_images', batch, cellid, model)
     s3.Object(bucket, path).put(Body=buffer)
 
     return os.path.join('s3://', path)
 
-def save_modelspecs_to_s3(modelspecs, cellid, batch, modelname):
+def save_modelspecs_to_s3(modelspecs, batch, cellid, modelname):
+    batch = 'batch' + str(batch)
     paths = []
     for i, modelspec in enumerate(modelspecs):
-        buffer = io.BytesIO()
-        json.dump(modelspec, buffer)
-        buffer.seek(0)
+        fileobj = json.dumps(modelspec, cls=ms.NumpyAwareJSONEncoder)    
         s3 = boto3.resource('s3')
         bucket = 'nemsdata'
-        model = modelname + '.%04d'%i
-        path = os.path.joi('nems_saved_models', batch, cellid, model)
-        s3.Object(bucket, path).put(Body=buffer)
+        model = modelname + '.%04d.json'%i
+        path = os.path.join('nems_saved_models', batch, cellid, model)
+        s3.Object(bucket, path).put(Body=fileobj)
         paths.append(path)
 
     # TODO: not sure what to do about multiple modelspecs going to the
@@ -267,22 +267,24 @@ def quick_inspect(cellid="chn020f-b1", batch=271,
 cellid='btn144a-c1'
 batch=259
 modelname="env100_fir15x2_dexp1_fit01"
-
+"""
 # A1 NAT example
 cellid = 'TAR010c-18-1'
 batch=271
 modelname = "ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"
-
+"""
 # IC NAT example
 cellid = "bbl031f-a1"
 batch=291
 modelname = "ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"
-savepath = fit_model_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-modelspec,est,val=load_model_baphy(savepath)
-
 """
+savepath = fit_model_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
+#TODO: load_model should parse path to figure out if s3, http, or local
+#modelspec,est,val=load_model_baphy(savepath)
 
-#plt.close('all')
+
+
+plt.close('all')
 
 #cellid = "bbl034e-a1"
 #batch=291
