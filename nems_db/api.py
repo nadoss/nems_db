@@ -96,22 +96,22 @@ class ResultInterface(Resource):
     def __init__(self, **kwargs):
         self.local_dir = kwargs['local_dir']
 
-    def get(self, rec):
+    def get(self, recording, model, fitter, date):
         '''
         Serves out a modelspec file in .json.
         TODO: Replace with flask file server or NGINX
         '''
-        return abort(400, 'Not implemented')
-
-        ensure_valid_recording_filename(rec)
-        filepath = os.path.join(self.targz_dir, rec)
+        filepath = os.path.join(
+                self.local_dir,
+                as_path(recording, model, fitter, date)
+                )
         if not os.path.exists(filepath):
             not_found()
         d = io.BytesIO()
         with open(filepath, 'rb') as f:
             d.write(f.read())
             d.seek(0)
-        return Response(d, status=200, mimetype='application/gzip')
+        return Response(d, status=200, mimetype='application/json')
 
     def put(self, recording, model, fitter, date):
         # If the put request is NOT a json, crash
@@ -119,7 +119,9 @@ class ResultInterface(Resource):
         if not payload:
             abort(400, "Payload was not a json.")
 
-        local_path = self.local_dir + '/' + as_path(recording, model, fitter, date)
+        local_path = os.path.join(
+                self.local_dir, as_path(recording, model, fitter, date)
+                )
 
         # TODO: If a file exists already, crash
         # if os.path.exists():
