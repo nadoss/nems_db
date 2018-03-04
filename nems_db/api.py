@@ -4,11 +4,41 @@ import re
 
 from flask import abort, Response, request
 from flask_restful import Resource
+from sqlalchemy import and_
+#    https://webargs.readthedocs.io/en/latest/
+from webargs import fields
+from webargs.flaskparser import use_kwargs
+
+from .db import NarfResults, Session
 
 # Define some regexes for sanitizing inputs
 RECORDING_REGEX = re.compile(r"[\-_a-zA-Z0-9]+\.tar\.gz$")
 CELLID_REGEX = re.compile(r"^[\-_a-zA-Z0-9]+$")
 BATCH_REGEX = re.compile(r"^\d+$")
+
+query_args = {
+    'batch': fields.Int(required=False),
+    'cellid': fields.Str(required=False),
+    'recording': fields.Str(required=False),
+    # TODO: Want to keep preproc keywords separate?
+    'preproc': fields.Str(required=False),
+    'modelname': fields.Str(required=False),
+    # TODO: Want to keep fit keywords separate?
+    'fitter': fields.Str(required=False),
+    'date': fields.str(required=False)
+}
+
+# results args are almost the same, but some are required.
+# smarter way to just change arguments to required=True?
+results_args = {
+    # modelname incorporates cellid, batch and preproc
+    'recording': fields.Str(required=True),
+    # TODO: Want to keep preproc keywords separate?
+    'modelname': fields.Str(required=True),
+    # TODO: Want to keep fit keywords separate?
+    'fitter': fields.Str(required=True),
+    'date': fields.str(required=False)
+}
 
 
 def as_path(recording, modelname, fitter, date):
@@ -56,18 +86,23 @@ def not_found():
     abort(404, "Resource not found. ")
 
 
+
+
 class ResultInterface(Resource):
     '''
-    An interface for saving JSON files.
+    An interface for saving and retrieving JSON files.
+    TODO
     '''
     def __init__(self, **kwargs):
         self.local_dir = kwargs['local_dir']
 
     def get(self, rec):
         '''
-        Serves out a recording file in .tar.gz format.
+        Serves out a modelspec file in .json.
         TODO: Replace with flask file server or NGINX
         '''
+        return abort(400, 'Not implemented')
+
         ensure_valid_recording_filename(rec)
         filepath = os.path.join(self.targz_dir, rec)
         if not os.path.exists(filepath):
@@ -102,3 +137,42 @@ class ResultInterface(Resource):
 
     def delete(self, rec):
         abort(400, 'Not yet Implemented')
+
+class QueryInterface(Resource):
+    '''
+    An interface for retrieving lists of matching results,
+    which may be retrieved through ResultInterface methods.
+    '''
+    def __init__(self, **kwargs):
+        # TODO: no kwargs needed so far, maybe just leave out definition?
+        pass
+
+    @use_kwargs(query_args)
+    def get(self, **kwargs):
+        '''
+        Return a JSON list of tuples:
+        (recording, modelname, fitter, <date; default to most recent>)
+        that match all provided kwargs:
+        batch, cellid, preproc, recording, modelname, fitter, date.
+        '''
+        abort(400, 'Not yet implemented')
+        # compose filters
+        # TODO: allow list as well as string arguments?
+        filters = []
+        for key, val in kwargs.items():
+            col = getattr(NarfResults, key)
+            if isinstance(val, str):
+                filters.append(col.ilike(val))
+            # TODO
+            #elif isinstance(val, list):
+            #    filters.append(col.in_(val))
+        # open a database session and retrieve matched results
+        session = Session()
+        db_objs = session.query(NarfResults).filter(and_(*filters)).all()
+        results = [
+                (r.recording, r.modelanme, r.fitter, r.date)
+                for r in db_objs
+                ]
+        # close database connection before exiting scope
+        session.close()
+        return Response(results, status=200, mimetype='application/json')
