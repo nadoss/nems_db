@@ -1,6 +1,8 @@
 import os
 import io
 import re
+import logging
+log = logging.getLogger(__name__)
 
 from flask import abort, Response, request
 from flask_restful import Resource
@@ -106,6 +108,7 @@ class ResultInterface(Resource):
                 as_path(recording, model, fitter, date)
                 )
         if not os.path.exists(filepath):
+            print("File not found at: {}".format(filepath))
             not_found()
         d = io.BytesIO()
         with open(filepath, 'rb') as f:

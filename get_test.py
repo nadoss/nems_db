@@ -1,9 +1,10 @@
 import json
 import requests
 from urllib.parse import urlencode
+import logging
+log = logging.getLogger(__name__)
 
 from nems.modelspec import get_modelspec_name, get_modelspec_metadata
-
 
 HOST='potoroo:3005'  # Include port here too if desired
 
@@ -22,8 +23,9 @@ def as_url(**kwargs):
 def load_modelspec(recording, modelname, fitter, date):
     url = as_url(modelname=modelname, recording=recording,
                  fitter=fitter, date=date)
+    print("Sending get request with url: {}".format(url))
     r = requests.get(url)
-    print(str(r))
+    print("Got back json: {}".format(r))
 
 load_modelspec(
         recording='TAR010c-18-1',

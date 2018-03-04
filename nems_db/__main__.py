@@ -4,6 +4,8 @@ from nems_db.api import ResultInterface, QueryInterface
 from nems_db.util import ensure_env_vars
 
 req_env_vars = [
+        'NEMS_DB_API_HOST',
+        'NEMS_DB_API_PORT',
         'NEMS_RECORDINGS_DIR',
         'NEMS_RESULTS_DIR',
         'MYSQL_HOST',
@@ -28,6 +30,6 @@ api.add_resource(
 api.add_resource(QueryInterface, '/query')
 
 app.run(
-    port=int(creds['NEMS_BAPHY_API_PORT']),
-    host=creds['NEMS_BAPHY_API_HOST']
+    port=int(creds['NEMS_DB_API_PORT']),
+    host=creds['NEMS_DB_API_HOST']
     )
