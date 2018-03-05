@@ -186,7 +186,7 @@ def save_fig_to_s3(fig, batch, cellid, modelname):
     path = os.path.join('nems_saved_images', batch, cellid, model)
     s3.Object(bucket, path).put(Body=buffer)
 
-    return os.path.join('s3://', path)
+    return os.path.join('s3://', bucket, path)
 
 def save_modelspecs_to_s3(modelspecs, batch, cellid, modelname):
     batch = 'batch' + str(batch)
@@ -203,7 +203,7 @@ def save_modelspecs_to_s3(modelspecs, batch, cellid, modelname):
     # TODO: not sure what to do about multiple modelspecs going to the
     #       same path. Should this even happen now that loader/preproc/etc
     #       are part of the modelname?
-    return os.path.join('s3://', paths[0])
+    return os.path.join('s3://', bucket, paths[0])
 
 def load_model_baphy(filepath,loadrec=True):
 
