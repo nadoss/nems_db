@@ -4,7 +4,7 @@ import sys
 import pandas as pd
 import numpy as np
 import logging
-import nems_baphy.util
+import nems_db.util
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.automap import automap_base
@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 # TODO: instead of doing all this connection HERE (which occurs during import),
 #       we should instead have a "connect()" function instead of global vars!
 
-creds = nems_baphy.util.ensure_env_vars(['MYSQL_HOST',
+creds = nems_db.util.ensure_env_vars(['MYSQL_HOST',
                                          'MYSQL_USER',
                                          'MYSQL_PASS',
                                          'MYSQL_DB',

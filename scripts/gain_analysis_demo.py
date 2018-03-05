@@ -20,9 +20,12 @@ import matplotlib.pyplot as plt
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
-import nems.utilities.baphy
+# nems libs
 import nems.signal
 import nems.recording
+
+# nems_db libs (or should be nems_db)
+import nems_db.utilities.baphy
 import nems.db as nd
 
 def state_gain_model(recording,options):

@@ -1,30 +1,49 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jun 14 09:33:47 2017
+@author: svd, changes added by njs
+"""
+
+import logging
+log = logging.getLogger(__name__)
+
 import re
 import os
 import os.path
 import scipy.io
+import scipy.ndimage.filters
 import scipy.signal
 import numpy as np
 import sys
 import io
-import logging
-import pandas as pd
-import matplotlib.pyplot as plt
 
+import pandas as pd
+import nems.utilities as nu
+import matplotlib.pyplot as plt
 import nems.signal
 import nems.recording
 
-import nems_baphy.db as db
-import nems_baphy.utilities as nu
-
-log = logging.getLogger(__name__)
-
-# TODO: Make this part of the config
+try:
+    import nems_db.db as db
+except Exception as e:
+    log.info(e)
+    log.info('Running without db')
+    db = None
+'''
+try:
+    import nems_config.Storage_Config as sc
+except Exception as e:
+    log.info(e)
+    from nems_config.defaults import STORAGE_DEFAULTS
+    sc = STORAGE_DEFAULTS
+'''
 # paths to baphy data -- standard locations on elephant
 stim_cache_dir='/auto/data/tmp/tstim/'  # location of cached stimuli
 spk_subdir='sorted/'   # location of spk.mat files relative to parmfiles
 
-# TODO : DELETE OR PRUNE EVERYTHING DOWN TO THE NATIVE BAPHY FUNCTIONS AT END 
 
+""" TODO : DELETE OR PRUNE EVERYTHING DOWN TO THE NATIVE BAPHY FUNCTIONS AT END """
 
 def load_baphy_file(filepath, level=0):
     """
@@ -1716,9 +1735,15 @@ def baphy_load_recording(cellid,batch,options):
             options['pupil']=False
             
         if options['stim']:
+            t_stim=stim_dict_to_matrix(stim_dict,fs=options['rasterfs'],event_times=event_times)
+            t_stim.recording=cellid
             
-            stim=stim_dict_to_matrix(stim_dict,fs=options['rasterfs'],event_times=event_times)
-            stim.recording=cellid
+            if i==0:
+                print("i={0} starting".format(i))
+                stim=t_stim
+            else:
+                print("i={0} concatenating".format(i))
+                stim=stim.concatenate_time([stim,t_stim])
             
     resp.meta=options
     
