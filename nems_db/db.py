@@ -12,7 +12,8 @@ from sqlalchemy.ext.automap import automap_base
 log = logging.getLogger(__name__)
 
 # TODO: instead of doing all this connection HERE (which occurs during import),
-#       we should instead have a "connect()" function instead of global vars!
+#       we should instead have a "connect()" function that returns a session.
+#       We should remove these global vars!
 
 creds = nems_db.util.ensure_env_vars(['MYSQL_HOST',
                                          'MYSQL_USER',
@@ -156,8 +157,8 @@ def _enqueue_single_model(
     # TODO: anything else needed here? this is syntax for nems_fit_single
     #       command prompt wrapper in main nems folder.
     commandPrompt = (
-        "/home/nems/anaconda3/bin/python "
-        "source /auto/users/nems/nems_db/configs/config.sh && /home/nems/nems_db/nems_fit_single.py {0} {1} {2}"
+	" /home/nems/anaconda3/bin/python"
+        " /home/nems/nems_db/nems_fit_single.py {0} {1} {2}"
         .format(cellid, batch, modelname)
     )
 
@@ -171,7 +172,7 @@ def _enqueue_single_model(
         .first()
     )
     if result and not force_rerun:
-        web_print(
+        log.info(
             "Entry in NarfResults already exists for: %s, skipping.\n" %
             note)
         session.close()
@@ -229,13 +230,13 @@ def _enqueue_single_model(
     cluster_session.commit()
     queueid = job.id
 
-    if AWS:
-        # TODO: turn this back on if/when automated cluster management is
-        #       implemented.
-        pass
-        # check_instance_count()
-    else:
-        pass
+    #if AWS:
+    #    # TODO: turn this back on if/when automated cluster management is
+    #    #       implemented.
+    #    pass
+    #    # check_instance_count()
+    #else:
+    #    pass
 
     return queueid, message
 

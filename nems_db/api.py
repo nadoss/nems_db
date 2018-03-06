@@ -1,6 +1,7 @@
 import os
 import io
 import re
+import json
 import logging
 log = logging.getLogger(__name__)
 
@@ -22,24 +23,9 @@ query_args = {
     'batch': fields.Int(required=False),
     'cellid': fields.Str(required=False),
     'recording': fields.Str(required=False),
-    # TODO: Want to keep preproc keywords separate?
-    'preproc': fields.Str(required=False),
     'modelname': fields.Str(required=False),
-    # TODO: Want to keep fit keywords separate?
     'fitter': fields.Str(required=False),
-    'date': fields.str(required=False)
-}
-
-# results args are almost the same, but some are required.
-# smarter way to just change arguments to required=True?
-results_args = {
-    # modelname incorporates cellid, batch and preproc
-    'recording': fields.Str(required=True),
-    # TODO: Want to keep preproc keywords separate?
-    'modelname': fields.Str(required=True),
-    # TODO: Want to keep fit keywords separate?
-    'fitter': fields.Str(required=True),
-    'date': fields.str(required=False)
+    'date': fields.Str(required=False)
 }
 
 
@@ -47,6 +33,7 @@ def as_path(recording, modelname, fitter, date):
     ''' Returns a relative path. '''
     if not recording and modelname and fitter and date:
         raise ValueError('Not all necessary fields defined!')
+    # TODO: Use an URL lib for creating valid URLs instead of this:
     url = recording + '/' + modelname + '/' + fitter + '/' + date + '/'
     return url
 
@@ -88,69 +75,74 @@ def not_found():
     abort(404, "Resource not found. ")
 
 
-
-
-class ResultInterface(Resource):
+class UploadInterface(Resource):
     '''
-    An interface for saving and retrieving JSON files.
-    TODO
+    An interface for uploading any kind of file to a filesystem
+    hierarchy stored on disk (or perhaps in Amazon S3).
+    TODO: Require credentials for this?
     '''
     def __init__(self, **kwargs):
         self.local_dir = kwargs['local_dir']
 
-    def get(self, recording, model, fitter, date):
-        '''
-        Serves out a modelspec file in .json.
-        TODO: Replace with flask file server or NGINX
-        '''
-        filepath = os.path.join(
-                self.local_dir,
-                as_path(recording, model, fitter, date)
-                )
-        if not os.path.exists(filepath):
-            print("File not found at: {}".format(filepath))
-            not_found()
-        d = io.BytesIO()
-        with open(filepath, 'rb') as f:
-            d.write(f.read())
-            d.seek(0)
-        return Response(d, status=200, mimetype='application/json')
+    def put(self, recording, model, fitter, date, filename):
+        # TODO: Ensure arguments are valid.
 
-    def put(self, recording, model, fitter, date):
-        # If the put request is NOT a json, crash
-        payload = request.json
-        if not payload:
-            abort(400, "Payload was not a json.")
+        # If the put request is NOT a json, crash!
+        print(recording, model, fitter, date, filename)
 
-        local_path = os.path.join(
-                self.local_dir, as_path(recording, model, fitter, date)
-                )
+        if filename == 'modelspec.json':
+            j = request.json
+            if not j:
+                abort(400, "Modelspec was not a json.")
+            # TODO: Verify it is a modelspec
+            bytesobj = io.BytesIO(str(j).encode())
+        elif filename == 'log.txt':
+            bytesobj = io.BytesIO(request.data)
+        elif filename == 'performance.json':
+            j = request.json
+            if not j:
+                abort(400, "Performance was not a json.")
+            # TODO: Verify it is a modelspec
+            bytesobj = io.BytesIO(str(j).encode())
+        elif filename == 'fig.png':
+            bytesobj = io.BytesIO(request.data)
+        else:
+            abort(400, "Filename not allowed.")
 
-        # TODO: If a file exists already, crash
-        # if os.path.exists():
-        #    abort(400, 'File already exists; will not overwrite.')
-        print(local_path)
+        dirpath = os.path.join(self.local_dir,
+                               as_path(recording, model, fitter, date))
+        filepath = os.path.join(dirpath, filename)
 
-        # OK, it's a new file, so it's safe to write to disk
-        # with open(local_path)
-        print(payload)
-        # Send back an OK
+        if not os.path.exists(dirpath):
+            # Create the directory if needed
+            os.makedirs(dirpath)
+
+        # If a file exists already, stop
+        if os.path.exists(filepath):
+            abort(409, 'File already exists; will not overwrite.')
+
+        # It must be a new file and thus safe to write to disk
+        with open(filepath, 'wb') as f:
+            f.write(bytesobj.read())
+
         return Response(None, status=200)
 
     def post(self, rec):
-        abort(400, 'Not yet implemented')
+        abort(400, 'Not implemented. Use PUT!')
 
     def delete(self, rec):
-        abort(400, 'Not yet Implemented')
+        abort(400, 'Not implemented. Deleting should never be needed!')
+
 
 class QueryInterface(Resource):
     '''
-    An interface for retrieving lists of matching results,
-    which may be retrieved through ResultInterface methods.
+    An interface for retrieving lists of matching results, which may
+    be subsequently retrieved through ResultInterface methods.
     '''
     def __init__(self, **kwargs):
-        # TODO: no kwargs needed so far, maybe just leave out definition?
-        pass
+        # TODO: Connect to MySQL using kwargs that pass connection info
+        # This is not the right way to do it, but works until db.py is refactored:
+        self.session = Session()
 
     @use_kwargs(query_args)
     def get(self, **kwargs):
@@ -161,23 +153,14 @@ class QueryInterface(Resource):
         batch, cellid, preproc, recording, modelname, fitter, date.
         '''
         abort(400, 'Not yet implemented')
-        # compose filters
-        # TODO: allow list as well as string arguments?
         filters = []
         for key, val in kwargs.items():
             col = getattr(NarfResults, key)
             if isinstance(val, str):
                 filters.append(col.ilike(val))
-            # TODO
-            #elif isinstance(val, list):
-            #    filters.append(col.in_(val))
-        # open a database session and retrieve matched results
-        session = Session()
-        db_objs = session.query(NarfResults).filter(and_(*filters)).all()
-        results = [
-                (r.recording, r.modelanme, r.fitter, r.date)
-                for r in db_objs
-                ]
-        # close database connection before exiting scope
-        session.close()
+
+        objs = self.session.query(NarfResults).filter(and_(*filters)).all()
+
+        results = [(r.recording, r.modelanme, r.fitter, r.date) for r in objs]
+
         return Response(results, status=200, mimetype='application/json')
