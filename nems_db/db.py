@@ -4,7 +4,7 @@ import sys
 import pandas as pd
 import numpy as np
 import logging
-import nems_baphy.util
+import nems_db.util
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.automap import automap_base
@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 #       we should instead have a "connect()" function that returns a session.
 #       We should remove these global vars!
 
-creds = nems_baphy.util.ensure_env_vars(['MYSQL_HOST',
+creds = nems_db.util.ensure_env_vars(['MYSQL_HOST',
                                          'MYSQL_USER',
                                          'MYSQL_PASS',
                                          'MYSQL_DB',
@@ -158,7 +158,7 @@ def _enqueue_single_model(
     #       command prompt wrapper in main nems folder.
     commandPrompt = (
         "/home/nems/anaconda3/bin/python "
-        "/home/nems/nems/nems_fit_single.py {0} {1} {2}"
+        "source /auto/users/nems/nems_db/configs/config.sh && /home/nems/nems_db/nems_fit_single.py {0} {1} {2}"
         .format(cellid, batch, modelname)
     )
 
