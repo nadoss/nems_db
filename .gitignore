@@ -99,6 +99,12 @@ ENV/
 .mypy_cache/
 
 # nems-specific
+<<<<<<< HEAD
+saved_analysis/
+saved_images/
+saved_models/
+=======
+>>>>>>> 922c6e093ca7f0e67dc7d7118e2fc399304fa1c9
 #signals/
 *~
 .DS_Store
@@ -118,6 +124,8 @@ ENV/
 nems.log*
 **/nems_logs/*
 !**/nems_logs/__init__.py
+**/modelspecs/*
+!**/modelspecs/__init__.py
 
 ### Emacs ###
 # -*- mode: gitignore; -*-
@@ -197,3 +205,7 @@ Session.vim
 .netrwhist
 # auto-generated tag files
 tags
+
+# configurations
+configs/*
+!configs/default_config.sh

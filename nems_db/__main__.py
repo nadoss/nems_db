@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_restful import Api
-from nems_db.api import ResultInterface, QueryInterface
+from nems_db.api import UploadInterface, QueryInterface
 from nems_db.util import ensure_env_vars
 
 req_env_vars = [
@@ -22,12 +22,14 @@ app = Flask(__name__)
 api = Api(app)
 
 api.add_resource(
-        ResultInterface,
-        '/results/<string:recording>/<string:model>/<string:fitter>/<string:date>/',
+        UploadInterface,
+        '/upload/<string:recording>/<string:model>/<string:fitter>/<string:date>/<string:filename>',
         resource_class_kwargs={'local_dir': creds['NEMS_RESULTS_DIR']}
         )
 
-api.add_resource(QueryInterface, '/query')
+api.add_resource(QueryInterface,
+                 '/query',
+                 resource_class_kwargs={'host': creds['NEMS_RESULTS_DIR']})
 
 app.run(
     port=int(creds['NEMS_DB_API_PORT']),

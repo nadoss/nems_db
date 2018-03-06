@@ -12,7 +12,8 @@ from sqlalchemy.ext.automap import automap_base
 log = logging.getLogger(__name__)
 
 # TODO: instead of doing all this connection HERE (which occurs during import),
-#       we should instead have a "connect()" function instead of global vars!
+#       we should instead have a "connect()" function that returns a session.
+#       We should remove these global vars!
 
 creds = nems_db.util.ensure_env_vars(['MYSQL_HOST',
                                          'MYSQL_USER',
