@@ -19,7 +19,6 @@ import sys
 import io
 
 import pandas as pd
-import nems.utilities as nu
 import matplotlib.pyplot as plt
 import nems.signal
 import nems.recording
@@ -953,13 +952,15 @@ def baphy_stim_cachefile(exptparams,options,parmfilepath=None):
     # otherwise use standard load stim from baphy format
     if options['runclass'] is None:
         RefObject=exptparams['TrialObject'][1]['ReferenceHandle'][1]
-    else:
+    elif 'runclass' in exptparams.keys():
         runclass=exptparams['runclass'].split("_")
-        if runclass[1]==options["runclass"]:
+        if len(runclass)>1 and runclass[1]==options["runclass"]:
             RefObject=exptparams['TrialObject'][1]['TargetHandle'][1]
         else:
             RefObject=exptparams['TrialObject'][1]['ReferenceHandle'][1]
-            
+    else:
+        RefObject=exptparams['TrialObject'][1]['ReferenceHandle'][1]
+        
     dstr=RefObject['descriptor']
     if dstr=='Torc':
         if 'RunClass' in exptparams['TrialObject'][1].keys():
@@ -1294,14 +1295,17 @@ def baphy_load_data(parmfilepath,options={}):
         stim,tags,stimparam = baphy_load_specgram(stimfilepath)
     else:
         stim=np.array([])
+            
         if options['runclass'] is None:
             stim_object='ReferenceHandle'
-        else:
+        elif 'runclass' in exptparams.keys():
             runclass=exptparams['runclass'].split("_")
-            if runclass[1]==options["runclass"]:
+            if len(runclass)>1 and runclass[1]==options["runclass"]:
                 stim_object='TargetHandle'
             else:
                 stim_object='ReferenceHandle'
+        else:
+            stim_object='ReferenceHandle'
                 
         tags=exptparams['TrialObject'][1][stim_object][1]['Names']
         stimparam=[]
@@ -1365,11 +1369,7 @@ def baphy_load_dataset(parmfilepath,options={}):
         
     """
     # get the relatively un-pre-processed data
-    #print(options)
-    options['pupil'] = options.get('pupil',False)
-    options['stim'] = options.get('stim',True)
-    options['runclass'] = options.get('runclass',None)
-    
+   
     exptevents, stim, spike_dict, state_dict, tags, stimparam, exptparams = baphy_load_data(parmfilepath,options) 
     
     # pre-process event list (event_times) to only contain useful events
@@ -1563,7 +1563,7 @@ def baphy_load_dataset(parmfilepath,options={}):
     return event_times, spike_dict, stim_dict, state_dict
 
 
-def baphy_load_recording_RDT(parmfilepath,options={}):
+def baphy_load_dataset_RDT(parmfilepath,options={}):
     """
     this can be used to generate a recording object for an RDT experiment
         based largely on baphy_load_recording but with several additional
@@ -1590,6 +1590,10 @@ def baphy_load_recording_RDT(parmfilepath,options={}):
     
     TODO : merge back into general loading function ? Or keep separate?
     """
+    
+    options['pupil'] = options.get('pupil',False)
+    options['stim'] = options.get('stim',True)
+    options['runclass'] = options.get('runclass',None)
     
     # get the relatively un-pre-processed data
     exptevents, stim, spike_dict, state_dict, tags, stimparam, exptparams = baphy_load_data(parmfilepath,options) 
@@ -1686,6 +1690,11 @@ def stim_dict_to_matrix(stim_dict,fs=100,event_times=None):
 
 def baphy_load_recording(cellid,batch,options):
     
+    #print(options)
+    options['pupil'] = options.get('pupil',False)
+    options['stim'] = options.get('stim',True)
+    options['runclass'] = options.get('runclass',None)
+    
     d=db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm') 
     files=list(d['parm'])
     
@@ -1695,14 +1704,18 @@ def baphy_load_recording(cellid,batch,options):
     
     for i,parmfilepath in enumerate(files):
         
-        event_times, spike_dict, stim_dict, state_dict = baphy_load_dataset(parmfilepath,options)
-        d2=event_times.loc[0].copy()
-        if (i==0) & (d2['name']=='PASSIVE_EXPERIMENT'):
-            d2['name']='PRE_PASSIVE'
-            event_times=event_times.append(d2)
-        elif d2['name']=='PASSIVE_EXPERIMENT':
-            d2['name']='POST_PASSIVE'
-            event_times=event_times.append(d2)
+        if options["runclass"]=="RDT":
+            event_times, spike_dict, stim_dict, state_dict, stim1_dict, stim2_dict = baphy_load_dataset_RDT(parmfilepath,options)
+        else:
+            event_times, spike_dict, stim_dict, state_dict = baphy_load_dataset(parmfilepath,options)
+
+            d2=event_times.loc[0].copy()        
+            if (i==0) and (d2['name']=='PASSIVE_EXPERIMENT'):
+                d2['name']='PRE_PASSIVE'
+                event_times=event_times.append(d2)
+            elif d2['name']=='PASSIVE_EXPERIMENT':
+                d2['name']='POST_PASSIVE'
+                event_times=event_times.append(d2)
         
         # generate spike raster
         raster_all,cellids=spike_time_to_raster(spike_dict,fs=options['rasterfs'],event_times=event_times)
@@ -1744,7 +1757,22 @@ def baphy_load_recording(cellid,batch,options):
             else:
                 print("i={0} concatenating".format(i))
                 stim=stim.concatenate_time([stim,t_stim])
+                
+        if options['stim'] and options["runclass"]=="RDT":
+            t_stim1=stim_dict_to_matrix(stim1_dict,fs=options['rasterfs'],event_times=event_times)
+            t_stim1.recording=cellid
+            t_stim2=stim_dict_to_matrix(stim2_dict,fs=options['rasterfs'],event_times=event_times)
+            t_stim2.recording=cellid
             
+            if i==0:
+                print("i={0} starting".format(i))
+                stim1=t_stim1
+                stim2=t_stim2
+            else:
+                print("i={0} concatenating".format(i))
+                stim1=stim1.concatenate_time([stim1,t_stim1])
+                stim2=stim2.concatenate_time([stim2,t_stim2])
+           
     resp.meta=options
     
     if options['pupil']:
@@ -1755,6 +1783,10 @@ def baphy_load_recording(cellid,batch,options):
     if options['stim']:
         signals['stim']=stim
         
+    if options['stim'] and options["runclass"]=="RDT":
+        signals['stim1']=stim1
+        signals['stim2']=stim2
+            
     rec=nems.recording.Recording(signals=signals)
    
     return rec

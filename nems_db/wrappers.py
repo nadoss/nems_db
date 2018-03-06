@@ -122,13 +122,6 @@ def fit_model_baphy(cellid,batch,modelname,
         modelspec[0]['meta'] = meta
     else:
         modelspec[0]['meta'].update(meta)
-    # changed to above so that meta doesn't get removed if it already exists
-    # Can remove the 4 lines below if this doesn't cause any issues
-    #     -jacob 2-25-18
-    #modelspec[0]['meta'] = {}
-    #modelspec[0]['meta']['batch'] = batch
-    #modelspec[0]['meta']['cellid'] = cellid
-    #modelspec[0]['meta']['modelname'] = modelname
     
     log.info('Fitting modelspec(s)...')
 
@@ -141,6 +134,11 @@ def fit_model_baphy(cellid,batch,modelname,
                 fitter=scipy_minimize,
                 fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}}
                 )
+        log.info("Performing full fit...")
+        modelspecs = nems.analysis.api.fit_basic(est, modelspec,
+                                                 fitter=scipy_minimize)
+    if fitter == "fit02":
+        # no pre-fit
         log.info("Performing full fit...")
         modelspecs = nems.analysis.api.fit_basic(est, modelspec,
                                                  fitter=scipy_minimize)
@@ -255,6 +253,14 @@ def quick_inspect(cellid="chn020f-b1", batch=271,
 cellid='btn144a-c1'
 batch=259
 modelname="env100_fir15x2_dexp1_fit01"
+
+# A1 VOC+pupil example
+cellid = 'eno053f-a1'
+batch=294
+modelname = "ozgf100ch18pup_pup_psth_stategain2_fit02"
+savepath = fit_model_baphy(cellid=cellid, batch=batch, modelname=modelname, 
+                           autoPlot=False, saveInDB=True)
+modelspec,est,val=load_model_baphy(savepath)
 
 # A1 NAT example
 cellid = 'TAR010c-18-1'
