@@ -25,8 +25,8 @@ import nems.signal
 import nems.recording
 
 # nems_db libs (or should be nems_db)
-import nems_db.utilities.baphy
-import nems.db as nd
+import nems_db.baphy
+import nems_db.db as nd
 
 def state_gain_model(recording,options):
     """
@@ -288,9 +288,9 @@ if batch==289 or batch==294:
     state_shuffles=[[0],[]]
     options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf', 
              'chancount': 18, 'pupil': True, 'stim': True,
+             'runclass': 'VOC',
              'pupil_deblink': True, 'pupil_median': 1,
              'plot_results': True, 'plot_ax': None}
-#             'runclass': 'VOC',
     
 elif batch in [271,272,291]:
     # NAT
@@ -354,7 +354,7 @@ if REGEN:
     save_path="/auto/data/tmp/batch{0}_fs{1}_{2}{3}/".format(batch,options["rasterfs"],stimfmt,options["chancount"])
     for cellid in cellids:
         try:
-            recordings=recordings+[nems.utilities.baphy.baphy_load_recording(cellid,batch,options.copy())]
+            recordings=recordings+[nems_db.baphy.baphy_load_recording(cellid,batch,options.copy())]
             recordings[-1].save(save_path)
         except:
             print("failed on cell {0}".format(cellid))
@@ -363,13 +363,13 @@ elif RELOAD:
     cell_data=nd.get_batch_cells(batch=batch)
     cellids=list(cell_data['cellid'].unique())
     recordings=[]
-    for cellid in cellids:
+    for cellid in cellids[140:]:
         save_path="/auto/data/tmp/batch{0}_fs{1}_{2}{3}/{4}".format(batch,options["rasterfs"],stimfmt,options["chancount"],cellid)
         print("Loading from {0}".format(save_path))
         if os.path.exists(save_path):
             trec=nems.recording.Recording.load(save_path)
         else:
-            trec=nems.utilities.baphy.baphy_load_recording(cellid,batch,options.copy())
+            trec=nems_db.baphy.baphy_load_recording(cellid,batch,options.copy())
             t_save_path="/auto/data/tmp/batch{0}_fs{1}_{2}{3}/".format(batch,options["rasterfs"],stimfmt,options["chancount"])
             trec.save(t_save_path)
             

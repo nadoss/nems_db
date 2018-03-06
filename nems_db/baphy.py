@@ -953,13 +953,15 @@ def baphy_stim_cachefile(exptparams,options,parmfilepath=None):
     # otherwise use standard load stim from baphy format
     if options['runclass'] is None:
         RefObject=exptparams['TrialObject'][1]['ReferenceHandle'][1]
-    else:
+    elif 'runclass' in exptparams.keys():
         runclass=exptparams['runclass'].split("_")
-        if runclass[1]==options["runclass"]:
+        if len(runclass)>1 and runclass[1]==options["runclass"]:
             RefObject=exptparams['TrialObject'][1]['TargetHandle'][1]
         else:
             RefObject=exptparams['TrialObject'][1]['ReferenceHandle'][1]
-            
+    else:
+        RefObject=exptparams['TrialObject'][1]['ReferenceHandle'][1]
+        
     dstr=RefObject['descriptor']
     if dstr=='Torc':
         if 'RunClass' in exptparams['TrialObject'][1].keys():
