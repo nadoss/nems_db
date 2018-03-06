@@ -75,20 +75,20 @@ def not_found():
     abort(404, "Resource not found. ")
 
 
-class UploadInterface(Resource):
+class UploadResultsInterface(Resource):
     '''
     An interface for uploading any kind of file to a filesystem
     hierarchy stored on disk (or perhaps in Amazon S3).
     TODO: Require credentials for this?
     '''
     def __init__(self, **kwargs):
-        self.local_dir = kwargs['local_dir']
+        self.upload_dir = kwargs['upload_dir']
 
     def put(self, recording, model, fitter, date, filename):
         # TODO: Ensure arguments are valid.
 
         # If the put request is NOT a json, crash!
-        print(recording, model, fitter, date, filename)
+        # print(recording, model, fitter, date, filename)
 
         if filename == 'modelspec.json':
             j = request.json
@@ -109,7 +109,7 @@ class UploadInterface(Resource):
         else:
             abort(400, "Filename not allowed.")
 
-        dirpath = os.path.join(self.local_dir,
+        dirpath = os.path.join(self.upload_dir,
                                as_path(recording, model, fitter, date))
         filepath = os.path.join(dirpath, filename)
 
@@ -132,6 +132,39 @@ class UploadInterface(Resource):
 
     def delete(self, rec):
         abort(400, 'Not implemented. Deleting should never be needed!')
+
+
+class UploadRecordingInterface(Resource):
+    '''
+    An interface for uploading NEMS-compatable .tar.gz recordings only.
+    '''
+    def __init__(self, **kwargs):
+        self.upload_dir = kwargs['upload_dir']
+
+    def get(self, recording_filepath):
+        abort(400, 'Not implemented; nginx serves out GET requests faster.')
+
+    def put(self, recording_filepath):
+        if not recording_filepath[-7:] == '.tar.gz':
+            abort(400, 'File must end with .tar.gz')
+        # Create subdirectory if needed
+        filepath = os.path.join(self.upload_dir, recording_filepath)
+        if os.path.exists(filepath):
+            abort(409, 'File exists; not going to overwrite.')
+        dirpath = os.path.dirname(filepath)
+        if not os.path.exists(dirpath):
+            os.makedirs(dirpath)
+        # TODO: Check that request has correct mime type
+        d = io.BytesIO(request.data)
+        with open(filepath, 'wb') as f:
+            f.write(d.read())
+        return Response(status=200)
+
+    def post(self, recording_filepath):
+        abort(400, 'Not implemented; use PUT instead')
+
+    def delete(self, recording_filepath):
+        abort(400, 'Not implemented; http DELETE is a little dangerous.')
 
 
 class QueryInterface(Resource):
