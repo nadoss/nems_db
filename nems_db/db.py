@@ -157,7 +157,7 @@ def _enqueue_single_model(
     #       command prompt wrapper in main nems folder.
     commandPrompt = (
         "/home/nems/anaconda3/bin/python "
-        "/home/nems/nems_db/nems_fit_single.py {0} {1} {2}"
+        "source /auto/users/nems/nems_db/configs/config.sh && /home/nems/nems_db/nems_fit_single.py {0} {1} {2}"
         .format(cellid, batch, modelname)
     )
 
