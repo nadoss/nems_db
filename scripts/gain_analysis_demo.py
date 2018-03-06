@@ -286,8 +286,8 @@ if batch==289 or batch==294:
     state_lists=[['pupil'],
                  ['pupil']]
     state_shuffles=[[0],[]]
-    options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf', 
-             'chancount': 18, 'pupil': True, 'stim': True,
+    options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'ozgf', 
+             'chancount': 0, 'pupil': True, 'stim': False,
              'runclass': 'VOC',
              'pupil_deblink': True, 'pupil_median': 1,
              'plot_results': True, 'plot_ax': None}
@@ -363,7 +363,7 @@ elif RELOAD:
     cell_data=nd.get_batch_cells(batch=batch)
     cellids=list(cell_data['cellid'].unique())
     recordings=[]
-    for cellid in cellids[140:]:
+    for cellid in cellids:
         save_path="/auto/data/tmp/batch{0}_fs{1}_{2}{3}/{4}".format(batch,options["rasterfs"],stimfmt,options["chancount"],cellid)
         print("Loading from {0}".format(save_path))
         if os.path.exists(save_path):
