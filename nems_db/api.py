@@ -79,49 +79,40 @@ class UploadResultsInterface(Resource):
     '''
     An interface for uploading any kind of file to a filesystem
     hierarchy stored on disk (or perhaps in Amazon S3).
-    TODO: Require credentials for this?
+    TODO: Require credentials for PUT!
     '''
     def __init__(self, **kwargs):
         self.upload_dir = kwargs['upload_dir']
 
-    def put(self, recording, model, fitter, date, filename):
-        # TODO: Ensure arguments are valid.
-
-        # If the put request is NOT a json, crash!
-        # print(recording, model, fitter, date, filename)
-
-        if filename == 'modelspec.json':
-            j = request.json
-            if not j:
-                abort(400, "Modelspec was not a json.")
-            # TODO: Verify it is a modelspec
-            bytesobj = io.BytesIO(str(j).encode())
-        elif filename == 'log.txt':
+    def put(self, objpath):
+        # TODO: Ensure filepath is not insane
+        if objpath[-5:] == '.json':
+#            j = request.json
+#            if not j:
+#                print(str(request))
+#                abort(400, "Object was not a json?!")
+            # TODO: Verify it is a modelspec and a JSON
             bytesobj = io.BytesIO(request.data)
-        elif filename == 'performance.json':
-            j = request.json
-            if not j:
-                abort(400, "Performance was not a json.")
-            # TODO: Verify it is a modelspec
-            bytesobj = io.BytesIO(str(j).encode())
-        elif filename == 'fig.png':
+        elif objpath[-7:] == 'log.txt':
+            # TODO: Verify it is a log file (plain text)
+            bytesobj = io.BytesIO(request.data)
+        elif objpath[-4:] == '.png':
+            # TODO: Verify it is a PNG file
             bytesobj = io.BytesIO(request.data)
         else:
-            abort(400, "Filename not allowed.")
+            abort(400, "Objpath not allowed.")
 
-        dirpath = os.path.join(self.upload_dir,
-                               as_path(recording, model, fitter, date))
-        filepath = os.path.join(dirpath, filename)
+        filepath = os.path.join(self.upload_dir, objpath)
 
+        # Create any necessary directories
+        dirpath = os.path.dirname(filepath)
         if not os.path.exists(dirpath):
-            # Create the directory if needed
             os.makedirs(dirpath)
 
-        # If a file exists already, stop
         if os.path.exists(filepath):
             abort(409, 'File already exists; will not overwrite.')
 
-        # It must be a new file and thus safe to write to disk
+        # If here, it must be a new file and thus safe to write to disk
         with open(filepath, 'wb') as f:
             f.write(bytesobj.read())
 
@@ -137,6 +128,7 @@ class UploadResultsInterface(Resource):
 class UploadRecordingInterface(Resource):
     '''
     An interface for uploading NEMS-compatable .tar.gz recordings only.
+    TODO: Require credentials for PUT!
     '''
     def __init__(self, **kwargs):
         self.upload_dir = kwargs['upload_dir']

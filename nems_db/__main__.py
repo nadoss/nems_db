@@ -22,7 +22,7 @@ app = Flask(__name__)
 api = Api(app)
 
 api.add_resource(UploadResultsInterface,
-                 '/results/<string:recording>/<string:model>/<string:fitter>/<string:date>/<string:filename>',
+                 '/results/<path:objpath>',
                  resource_class_kwargs={'upload_dir': creds['NEMS_RESULTS_DIR']})
 
 api.add_resource(UploadRecordingInterface,
