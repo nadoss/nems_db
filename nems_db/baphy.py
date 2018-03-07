@@ -1704,11 +1704,16 @@ def dict_to_signal(stim_dict,fs=100,event_times=None,signal_name='stim',recordin
 def baphy_load_recording(cellid,batch,options):
     
     #print(options)
-    options['pupil'] = options.get('pupil',False)
-    options['stim'] = options.get('stim',True)
+    options['rasterfs'] = int(options.get('rasterfs',100))
+    options['stimfmt'] = options.get('stimfmt','ozgf')
+    options['chancount'] =  int(options.get('chancount',18))
+    options['pertrial'] = int(options.get('pertrial',False))
+    
+    options['pupil'] = int(options.get('pupil',False))
+    options['stim'] = int(options.get('stim',True))
     options['runclass'] = options.get('runclass',None)
     options['cellid'] = options.get('cellid',cellid)
-    options['batch']=batch
+    options['batch']=int(batch)
     
     d=db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm') 
     files=list(d['parm'])
@@ -1808,3 +1813,9 @@ def baphy_load_recording(cellid,batch,options):
     rec=nems.recording.Recording(signals=signals)
    
     return rec
+
+def baphy_data_path(options):
+    
+    data_path="/auto/data/tmp/batch{0}_fs{1}_{2}{3}/".format(options["batch"],options["rasterfs"],options['stimfmt'],options["chancount"])
+    
+    return data_path

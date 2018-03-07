@@ -299,6 +299,14 @@ elif batch in [271,272,291]:
     options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf', 
              'chancount': 18, 'pupil': False, 'stim': True,
              'plot_results': True, 'plot_ax': None}
+elif batch in [269]:
+    # RDT
+    state_lists=[]
+    state_shuffles=[[]]
+    options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf', 
+             'pertrial': True, 'runclass': 'RDT',
+             'chancount': 18, 'pupil': False, 'stim': True,
+             'plot_results': True, 'plot_ax': None}
 elif batch in [259]:
     #  SPN
     state_lists=[]
@@ -334,11 +342,10 @@ elif batch==305:
 else:
     raise BaseException("value of batch not valid")
 
-if options['stim']:
-    stimfmt=options['stimfmt']
-else:
-    stimfmt='none'
-    
+if not options['stim']:
+    options['stimfmt']='none'
+options["batch"]=batch
+data_path=nems_db.baphy.baphy_data_path(options)
 
 # regenerate or reload recordings as needed
 REGEN=False
@@ -351,11 +358,10 @@ if REGEN:
     cellids=list(cell_data['cellid'].unique())
     
     recordings=[]
-    save_path="/auto/data/tmp/batch{0}_fs{1}_{2}{3}/".format(batch,options["rasterfs"],stimfmt,options["chancount"])
     for cellid in cellids:
         try:
             recordings=recordings+[nems_db.baphy.baphy_load_recording(cellid,batch,options.copy())]
-            recordings[-1].save(save_path)
+            recordings[-1].save(datapath)
         except:
             print("failed on cell {0}".format(cellid))
 elif RELOAD:
@@ -364,14 +370,13 @@ elif RELOAD:
     cellids=list(cell_data['cellid'].unique())
     recordings=[]
     for cellid in cellids:
-        save_path="/auto/data/tmp/batch{0}_fs{1}_{2}{3}/{4}".format(batch,options["rasterfs"],stimfmt,options["chancount"],cellid)
+        save_path=data_path+cellid
         print("Loading from {0}".format(save_path))
         if os.path.exists(save_path):
             trec=nems.recording.Recording.load(save_path)
         else:
             trec=nems_db.baphy.baphy_load_recording(cellid,batch,options.copy())
-            t_save_path="/auto/data/tmp/batch{0}_fs{1}_{2}{3}/".format(batch,options["rasterfs"],stimfmt,options["chancount"])
-            trec.save(t_save_path)
+            trec.save(data_path)
             
         recordings.append(trec)
 else:

@@ -34,6 +34,12 @@ def run_loader_baphy(cellid,batch,loader):
         options["rasterfs"] = 100
         options["average_stim"]=True
         options["state_vars"]=False
+    elif loader == "ozgf100ch18pt":
+        options["stimfmt"] = "ozgf"
+        options["chancount"] = 18
+        options["rasterfs"] = 100
+        options["pertrial"] = True
+        options["average_stim"]=False
     elif loader == "ozgf100ch18pup":
         options["stimfmt"] = "ozgf"
         options["chancount"] = 18
@@ -48,16 +54,14 @@ def run_loader_baphy(cellid,batch,loader):
         options["state_vars"]=False
     else:
         raise ValueError('unknown loader string')
-        
-    url="http://potoroo:3003/baphy/{0}/{1}?fs={2}&stimfmt={3}&chancount={4}".format(
+    
+    
+    url="http://dog.ohsu.edu:3003/baphy/{0}/{1}?fs={2}&stimfmt={3}&chancount={4}".format(
             batch, cellid, options["rasterfs"], options["stimfmt"],
             options["chancount"])
     # set up data/output paths
-    signals_dir = (
-            "/auto/data/tmp/batch{0}_fs{1}_{2}{3}/{4}"
-            .format(batch, options["rasterfs"], options["stimfmt"],
-                    options["chancount"], cellid)
-            )
+    options["batch"]=batch
+    signals_dir = nb.baphy_data_path(options) + cellid
 
     log.info('Loading {0} format for {1}/{2}...'.format(loader,cellid,batch))
     rec = Recording.load(signals_dir)
@@ -137,7 +141,7 @@ def fit_model_baphy(cellid,batch,modelname,
         log.info("Performing full fit...")
         modelspecs = nems.analysis.api.fit_basic(est, modelspec,
                                                  fitter=scipy_minimize)
-    if fitter == "fit02":
+    elif fitter == "fit02":
         # no pre-fit
         log.info("Performing full fit...")
         modelspecs = nems.analysis.api.fit_basic(est, modelspec,
@@ -253,6 +257,14 @@ def quick_inspect(cellid="chn020f-b1", batch=271,
 cellid='btn144a-c1'
 batch=259
 modelname="env100_fir15x2_dexp1_fit01"
+
+# A1 RDT example
+cellid = 'zee021e-c1'
+batch=269
+modelname = "ozgf100ch18pt_wc18x1_fir15x1_lvl1_dexp1_fit01"
+savepath = fit_model_baphy(cellid=cellid, batch=batch, modelname=modelname, 
+                           autoPlot=False, saveInDB=True)
+modelspec,est,val=load_model_baphy(savepath)
 
 # A1 VOC+pupil example
 cellid = 'eno053f-a1'
