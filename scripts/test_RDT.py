@@ -7,6 +7,8 @@ Created on Tue Mar  6 13:26:48 2018
 """
 
 import nems_db.baphy
+import matplotlib.pyplot as plt
+import numpy as np
 
 cellid='zee021e-c1'
 batch=269
@@ -20,3 +22,10 @@ options['runclass']='RDT'
 options['cellid']=cellid
 
 rec=nems_db.baphy.baphy_load_recording(cellid,batch,options)
+
+tresp=rec['resp'].extract_epoch('TRIAL')
+tstate=rec['state'].extract_epoch('TRIAL')
+plt.figure()
+plt.plot(np.nanmean(tresp[:,0,:],axis=0))
+plt.plot(np.nanmean(tstate[:,0,:],axis=0))
+

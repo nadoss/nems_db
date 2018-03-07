@@ -1614,20 +1614,10 @@ def baphy_load_dataset_RDT(parmfilepath,options={}):
     stim_dict={}
     stim1_dict={}
     stim2_dict={}
+    state_dict={}
     
     # make stimulus events unique to each trial
     this_event_times=event_times.copy()
-    for eventidx in range(0,TrialCount):
-        event_name="TRIAL{0}".format(eventidx)
-        this_event_times.loc[eventidx,'name']=event_name
-        stim1_dict[event_name]=stim[:,:,eventidx,0]
-        stim2_dict[event_name]=stim[:,:,eventidx,1]
-        stim_dict[event_name]=stim[:,:,eventidx,2]
-    event_times=pd.concat([event_times, this_event_times])
-    
-    # sort by when the event occured in experiment time            
-    event_times=event_times.sort_values(by=['start','end'])
-    
     rasterfs=options['rasterfs']
     BigStimMatrix=stimparam[-1]
     state=np.zeros([3,stim.shape[1],stim.shape[2]])
@@ -1635,17 +1625,40 @@ def baphy_load_dataset_RDT(parmfilepath,options={}):
     state[1,:,single_stream_trials]=1
     prebins=int(exptparams['TrialObject'][1]['PreTrialSilence']*rasterfs)
     samplebins=int(exptparams['TrialObject'][1]['ReferenceHandle'][1]['Duration']*rasterfs)
-    for trialidx in range(0,TrialCount):
-       rslot=np.argmax(np.diff(BigStimMatrix[:,0,trialidx])==0)+1
-       rbin=prebins+rslot*samplebins
-       state[0,rbin:,trialidx]=1
-       
-       tarslot=np.argmin(BigStimMatrix[:,0,trialidx]>0)-1
-       state[2,:,trialidx]=BigStimMatrix[tarslot,0,trialidx]
 
-    state_dict['repeating_phase']=np.reshape(state[0,:,:].T,[-1,1])
-    state_dict['single_stream']=np.reshape(state[0,:,:].T,[-1,1])
-    state_dict['targetid']=np.reshape(state[0,:,:].T,[-1,1])
+    for trialidx in range(0,TrialCount):
+        event_name="TRIAL{0}".format(trialidx)
+        this_event_times.loc[trialidx,'name']=event_name
+        stim1_dict[event_name]=stim[:,:,trialidx,0]
+        stim2_dict[event_name]=stim[:,:,trialidx,1]
+        stim_dict[event_name]=stim[:,:,trialidx,2]
+        
+        s=np.zeros([3,stim_dict[event_name].shape[1]])
+        rslot=np.argmax(np.diff(BigStimMatrix[:,0,trialidx])==0)+1
+        rbin=prebins+rslot*samplebins
+        s[0,rbin:]=1
+        single_stream_trial = int(BigStimMatrix[0,1,trialidx]==-1)
+        s[1,:]=single_stream_trial
+        tarslot=np.argmin(BigStimMatrix[:,0,trialidx]>0)-1
+        s[2,:]=BigStimMatrix[tarslot,0,trialidx]
+        state_dict[event_name]=s
+
+    event_times=pd.concat([event_times, this_event_times])
+    
+    # sort by when the event occured in experiment time            
+    event_times=event_times.sort_values(by=['start','end'])
+    
+#    for trialidx in range(0,TrialCount):
+#       rslot=np.argmax(np.diff(BigStimMatrix[:,0,trialidx])==0)+1
+#       rbin=prebins+rslot*samplebins
+#       state[0,rbin:,trialidx]=1
+#       
+#       tarslot=np.argmin(BigStimMatrix[:,0,trialidx]>0)-1
+#       state[2,:,trialidx]=BigStimMatrix[tarslot,0,trialidx]
+#
+#    state_dict['repeating_phase']=np.reshape(state[0,:,:].T,[-1,1])
+#    state_dict['single_stream']=np.reshape(state[0,:,:].T,[-1,1])
+#    state_dict['targetid']=np.reshape(state[0,:,:].T,[-1,1])
     
     return event_times, spike_dict, stim_dict, state_dict, stim1_dict, stim2_dict
 
@@ -1673,7 +1686,7 @@ def spike_time_to_raster(spike_dict,fs=100,event_times=None):
     return raster,cellids
 
 
-def stim_dict_to_matrix(stim_dict,fs=100,event_times=None):
+def dict_to_signal(stim_dict,fs=100,event_times=None,signal_name='stim',recording_name='rec'):
     
     maxtime=np.max(event_times["end"])
     maxbin=int(fs*maxtime)
@@ -1683,7 +1696,7 @@ def stim_dict_to_matrix(stim_dict,fs=100,event_times=None):
     
     z=np.zeros([chancount,maxbin])
     
-    empty_stim=nems.signal.Signal(matrix=z,fs=fs,name='stim',epochs=event_times,recording='rec')
+    empty_stim=nems.signal.Signal(matrix=z,fs=fs,name=signal_name,epochs=event_times,recording=recording_name)
     stim=empty_stim.replace_epochs(stim_dict)
     
     return stim
@@ -1694,13 +1707,11 @@ def baphy_load_recording(cellid,batch,options):
     options['pupil'] = options.get('pupil',False)
     options['stim'] = options.get('stim',True)
     options['runclass'] = options.get('runclass',None)
+    options['cellid'] = options.get('cellid',cellid)
+    options['batch']=batch
     
     d=db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm') 
     files=list(d['parm'])
-    
-    if not options.get('cellid'):
-        options['cellid']=cellid
-    options['batch']=batch
     
     for i,parmfilepath in enumerate(files):
         
@@ -1748,7 +1759,7 @@ def baphy_load_recording(cellid,batch,options):
             options['pupil']=False
             
         if options['stim']:
-            t_stim=stim_dict_to_matrix(stim_dict,fs=options['rasterfs'],event_times=event_times)
+            t_stim=dict_to_signal(stim_dict,fs=options['rasterfs'],event_times=event_times)
             t_stim.recording=cellid
             
             if i==0:
@@ -1759,20 +1770,25 @@ def baphy_load_recording(cellid,batch,options):
                 stim=stim.concatenate_time([stim,t_stim])
                 
         if options['stim'] and options["runclass"]=="RDT":
-            t_stim1=stim_dict_to_matrix(stim1_dict,fs=options['rasterfs'],event_times=event_times)
-            t_stim1.recording=cellid
-            t_stim2=stim_dict_to_matrix(stim2_dict,fs=options['rasterfs'],event_times=event_times)
-            t_stim2.recording=cellid
+            t_stim1=dict_to_signal(stim1_dict,fs=options['rasterfs'],event_times=event_times,
+                                   signal_name='stim1',recording_name=cellid)
+            t_stim2=dict_to_signal(stim2_dict,fs=options['rasterfs'],event_times=event_times,
+                                   signal_name='stim2',recording_name=cellid)
+            t_state=dict_to_signal(state_dict,fs=options['rasterfs'],event_times=event_times,
+                                   signal_name='state',recording_name=cellid)
+            t_state.chans=['repeating_phase', 'single_stream', 'targetid']
             
             if i==0:
                 print("i={0} starting".format(i))
                 stim1=t_stim1
                 stim2=t_stim2
+                state=t_state
             else:
                 print("i={0} concatenating".format(i))
                 stim1=stim1.concatenate_time([stim1,t_stim1])
                 stim2=stim2.concatenate_time([stim2,t_stim2])
-           
+                state=state.concatenate_time([state,t_state])
+                
     resp.meta=options
     
     if options['pupil']:
@@ -1786,7 +1802,9 @@ def baphy_load_recording(cellid,batch,options):
     if options['stim'] and options["runclass"]=="RDT":
         signals['stim1']=stim1
         signals['stim2']=stim2
-            
+    if options["runclass"]=="RDT":
+        signals['state']=state
+        
     rec=nems.recording.Recording(signals=signals)
    
     return rec
