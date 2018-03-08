@@ -13,11 +13,13 @@ from webargs import fields
 from webargs.flaskparser import use_kwargs
 
 from .db import NarfResults, Session
+from .query import grep_dirtree
 
 # Define some regexes for sanitizing inputs
 RECORDING_REGEX = re.compile(r"[\-_a-zA-Z0-9]+\.tar\.gz$")
 CELLID_REGEX = re.compile(r"^[\-_a-zA-Z0-9]+$")
 BATCH_REGEX = re.compile(r"^\d+$")
+QUERY_REGEX = re.compile(r"[\-_a-zA-Z0-9\.]+$")
 
 query_args = {
     'batch': fields.Int(required=False),
@@ -167,25 +169,56 @@ class QueryInterface(Resource):
     def __init__(self, **kwargs):
         # TODO: Connect to MySQL using kwargs that pass connection info
         # This is not the right way to do it, but works until db.py is refactored:
-        self.session = Session()
+        # self.session = Session()
+        self.search_dir = kwargs['search_dir']
+        self.result_route = kwargs['result_route']
+        self.nems_db_host = kwargs['nems_db_host']
 
-    @use_kwargs(query_args)
+    # @use_kwargs(query_args)
     def get(self, **kwargs):
         '''
-        Return a JSON list of tuples:
-        (recording, modelname, fitter, <date; default to most recent>)
-        that match all provided kwargs:
-        batch, cellid, preproc, recording, modelname, fitter, date.
+        Returns a JSON of URIs that matched the kwargs.
         '''
-        abort(400, 'Not yet implemented')
-        filters = []
-        for key, val in kwargs.items():
-            col = getattr(NarfResults, key)
-            if isinstance(val, str):
-                filters.append(col.ilike(val))
+        query_options = {'include': '*.json',
+                         'contains': ''}
 
-        objs = self.session.query(NarfResults).filter(and_(*filters)).all()
+        opts = request.args 
 
-        results = [(r.recording, r.modelanme, r.fitter, r.date) for r in objs]
+        if opts.get('only'):
+            filt = opts.get('only')
+            if filt == 'modelspecs':
+                query_options['include'] = 'modelspec*.json'
+            elif filt == 'xfspecs':
+                query_options['include'] = 'xfspec.json'
+            else:
+                abort(400, 'only must be "modelspecs" or "xfspecs"')
 
-        return Response(results, status=200, mimetype='application/json')
+        if opts.get('contains'):
+            cont = opts.get('contains')
+            if QUERY_REGEX.match(cont):
+                query_options['contains'] = cont
+            else:
+                m = 'Query must contain only characters [a-zA-Z0-9\-\_\.]'
+                abort(400, m)
+
+        results = grep_dirtree(self.search_dir,
+                               contains=query_options['contains'],
+                               include=query_options['include'])
+
+        # Make those results into paths again
+        base = 'http://' + self.nems_db_host + self.result_route
+        uris = [base + r for r in results]
+        js = json.dumps(uris)
+
+        # TODO: A better way would be to use NarfResults and MySQL
+        # filters = []
+        # for key, val in kwargs.items():
+        #     col = getattr(NarfResults, key)
+        #     if isinstance(val, str):
+        #         filters.append(col.ilike(val))
+        #
+        # objs = self.session.query(NarfResults).filter(and_(*filters)).all()
+        #
+        # results = [(r.recording, r.modelanme, r.fitter, r.date) for r in objs]
+
+        return Response(js, status=200, mimetype='application/json')

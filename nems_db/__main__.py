@@ -31,11 +31,9 @@ api.add_resource(UploadRecordingInterface,
 
 api.add_resource(QueryInterface,
                  '/query',
-                 resource_class_kwargs={'host': creds['MYSQL_HOST'],
-                                        'user': creds['MYSQL_USER'],
-                                        'pass': creds['MYSQL_PASS'],
-                                        'db': creds['MYSQL_DB'],
-                                        'port': creds['MYSQL_PORT']})
+                 resource_class_kwargs={'nems_db_host': creds['NEMS_DB_API_HOST'],
+                                        'search_dir': creds['NEMS_RESULTS_DIR'],
+                                        'result_route': '/results'})
 
 app.run(port=int(creds['NEMS_DB_API_PORT']),
         host=creds['NEMS_DB_API_HOST'])
