@@ -4,7 +4,8 @@
 
 export NEMS_DB_API_HOST='localhost'
 export NEMS_DB_API_PORT='3002'
-export NEMS_RESULTS_DIR="/auto/data/nems_db/"
+export NEMS_RESULTS_DIR="/auto/data/nems_db/results/"
+export NEMS_RECORDINGS_DIR="/auto/data/nems_db/recordings/"
 export MYSQL_HOST=
 export MYSQL_USER=
 export MYSQL_PASS=
