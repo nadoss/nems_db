@@ -8,6 +8,7 @@ req_env_vars = [
         'NEMS_DB_API_PORT',
         'NEMS_RECORDINGS_DIR',
         'NEMS_RESULTS_DIR',
+        'NEMS_RESULTS_URI',
         'MYSQL_HOST',
         'MYSQL_USER',
         'MYSQL_PASS',
@@ -31,9 +32,8 @@ api.add_resource(UploadRecordingInterface,
 
 api.add_resource(QueryInterface,
                  '/query',
-                 resource_class_kwargs={'nems_db_host': creds['NEMS_DB_API_HOST'],
-                                        'search_dir': creds['NEMS_RESULTS_DIR'],
-                                        'result_route': '/results'})
+                 resource_class_kwargs={'search_dir': creds['NEMS_RESULTS_DIR'],
+                                        'results_uri': creds['NEMS_RESULTS_URI']})
 
 app.run(port=int(creds['NEMS_DB_API_PORT']),
         host=creds['NEMS_DB_API_HOST'])
