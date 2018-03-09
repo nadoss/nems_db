@@ -22,11 +22,9 @@ cellid='zee021e-c1'
 batch=269
 options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf', 
          'chancount': 18, 'pupil': False, 'stim': True,
-         'pupil_deblink': True, 'pupil_median': 1,
-         'plot_results': True, 'plot_ax': None}
-options['pertrial']=True
-options['runclass']='RDT'
-options['cellid']=cellid
+         'pertrial': True, 'runclass': 'RDT'}
+
+#options['cellid']=cellid
 
 opts=[]
 for i,k in enumerate(options):
@@ -36,7 +34,7 @@ for i,k in enumerate(options):
         opts.append(k+'='+str(options[k]))
 optstring="&".join(opts)
 
-url="http://hyrax.ohsu.edu:3003/baphy/{0}/{1}?{2}".format(
-            batch, cellid, optstring)
+url="http://hyrax.ohsu.edu:3000/baphy/{0}/{1}?{2}".format(batch, cellid, optstring)
+print(url)
 
 rec = nems.recording.Recording.load_url(url)
