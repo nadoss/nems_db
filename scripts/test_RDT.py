@@ -18,7 +18,6 @@ options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf',
          'chancount': 18, 'pupil': False, 'stim': True,
          'pupil_deblink': True, 'pupil_median': 1,
          'plot_results': True, 'plot_ax': None}
-
 options['pertrial']=True
 options['runclass']='RDT'
 options['cellid']=cellid

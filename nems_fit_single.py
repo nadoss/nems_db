@@ -49,9 +49,10 @@ if __name__ == '__main__':
     modelname=sys.argv[3]
     
     print("Running fit_single_model({0},{1},{2})".format(cellid,batch,modelname))
-    savefile = nw.fit_model_baphy(cellid,batch,modelname,saveInDB=True)
+    #savefile = nw.fit_model_baphy(cellid,batch,modelname,saveInDB=True)
+    savefile = nw.fit_model_xforms_baphy(cellid,batch,modelname,saveInDB=True)
 
-    print("Done with fit.")
+    log.info("Done with fit.")
     
     # Edit: added code to save preview image. -Jacob 7/6/2017
     #preview_file = stack.quick_plot_save(mode="png")
