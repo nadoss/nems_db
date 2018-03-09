@@ -171,8 +171,7 @@ class QueryInterface(Resource):
         # This is not the right way to do it, but works until db.py is refactored:
         # self.session = Session()
         self.search_dir = kwargs['search_dir']
-        self.result_route = kwargs['result_route']
-        self.nems_db_host = kwargs['nems_db_host']
+        self.results_uri = kwargs['results_uri']
 
     # @use_kwargs(query_args)
     def get(self, **kwargs):
@@ -182,7 +181,7 @@ class QueryInterface(Resource):
         query_options = {'include': '*.json',
                          'contains': ''}
 
-        opts = request.args 
+        opts = request.args
 
         if opts.get('only'):
             filt = opts.get('only')
@@ -205,9 +204,8 @@ class QueryInterface(Resource):
                                contains=query_options['contains'],
                                include=query_options['include'])
 
-        # Make those results into paths again
-        base = 'http://' + self.nems_db_host + self.result_route
-        uris = [base + r for r in results]
+        # Make those results into URIs again
+        uris = [self.results_uri + r for r in results]
         js = json.dumps(uris)
 
         # TODO: A better way would be to use NarfResults and MySQL
