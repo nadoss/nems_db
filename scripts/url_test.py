@@ -34,8 +34,7 @@ for i,k in enumerate(options):
         opts.append(k+'='+str(options[k]))
 optstring="&".join(opts)
 
-url="http://hyrax.ohsu.edu:3003/baphy/{0}/{1}?{2}".format(batch, cellid, optstring)
-
-url="http://hyrax.ohsu.edu:3003/baphy/271/TAR010c-18-1?average_stim=1&stimfmt=ozgf&rasterfs=100&chancount=18"
+url="http://hyrax.ohsu.edu:3000/baphy/{0}/{1}?{2}".format(batch, cellid, optstring)
+print(url)
 
 rec = nems.recording.Recording.load_url(url)

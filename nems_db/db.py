@@ -8,6 +8,7 @@ import nems_db.util
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.automap import automap_base
+import pandas.io.sql as psql
 
 log = logging.getLogger(__name__)
 

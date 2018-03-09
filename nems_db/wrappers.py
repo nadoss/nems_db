@@ -114,7 +114,7 @@ def get_recording_uri(cellid,batch,options={}):
             opts.append(k+'='+str(options[k]))
     optstring="&".join(opts)
     
-    url="http://hyrax.ohsu.edu:3003/baphy/{0}/{1}?{2}".format(
+    url="http://hyrax.ohsu.edu:3000/baphy/{0}/{1}?{2}".format(
                 batch, cellid, optstring)
     return url
 
@@ -128,8 +128,8 @@ def generate_loader_xfspec(cellid,batch,loader):
         options['includeprestim'] = 1
         options["average_stim"]=True
         options["state_vars"]=[]
-        #recording_uri = get_recording_uri(cellid,batch,options)
-        recording_uri = get_recording_file(cellid,batch,options)
+        recording_uri = get_recording_uri(cellid,batch,options)
+        #recording_uri = get_recording_file(cellid,batch,options)
         recordings = [recording_uri]
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
                   ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
@@ -389,6 +389,22 @@ def load_model_baphy(filepath,loadrec=True):
     else:
         return modelspec
     
+def load_model_baphy_xform(cellid="chn020f-b1", batch=271, 
+               modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01",eval=True):
+
+    logging.info('Loading modelspecs...')
+    d=nd.get_results_file(batch,[modelname],[cellid])
+    savepath=d['modelpath'][0]
+
+    xfspec=xforms.load_xform(savepath + 'xfspec.json')
+    mspath=savepath+'modelspec.0000.json'
+    context=xforms.load_modelspecs([],uris=[mspath],
+                                      IsReload=False)
+    
+    context['IsReload']=True
+    ctx,log_xf=xforms.evaluate(xfspec,context)
+    
+    return ctx
     
 def examine_recording(rec, epoch_regex='TRIAL', occurrence=0):
     # plot example spectrogram and psth from one trial
