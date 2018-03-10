@@ -12,15 +12,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import nems.recording
 
-#options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf', 
+#options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf',
 #         'chancount': 18, 'pupil': False, 'stim': True,
 #         'plot_results': True, 'plot_ax': None}
 #cellid = 'TAR010c-18-1'
 #batch=271
 
 cellid='zee021e-c1'
+cellid='zee022c-a1'
 batch=269
-options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf', 
+options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf',
          'chancount': 18, 'pupil': False, 'stim': True,
          'pertrial': True, 'runclass': 'RDT'}
 

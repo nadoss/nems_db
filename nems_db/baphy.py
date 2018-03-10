@@ -1647,9 +1647,16 @@ def baphy_load_dataset_RDT(parmfilepath,options={}):
 
     event_times=pd.concat([event_times, this_event_times])
 
+    # add stim events
+    stim_mask="Stim ,"
+    ffstim=(exptevents['name'].str.contains(stim_mask))
+    stim_event_times=exptevents.loc[ffstim,['name','start','end']]
+    event_times=pd.concat([event_times, stim_event_times])
+
     # sort by when the event occured in experiment time
     event_times=event_times.sort_values(by=['start','end'])
-
+    cols=['name','start','end']
+    event_times=event_times[cols]
 #    for trialidx in range(0,TrialCount):
 #       rslot=np.argmax(np.diff(BigStimMatrix[:,0,trialidx])==0)+1
 #       rbin=prebins+rslot*samplebins
