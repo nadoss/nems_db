@@ -1826,7 +1826,7 @@ def baphy_load_recording(cellid,batch,options):
         signals['stim2']=stim2
     if options["runclass"]=="RDT":
         signals['state']=state
-        signals['stim'].meta={'BigStimMatrix': BigStimMatrix}
+        #signals['stim'].meta={'BigStimMatrix': BigStimMatrix}
 
     rec=nems.recording.Recording(signals=signals)
 

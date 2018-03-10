@@ -19,7 +19,7 @@ import nems.recording
 #batch=271
 
 cellid='zee021e-c1'
-cellid='zee022c-a1'
+#cellid='zee022c-a1'
 batch=269
 options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf',
          'chancount': 18, 'pupil': False, 'stim': True,
