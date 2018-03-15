@@ -217,6 +217,11 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
         # no pre-fit
         log.info("Performing full fit...")
         xfspec.append(['nems.xforms.fit_basic', {}])
+    elif fitter == "fitjk02":
+        # no pre-fit
+        log.info("Performing full fit...")
+        xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 5}])
+        xfspec.append(['nems.xforms.fit_basic', {}])
     else:
         raise ValueError('unknown fitter string')
         
