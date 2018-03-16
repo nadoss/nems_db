@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import logging
 import nems_db.util
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.automap import automap_base
 import pandas.io.sql as psql
@@ -346,15 +346,15 @@ def update_job_tick(queueid=0):
     r=os.system(qsetload_path)
     if r:
         log.warning('Error executing qsetload')
-        
+
     if queueid:
         conn = cluster_engine.connect()
         # tick off progress, job is live
         sql = "UPDATE tQueue SET progress=progress+1 WHERE id={}".format(queueid)
         r = conn.execute(sql)
         conn.close()
-        
-        
+
+
     return r
 
 
@@ -550,7 +550,7 @@ def get_batch_cells(batch=None, cellid=None, rawid=None):
     if not cellid is None:
        sql += " AND cellid like %s"
        params = params+(cellid+"%",)
-       
+
     if not rawid is None:
         sql+= " AND rawid = %s"
         params=params+(rawid,)
@@ -571,20 +571,20 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None
     if not cellid is None:
        sql += " AND cellid like %s"
        params = params+(cellid+"%",)
-       
+
     if not rawid is None:
        sql += " AND rawid=%s"
        params = params+(rawid,)
-       
+
     if not label is None:
        sql += " AND label like %s"
        params = params+(label,)
 
-       
+
     d = pd.read_sql(sql=sql, con=engine, params=params)
     d.set_index(['cellid', 'groupid', 'label', 'rawid'], inplace=True)
     d=d['filepath'].unstack('label')
-    
+
     return d
 
 def get_batches(name=None):
@@ -611,17 +611,17 @@ def get_cell_files(cellid=None, runclass=None):
     if not runclass is None:
         sql += " AND gRunClass.name like %s"
         params = params+("%"+runclass+"%",)
-    
-    
+
+
     d = pd.read_sql(sql=sql, con=cluster_engine, params=params)
 
     return d
 
 # temporary function while we migrate databases (don't have access to gRunClass right now, so need to use rawid)
-def get_cell_files2(cellid=None, runclass=None, rawid=None): 
+def get_cell_files2(cellid=None, runclass=None, rawid=None):
     params = ()
     sql = ("SELECT sCellFile.* FROM sCellFile WHERE 1")
-    
+
     if not cellid is None:
         sql += " AND sCellFile.cellid like %s"
         params = params+("%"+cellid+"%",)
@@ -631,8 +631,8 @@ def get_cell_files2(cellid=None, runclass=None, rawid=None):
     if not rawid is None:
         sql+=" AND sCellFile.rawid = %s"
         params = params+(rawid,)
-    
-    
+
+
     d = pd.read_sql(sql=sql, con=cluster_engine, params=params)
 
     return d
@@ -641,24 +641,24 @@ def get_cell_files2(cellid=None, runclass=None, rawid=None):
 def get_isolation(cellid=None, batch=None):
 
     sql = ("SELECT min_isolation FROM NarfBatches WHERE cellid = {0}{1}{2} and batch = {3}".format("'",cellid,"'",batch))
-        
+
     d = pd.read_sql(sql=sql, con=cluster_engine)
     return d
 
 def get_cellids(rawid=None):
    sql = ("SELECT distinct(cellid) FROM sCellFile WHERE 1")
-   
+
    if rawid is not None:
        sql+=" AND rawid = {0} order by cellid".format(rawid)
    else:
        sys.exit('Must give rawid')
-       
-   cellids = pd.read_sql(sql=sql,con=cluster_engine)['cellid']
-   
-   return cellids
-    
 
-    
+   cellids = pd.read_sql(sql=sql,con=cluster_engine)['cellid']
+
+   return cellids
+
+
+
 def list_batches(name=None):
     d = get_batches(name)
     for x in range(0,len(d)):
@@ -722,10 +722,11 @@ def get_results_file(batch, modelnames=[], cellids=['%']):
         .filter(NarfResults.batch == batch)
         .filter(NarfResults.modelname.in_(modelnames))
         .filter(NarfResults.cellid.in_(cellids))
+        .order_by(desc(NarfResults.lastmod))
         .statement,
         session.bind
     )
-    
+
     session.close()
 
     return results
