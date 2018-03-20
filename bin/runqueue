@@ -4,6 +4,8 @@
 # created svd 6/8/03
 # designed to launch a process from dbqueuemaster.m batching daemon
 
+source /home/nems/nems_db/configs/config.sh
+
 PATH=$PATH:$HOME/bin
 export PATH
 
@@ -48,6 +50,7 @@ fi
 
 echo "QUEUEID=$QUEUEID QPID=$QPID TMP=$TMP" > $QUEUEOUTPATH/$QUEUEIDROUNDED/$QUEUEID.out
 chmod a+w $QUEUEOUTPATH/$QUEUEIDROUNDED/$QUEUEID.*
+DEBUGLOG="$QUEUEOUTPATH/$QUEUEIDROUNDED/$QUEUEID.out"
 
 QUEUEPARMS=$(mysql --host=$DBSERVER --user=$DBUSER --password=$DBPASSWORD --raw --database=cell --execute="select parmstring from tQueue where id=$QUEUEID;" | tail -n +2)
 export QUEUEPARMS
@@ -59,19 +62,17 @@ mysql --host=$DBSERVER --user=$DBUSER --password=$DBPASSWORD --port=$DBPORT --da
 # pop first arg (QUEUEID), use rest of
 # command line as program to run
 shift
-DEBUGLOG="$QUEUEOUTPATH/$QUEUEIDROUNDED/$QUEUEID.out"
 export DEBUGLOG
 echo "about to get codehash from mysql" >> $DEBUGLOG
 # get codehash from mysql
 CODEHASH=$(mysql --host=$DBSERVER --user=$DBUSER --password=$DBPASSWORD --port=$DBPORT --database=cell -N -s --execute="select codehash from tQueue where id=$QUEUEID;")
 export CODEHASH
-
 DEFAULTNEMS=1
 export DEFAULTNEMS 
 
 echo "about to check for codehash stuff" >> $DEBUGLOG
 # check if codehash returned non-empty and jerb wasn't used
-if [ "$CODEHASH" != "master" ]
+if [ "$CODEHASH" != "master" || "$CODEHASH" != "" ]
 then
     echo "making temp directory" >> $DEBUGLOG
     TMPDIR="tempnems$QUEUEID"

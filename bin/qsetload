@@ -3,6 +3,7 @@
 # qsetload
 # created svd 8/31/03
 # script to update load for a given host
+source /home/nems/nems_db/configs/config.sh
 
 updateload() {
   local NAME=$1
