@@ -25,17 +25,38 @@ options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf',
          'chancount': 18, 'pupil': False, 'stim': True,
          'pertrial': True, 'runclass': 'RDT'}
 
+cellid='eno052d-a1'
+batch=294
+options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
+   'chancount': 0, 'pupil': True, 'stim': False,
+   'pupil_deblink': True, 'pupil_median': 1}
+
+cellid='eno052d-a1'
+batch=294
+options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
+   'chancount': 0, 'pupil': True, 'stim': False,
+   'pupil_deblink': True, 'pupil_median': 1}
+
+
+cellid='TAR010c-06-1'
+batch=301
+options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
+   'chancount': 0, 'pupil': True, 'stim': False,
+   'pupil_deblink': True, 'pupil_median': 1}
+
+
+
 #options['cellid']=cellid
 
-opts=[]
-for i,k in enumerate(options):
-    if type(options[k]) is bool:
-        opts.append(k+'='+str(int(options[k])))
-    else:
-        opts.append(k+'='+str(options[k]))
-optstring="&".join(opts)
+#opts=[]
+#for i,k in enumerate(options):
+#    if type(options[k]) is bool:
+#        opts.append(k+'='+str(int(options[k])))
+#    else:
+#        opts.append(k+'='+str(options[k]))
+#optstring="&".join(opts)
 
-url="http://hyrax.ohsu.edu:3000/baphy/{0}/{1}?{2}".format(batch, cellid, optstring)
+url=nw.get_recording_uri(cellid, batch, options)
 print(url)
 
 rec = nems.recording.Recording.load_url(url)

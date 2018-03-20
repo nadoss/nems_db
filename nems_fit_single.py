@@ -2,7 +2,7 @@
 
 # This script runs nems_main.fit_single_model from the command line
 
-import nems_db.wrappers as nw
+import nems_db.xform_wrappers as nw
 import sys
 import os
 
@@ -18,11 +18,11 @@ except Exception as e:
     print("Problem importing nems.db, can't update tQueue")
     print(e)
     db_exists = False
-        
+
 if __name__ == '__main__':
-    
+
     # leftovers from some industry standard way of parsing inputs
-    
+
     #parser = argparse.ArgumentParser(description='Generetes the topic vector and block of an author')
     #parser.add_argument('action', metavar='ACTION', type=str, nargs=1, help='action')
     #parser.add_argument('updatecount', metavar='COUNT', type=int, nargs=1, help='pubid count')
@@ -35,7 +35,7 @@ if __name__ == '__main__':
         queueid = os.environ['QUEUEID']
     else:
         queueid = 0
-        
+
     if queueid:
         print("Starting QUEUEID={}".format(queueid))
         nd.update_job_start(queueid)
@@ -47,17 +47,17 @@ if __name__ == '__main__':
     cellid=sys.argv[1]
     batch=sys.argv[2]
     modelname=sys.argv[3]
-    
+
     print("Running fit_single_model({0},{1},{2})".format(cellid,batch,modelname))
     #savefile = nw.fit_model_baphy(cellid,batch,modelname,saveInDB=True)
     savefile = nw.fit_model_xforms_baphy(cellid,batch,modelname,saveInDB=True)
 
     log.info("Done with fit.")
-    
+
     # Edit: added code to save preview image. -Jacob 7/6/2017
     #preview_file = stack.quick_plot_save(mode="png")
     #print("Preview saved to: {0}".format(preview_file))
-    
+
     #if db_exists:
     #    if queueid:
     #        pass
@@ -66,9 +66,9 @@ if __name__ == '__main__':
     #    r_id = nd.save_results(stack, preview_file, queueid=queueid)
     #    print("Fit results saved to NarfResults, id={0}".format(r_id))
 
-    # Mark completed in the queue. Note that this should happen last thing! 
+    # Mark completed in the queue. Note that this should happen last thing!
     # Otherwise the job might still crash after being marked as complete.
     if queueid:
         nd.update_job_complete(queueid)
-        
-       
+
+
