@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 # wrapper code for fitting models
-
+import sys
 import os
+import logging
 
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+
 import nems
 import nems.initializers
 import nems.epoch as ep
@@ -18,17 +20,12 @@ import nems.analysis.api
 import nems.utils
 import nems_db.baphy as nb
 import nems_db.db as nd
-
+import nems.xforms as xforms
+from nems.utils import iso8601_datestring
 from nems.recording import Recording
 from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
 
-import logging
 log = logging.getLogger(__name__)
-#logging.basicConfig(level=logging.INFO)
-
-import sys
-import nems.xforms as xforms
-
 
 
 def run_loader_baphy(cellid,batch,loader):
@@ -209,7 +206,8 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
     ]
 """
 
-    log.info('Initializing modelspec(s) for cell/batch {0}/{1}...'.format(cellid,batch))
+    log.info('Initializing modelspec(s) for cell/batch {0}/{1}...'\
+             .format(cellid,batch))
 
     # parse modelname
     kws = modelname.split("_")
@@ -239,26 +237,31 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
         # no pre-fit
         log.info("Performing full fit...")
         xfspec.append(['nems.xforms.fit_basic', {}])
+    elif fitter == "fitjk02":
+        # no pre-fit
+        log.info("Performing full fit...")
+        xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 5}])
+        xfspec.append(['nems.xforms.fit_basic', {}])
     else:
         raise ValueError('unknown fitter string')
 
-    xfspec.append(['nems.xforms.add_summary_statistics',    {}])
+    xfspec.append(['nems.xforms.add_summary_statistics', {}])
 
     if autoPlot:
         # GENERATE PLOTS
         log.info('Generating summary plot...')
-        xfspec.append(['nems.xforms.plot_summary',    {}])
+        xfspec.append(['nems.xforms.plot_summary', {}])
 
     # actually do the fit
     ctx, log_xf = xforms.evaluate(xfspec)
 
     # save some extra metadata
-    modelspecs=ctx['modelspecs']
+    modelspecs = ctx['modelspecs']
 
     if 'CODEHASH' in os.environ.keys():
-        githash=os.environ['CODEHASH']
+        githash = os.environ['CODEHASH']
     else:
-        githash=""
+        githash = ""
     meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
             'loader': loader, 'fitter': fitter, 'modelspecname': modelspecname,
             'username': 'svd', 'labgroup': 'lbhb', 'public': 1,
@@ -267,26 +270,30 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
         modelspecs[0][0]['meta'] = meta
     else:
         modelspecs[0][0]['meta'].update(meta)
+
+
+    # SVD : working on alternative desitination path that's simpler
     destination = '/auto/data/tmp/modelspecs/{0}/{1}/{2}/'.format(
             batch,cellid,ms.get_modelspec_longname(modelspecs[0]))
     modelspecs[0][0]['meta']['modelpath']=destination
     modelspecs[0][0]['meta']['figurefile']=destination+'figure.0000.png'
 
     # save results
-    xforms.save_analysis(destination,
-                         recording=ctx['rec'],
-                         modelspecs=modelspecs,
-                         xfspec=xfspec,
-                         figures=ctx['figures'],
-                         log=log_xf)
-    log.info('Saved modelspec(s) to {0} ...'.format(destination))
+    saved = xforms.save_analysis(destination,
+                                 ctx['rec'],
+                                 modelspecs=modelspecs,
+                                 xfspec=xfspec,
+                                 figures=ctx['figures'],
+                                 log=log_xf)
+    savepath = saved['savepath']
+    modelspecs[0][0]['meta']['modelpath'] = savepath
+    modelspecs[0][0]['meta']['figurefile'] = savepath + 'figure.0000.png'
+    log.info('Saved modelspec(s) to {0} ...'.format(savepath))
 
     # save in database as well
     if saveInDB:
         # TODO : db results
         nd.update_results_table(modelspecs[0])
-
-    return ctx
 
 def fit_model_baphy(cellid,batch,modelname,
                     autoPlot=True, saveInDB=False):
@@ -412,19 +419,19 @@ def load_model_baphy(filepath,loadrec=True):
         return modelspec
 
 def load_model_baphy_xform(cellid="chn020f-b1", batch=271,
-               modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01",eval=True):
+               modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01",
+               eval=True):
 
     logging.info('Loading modelspecs...')
-    d=nd.get_results_file(batch,[modelname],[cellid])
-    savepath=d['modelpath'][0]
+    d = nd.get_results_file(batch, [modelname], [cellid])
+    savepath = d['modelpath'][0]
 
-    xfspec=xforms.load_xform(savepath + 'xfspec.json')
-    mspath=savepath+'modelspec.0000.json'
-    context=xforms.load_modelspecs([],uris=[mspath],
-                                      IsReload=False)
+    xfspec = xforms.load_xform(savepath + 'xfspec.json')
+    mspath = savepath + 'modelspec.0000.json'
+    context = xforms.load_modelspecs([], uris=[mspath], IsReload=False)
 
-    context['IsReload']=True
-    ctx,log_xf=xforms.evaluate(xfspec,context)
+    context['IsReload'] = True
+    ctx, log_xf = xforms.evaluate(xfspec, context)
 
     return ctx
 
