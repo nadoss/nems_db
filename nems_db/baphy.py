@@ -1837,6 +1837,10 @@ def baphy_load_recording(cellid,batch,options):
 
 def baphy_data_path(options):
 
-    data_path="/auto/data/tmp/batch{0}_fs{1}_{2}{3}/".format(options["batch"],options["rasterfs"],options['stimfmt'],options["chancount"])
+    data_path="/auto/data/nems_db/recordings/{0}/{1}{2}_fs{3}/{4}.tgz".format(options["batch"],options['stimfmt'],options["chancount"],options["rasterfs"],options["cellid"])
+
+    if not os.path.exists(data_path):
+        rec=baphy_load_recording(options['cellid'],options['batch'],options)
+        rec.save(data_path)
 
     return data_path

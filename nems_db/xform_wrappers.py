@@ -30,7 +30,8 @@ log = logging.getLogger(__name__)
 def get_recording_file(cellid,batch,options={}):
 
     options["batch"]=batch
-    uri = nb.baphy_data_path(options) + cellid
+    options["cellid"]=cellid
+    uri = nb.baphy_data_path(options)
     return uri
 
 def get_recording_uri(cellid,batch,options={}):
@@ -59,8 +60,8 @@ def generate_loader_xfspec(cellid,batch,loader):
         options['includeprestim'] = 1
         options["average_stim"]=True
         options["state_vars"]=[]
-        recording_uri = get_recording_uri(cellid,batch,options)
-        #recording_uri = get_recording_file(cellid,batch,options)
+        #recording_uri = get_recording_uri(cellid,batch,options)
+        recording_uri = get_recording_file(cellid,batch,options)
         recordings = [recording_uri]
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
                   ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
@@ -308,7 +309,7 @@ ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, 
 
 # A1 NAT example
 """
-cellid = 'TAR010c-18-1'
+cellid = 'TAR010c-27-1'
 batch=271
 modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
