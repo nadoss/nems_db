@@ -22,8 +22,8 @@ import logging
 log = logging.getLogger(__name__)
 
 #cellid = 'zee021e-c1'
-cellid = 'BRT026c-05-1'
-batch=289
+cellid = 'BRT033b-01-1'
+batch=271
 modelname = "ozgf100ch18_wc18x1_fir1x15_lvl1_dexp1_fit01"
 
 autoPlot=True

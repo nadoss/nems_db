@@ -894,7 +894,10 @@ def baphy_parm_read(filepath):
     # convert exptevents to a DataFrame:
     t=[exptevents[k] for k in exptevents]
     d=pd.DataFrame(t)
-    exptevents=d.drop(['Rove'],axis=1)
+    if 'ClockStartTime' in d.columns:
+        exptevents=d.drop(['Rove','ClockStartTime'],axis=1)
+    else:
+        exptevents=d.drop(['Rove'],axis=1)
 
     # rename columns to NEMS standard epoch names
     exptevents.columns=['name','start','end','Trial']
