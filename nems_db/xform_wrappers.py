@@ -309,9 +309,10 @@ ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, 
 
 # A1 NAT example
 """
-cellid = 'TAR010c-27-1'
+
+cellid = 'zee019b-b1'
 batch=271
-modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
+modelname = "ozgf100ch18_dlog_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
 
 savepath = fit_model_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
