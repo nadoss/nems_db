@@ -119,6 +119,43 @@ def generate_loader_xfspec(cellid,batch,loader):
     return xfspec
 
 
+def generate_fitter_xfspec(cellid,batch,fitter):
+
+    xfspec=[]
+
+    # parse the fit spec: Use gradient descent on whole data set(Fast)
+    if fitter == "fit01":
+        # prefit strf
+        log.info("Prefitting STRF without other modules...")
+        xfspec.append(['nems.xforms.fit_basic_init', {}])
+        xfspec.append(['nems.xforms.fit_basic', {}])
+        xfspec.append(['nems.xforms.predict',    {}])
+
+    elif fitter == "fitjk01":
+
+        log.info("n-fold fitting...")
+        xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 5}])
+        xfspec.append(['nems.xforms.fit_nfold', {}])
+        xfspec.append(['nems.xforms.predict',    {}])
+
+    elif fitter == "fitpjk01":
+
+        log.info("n-fold fitting...")
+        xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 10}])
+        xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold',  {}])
+        xfspec.append(['nems.xforms.fit_nfold', {}])
+        xfspec.append(['nems.xforms.predict',    {}])
+
+    elif fitter == "fit02":
+        # no pre-fit
+        log.info("Performing full fit...")
+        xfspec.append(['nems.xforms.fit_basic', {}])
+        xfspec.append(['nems.xforms.predict',    {}])
+    else:
+        raise ValueError('unknown fitter string')
+
+    return xfspec
+
 
 
 def fit_model_xforms_baphy(cellid,batch,modelname,
@@ -168,27 +205,31 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
         log.info("Prefitting STRF without other modules...")
         xfspec.append(['nems.xforms.fit_basic_init', {}])
         xfspec.append(['nems.xforms.fit_basic', {}])
+        xfspec.append(['nems.xforms.predict',    {}])
+
     elif fitter == "fitjk01":
 
         log.info("n-fold fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 5}])
         xfspec.append(['nems.xforms.fit_nfold', {}])
+        xfspec.append(['nems.xforms.predict',    {}])
 
     elif fitter == "fitpjk01":
 
         log.info("n-fold fitting...")
-        xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 5}])
+        xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 10}])
         xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold',  {}])
         xfspec.append(['nems.xforms.fit_nfold', {}])
+        xfspec.append(['nems.xforms.predict',    {}])
 
     elif fitter == "fit02":
         # no pre-fit
         log.info("Performing full fit...")
         xfspec.append(['nems.xforms.fit_basic', {}])
+        xfspec.append(['nems.xforms.predict',    {}])
     else:
         raise ValueError('unknown fitter string')
 
-    xfspec.append(['nems.xforms.predict',    {}])
     xfspec.append(['nems.xforms.add_summary_statistics',    {}])
 
     if autoPlot:
