@@ -21,13 +21,29 @@ import nems_db.xform_wrappers as nw
 import logging
 log = logging.getLogger(__name__)
 
+"""
 #cellid = 'zee021e-c1'
-cellid = 'BRT033b-01-1'
+cellid = 'TAR010c-18-1'
+#cellid = 'BRT033b-01-1'
 batch=271
-modelname = "ozgf100ch18_wc18x1_fir1x15_lvl1_dexp1_fit01"
+modelname = "ozgf100ch18_wcg18x2_fir2x15_lvl1_fit01"
+
+example_list=['TAR010c-06-1','TAR010c-22-1',
+              'TAR010c-60-1','TAR010c-44-1',
+              'bbl074g-a1','bbl081d-a1','BRT006d-a1','BRT007c-a1',
+              'BRT009a-a1','BRT015c-a1','BRT016f-a1','BRT017g-a1']
+
+"""
+cellid='TAR010c-06-1'
+batch=301
+modelname = "nostim10pupbeh_stategain3_fitpjk01"
+
+#ctx=load_model_baphy_xform(cellid, batch,modelname)
+
+
 
 autoPlot=True
-saveInDB=False
+saveInDB=True
 
 log.info('Initializing modelspec(s) for cell/batch {0}/{1}...'.format(cellid,batch))
 
@@ -49,23 +65,28 @@ if fitter == "fit01":
     log.info("Prefitting STRF without other modules...")
     xfspec.append(['nems.xforms.fit_basic_init', {}])
     xfspec.append(['nems.xforms.fit_basic', {}])
+    xfspec.append(['nems.xforms.predict',    {}])
+
 elif fitter == "fitjk01":
 
     log.info("n-fold fitting...")
     xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 5}])
     xfspec.append(['nems.xforms.fit_nfold', {}])
+    xfspec.append(['nems.xforms.predict',    {}])
 
 elif fitter == "fitpjk01":
 
     log.info("n-fold fitting...")
-    xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 5}])
+    xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 10}])
     xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold',  {}])
     xfspec.append(['nems.xforms.fit_nfold', {}])
+    xfspec.append(['nems.xforms.predict',    {}])
 
 elif fitter == "fit02":
     # no pre-fit
     log.info("Performing full fit...")
     xfspec.append(['nems.xforms.fit_basic', {}])
+    xfspec.append(['nems.xforms.predict',    {}])
 else:
     raise ValueError('unknown fitter string')
 
@@ -77,7 +98,11 @@ if autoPlot:
     xfspec.append(['nems.xforms.plot_summary',    {}])
 
 # actually do the fit
-ctx, log_xf = xforms.evaluate(xfspec)
+#ctx, log_xf = xforms.evaluate(xfspec)
+# Evaluate the xforms
+ctx={}
+for xfa in xfspec:
+    ctx = xforms.evaluate_step(xfa, ctx)
 
 # save some extra metadata
 modelspecs=ctx['modelspecs']
@@ -116,12 +141,13 @@ if saveInDB:
 
 # save some extra metadata
 modelspecs=ctx['modelspecs']
-val=ctx['val']
+val=ctx['val'][0]
 
-plt.figure();
-plt.plot(val['resp'].as_continuous().T)
-plt.plot(val['pred'].as_continuous().T)
-plt.plot(val['state'].as_continuous().T/100)
-
+#plt.figure();
+#plt.plot(val['resp'].as_continuous().T)
+#plt.plot(val['pred'].as_continuous().T)
+#if 'state' in val.signals.keys():
+#    plt.plot(val['state'].as_continuous().T/100)
+#
 
 

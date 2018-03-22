@@ -89,6 +89,17 @@ def generate_loader_xfspec(cellid,batch,loader):
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
                   ['nems.xforms.make_state_signal', {'state_signals': ['pupil'], 'permute_signals': [], 'new_signalname': 'state'}]]
 
+    elif loader == "nostim10pupbeh":
+        options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
+          'chancount': 0, 'pupil': True, 'stim': False,
+          'pupil_deblink': True, 'pupil_median': 1}
+        options["average_stim"]=False
+        options["state_vars"]=['pupil']
+        recording_uri = get_recording_uri(cellid,batch,options)
+        recordings = [recording_uri]
+        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
+                  ['nems.xforms.make_state_signal', {'state_signals': ['pupil','behavior_state'], 'permute_signals': [], 'new_signalname': 'state'}]]
+
     elif loader == "env100":
         options["stimfmt"] = "envelope"
         options["chancount"] = 0
@@ -177,6 +188,7 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
     else:
         raise ValueError('unknown fitter string')
 
+    xfspec.append(['nems.xforms.predict',    {}])
     xfspec.append(['nems.xforms.add_summary_statistics',    {}])
 
     if autoPlot:
@@ -202,7 +214,7 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
         modelspecs[0][0]['meta'] = meta
     else:
         modelspecs[0][0]['meta'].update(meta)
-    destination = '/auto/data/tmp/modelspecs/{0}/{1}/{2}/'.format(
+    destination = '/auto/data/nems_db/results/{0}/{1}/{2}/'.format(
             batch,cellid,ms.get_modelspec_longname(modelspecs[0]))
     modelspecs[0][0]['meta']['modelpath']=destination
     modelspecs[0][0]['meta']['figurefile']=destination+'figure.0000.png'
@@ -228,17 +240,18 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
 def load_model_baphy_xform(cellid="chn020f-b1", batch=271,
                modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01",eval=True):
 
-    logging.info('Loading modelspecs...')
     d=nd.get_results_file(batch,[modelname],[cellid])
     savepath=d['modelpath'][0]
+    logging.info('Loading modelspecs from {0}...'.format(savepath))
 
     xfspec=xforms.load_xform(savepath + 'xfspec.json')
     mspath=savepath+'modelspec.0000.json'
-    context=xforms.load_modelspecs([],uris=[mspath],
+    ctx=xforms.load_modelspecs([],uris=[mspath],
                                       IsReload=False)
+    ctx['IsReload']=True
 
-    context['IsReload']=True
-    ctx,log_xf=xforms.evaluate(xfspec,context)
+    if eval:
+        ctx,log_xf=xforms.evaluate(xfspec,ctx)
 
     return ctx
 
