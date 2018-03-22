@@ -1201,7 +1201,6 @@ def baphy_load_pupil_trace(pupilfilepath,exptevents,options={}):
     timestamp[-1]=p[0]
     firstframe[-1]=int(p[1])
 
-
     # align pupil with other events, probably by removing extra bins from between trials
     ff= (exptevents['name'] == 'TRIALSTART')
     start_events=exptevents.loc[ff,['start']].reset_index()
@@ -1845,5 +1844,6 @@ def baphy_data_path(options):
     if not os.path.exists(data_path):
         rec=baphy_load_recording(options['cellid'],options['batch'],options)
         rec.save(data_path)
-
+    print(data_path)
+    print(options)
     return data_path

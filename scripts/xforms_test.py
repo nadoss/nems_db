@@ -34,13 +34,11 @@ example_list=['TAR010c-06-1','TAR010c-22-1',
               'BRT009a-a1','BRT015c-a1','BRT016f-a1','BRT017g-a1']
 
 """
-cellid='TAR010c-06-1'
+cellid='TAR010c-22-1'
 batch=301
-modelname = "nostim10pupbeh_stategain3_fitpjk01"
+modelname = "nostim20pupbeh_stategain3_fitpjk01"
 
 #ctx=load_model_baphy_xform(cellid, batch,modelname)
-
-
 
 autoPlot=True
 saveInDB=True
@@ -59,36 +57,7 @@ xfspec = nw.generate_loader_xfspec(cellid,batch,loader)
 
 xfspec.append(['nems.xforms.init_from_keywords', {'keywordstring': modelspecname}])
 
-# parse the fit spec: Use gradient descent on whole data set(Fast)
-if fitter == "fit01":
-    # prefit strf
-    log.info("Prefitting STRF without other modules...")
-    xfspec.append(['nems.xforms.fit_basic_init', {}])
-    xfspec.append(['nems.xforms.fit_basic', {}])
-    xfspec.append(['nems.xforms.predict',    {}])
-
-elif fitter == "fitjk01":
-
-    log.info("n-fold fitting...")
-    xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 5}])
-    xfspec.append(['nems.xforms.fit_nfold', {}])
-    xfspec.append(['nems.xforms.predict',    {}])
-
-elif fitter == "fitpjk01":
-
-    log.info("n-fold fitting...")
-    xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 10}])
-    xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold',  {}])
-    xfspec.append(['nems.xforms.fit_nfold', {}])
-    xfspec.append(['nems.xforms.predict',    {}])
-
-elif fitter == "fit02":
-    # no pre-fit
-    log.info("Performing full fit...")
-    xfspec.append(['nems.xforms.fit_basic', {}])
-    xfspec.append(['nems.xforms.predict',    {}])
-else:
-    raise ValueError('unknown fitter string')
+xfspec += nw.generate_fitter_xfspec(cellid,batch,fitter)
 
 xfspec.append(['nems.xforms.add_summary_statistics',    {}])
 
