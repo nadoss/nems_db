@@ -1832,9 +1832,6 @@ def baphy_load_recording(cellid,batch,options):
 
     rec=nems.recording.Recording(signals=signals)
 
-#    if options["runclass"]=="RDT":
-#        rec['meta']={'BigStimMatrix': BigStimMatrix}
-
     return rec
 
 def baphy_data_path(options):
@@ -1844,6 +1841,7 @@ def baphy_data_path(options):
     if not os.path.exists(data_path):
         rec=baphy_load_recording(options['cellid'],options['batch'],options)
         rec.save(data_path)
-    print(data_path)
-    print(options)
+    log.info(data_path)
+    log.info(options)
+
     return data_path

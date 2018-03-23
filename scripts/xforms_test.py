@@ -10,11 +10,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-import nems.recording
+#import nems.recording
 import nems.modelspec as ms
 import nems.xforms as xforms
 
-import nems_db.baphy as nb
+#import nems_db.baphy as nb
 import nems_db.db as nd
 import nems_db.xform_wrappers as nw
 
@@ -25,20 +25,23 @@ log = logging.getLogger(__name__)
 #cellid = 'zee021e-c1'
 cellid = 'TAR010c-18-1'
 #cellid = 'BRT033b-01-1'
-batch=271
-modelname = "ozgf100ch18_wcg18x2_fir2x15_lvl1_fit01"
 
 example_list=['TAR010c-06-1','TAR010c-22-1',
               'TAR010c-60-1','TAR010c-44-1',
               'bbl074g-a1','bbl081d-a1','BRT006d-a1','BRT007c-a1',
               'BRT009a-a1','BRT015c-a1','BRT016f-a1','BRT017g-a1']
 
-"""
 cellid='TAR010c-22-1'
 batch=301
-modelname = "nostim20pupbeh_stategain3_fitpjk01"
+modelname = "nostim20pup0beh0_stategain3_fitpjk01"
 
-#ctx=load_model_baphy_xform(cellid, batch,modelname)
+ctx=load_model_baphy_xform(cellid, batch,modelname)
+
+"""
+cellid = 'BRT034f-01-1'
+batch=271
+modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
+
 
 autoPlot=True
 saveInDB=True
@@ -51,11 +54,21 @@ loader = kws[0]
 modelspecname = "_".join(kws[1:-1])
 fitter = kws[-1]
 
+# figure out some meta data to save in the model spec
+if 'CODEHASH' in os.environ.keys():
+    githash=os.environ['CODEHASH']
+else:
+    githash=""
+meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
+        'loader': loader, 'fitter': fitter, 'modelspecname': modelspecname,
+        'username': 'svd', 'labgroup': 'lbhb', 'public': 1,
+        'githash': githash, 'recording': loader}
+
 # generate xfspec, which defines sequence of events to load data,
 # generate modelspec, fit data, plot results and save
 xfspec = nw.generate_loader_xfspec(cellid,batch,loader)
 
-xfspec.append(['nems.xforms.init_from_keywords', {'keywordstring': modelspecname}])
+xfspec.append(['nems.xforms.init_from_keywords', {'keywordstring': modelspecname, 'meta': meta}])
 
 xfspec += nw.generate_fitter_xfspec(cellid,batch,fitter)
 
@@ -76,18 +89,6 @@ for xfa in xfspec:
 # save some extra metadata
 modelspecs=ctx['modelspecs']
 
-if 'CODEHASH' in os.environ.keys():
-    githash=os.environ['CODEHASH']
-else:
-    githash=""
-meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
-        'loader': loader, 'fitter': fitter, 'modelspecname': modelspecname,
-        'username': 'svd', 'labgroup': 'lbhb', 'public': 1,
-        'githash': githash, 'recording': loader}
-if not 'meta' in modelspecs[0][0].keys():
-    modelspecs[0][0]['meta'] = meta
-else:
-    modelspecs[0][0]['meta'].update(meta)
 destination = '/auto/data/tmp/modelspecs/{0}/{1}/{2}/'.format(
         batch,cellid,ms.get_modelspec_longname(modelspecs[0]))
 modelspecs[0][0]['meta']['modelpath']=destination
