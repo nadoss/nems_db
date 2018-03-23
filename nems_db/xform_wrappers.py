@@ -226,11 +226,21 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
     modelspecname = "_".join(kws[1:-1])
     fitter = kws[-1]
 
+    if 'CODEHASH' in os.environ.keys():
+        githash=os.environ['CODEHASH']
+    else:
+        githash=""
+    meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
+            'loader': loader, 'fitter': fitter, 'modelspecname': modelspecname,
+            'username': 'svd', 'labgroup': 'lbhb', 'public': 1,
+            'githash': githash, 'recording': loader}
+
     # generate xfspec, which defines sequence of events to load data,
     # generate modelspec, fit data, plot results and save
     xfspec = generate_loader_xfspec(cellid,batch,loader)
 
-    xfspec.append(['nems.xforms.init_from_keywords', {'keywordstring': modelspecname}])
+    xfspec.append(['nems.xforms.init_from_keywords', {'keywordstring': modelspecname,
+                                                      'meta': meta}])
 
     xfspec+=generate_fitter_xfspec(cellid,batch,fitter)
 
@@ -247,18 +257,6 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
     # save some extra metadata
     modelspecs=ctx['modelspecs']
 
-    if 'CODEHASH' in os.environ.keys():
-        githash=os.environ['CODEHASH']
-    else:
-        githash=""
-    meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
-            'loader': loader, 'fitter': fitter, 'modelspecname': modelspecname,
-            'username': 'svd', 'labgroup': 'lbhb', 'public': 1,
-            'githash': githash, 'recording': loader}
-    if not 'meta' in modelspecs[0][0].keys():
-        modelspecs[0][0]['meta'] = meta
-    else:
-        modelspecs[0][0]['meta'].update(meta)
     destination = '/auto/data/nems_db/results/{0}/{1}/{2}/'.format(
             batch,cellid,ms.get_modelspec_longname(modelspecs[0]))
     modelspecs[0][0]['meta']['modelpath']=destination

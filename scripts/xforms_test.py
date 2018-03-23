@@ -38,7 +38,7 @@ modelname = "nostim20pup0beh0_stategain3_fitpjk01"
 ctx=load_model_baphy_xform(cellid, batch,modelname)
 
 """
-cellid = 'BRT034f-01-1'
+cellid = 'zee019b-a1'
 batch=271
 modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
