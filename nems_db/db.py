@@ -15,18 +15,17 @@ log = logging.getLogger(__name__)
 # TODO: instead of doing all this connection HERE (which occurs during import),
 #       we should instead have a "connect()" function that returns a session.
 #       We should remove these global vars!
+#       - started below with Session and _get_db_uri functions
+#       - hard part is replacing calls in this module and all that depend
+#       - on it.    --jacob 3/25/2018
 
-creds = nems_db.util.ensure_env_vars(['MYSQL_HOST',
-                                         'MYSQL_USER',
-                                         'MYSQL_PASS',
-                                         'MYSQL_DB',
-                                         'MYSQL_PORT'])
-
-db_uri = 'mysql+pymysql://{0}:{1}@{2}:{3}/{4}'.format(creds['MYSQL_USER'],
-                                                      creds['MYSQL_PASS'],
-                                                      creds['MYSQL_HOST'],
-                                                      creds['MYSQL_PORT'],
-                                                      creds['MYSQL_DB'])
+creds = nems_db.util.ensure_env_vars(
+        ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASS', 'MYSQL_DB', 'MYSQL_PORT']
+        )
+db_uri = 'mysql+pymysql://{0}:{1}@{2}:{3}/{4}'.format(
+        creds['MYSQL_USER'], creds['MYSQL_PASS'], creds['MYSQL_HOST'],
+        creds['MYSQL_PORT'], creds['MYSQL_DB']
+        )
 
 # sets how often sql alchemy attempts to re-establish connection engine
 # TODO: query db for time-out variable; set this to some fraction of that
@@ -35,6 +34,12 @@ POOL_RECYCLE = 7200
 # Create a database connection engine
 engine = create_engine(db_uri, pool_recycle=POOL_RECYCLE)
 
+
+# TODO: How to handle moving these inside a function?
+#       Could return them all in a dict each. Then any module that needs
+#       Tables can just import 'get_db_tables' function and use ala
+#       tables = get_db_tables()
+#       NarfResults = tables['NarfResults']
 # Create base class to mirror existing database schema
 Base = automap_base()
 Base.prepare(engine, reflect=True)
@@ -54,17 +59,47 @@ gCellMaster = Base.classes.gCellMaster
 Session = sessionmaker(bind=engine)
 
 
-# Same as above, but duplicated for use w/ cluster
-clst_db_uri = db_uri
-cluster_engine = create_engine(clst_db_uri, pool_recycle=POOL_RECYCLE,)
+# TODO: Come up with a better naming scheme for these? Goes against pep8
+#       but sort of makes sense with the sqlalchemy theme
+def Session():
+    uri = _get_db_uri()
+    engine = create_engine(uri, pool_recyle=POOL_RECYCLE)
+    return sessionmaker(bind=engine)
 
-cluster_Base = automap_base()
-cluster_Base.prepare(cluster_engine, reflect=True)
 
-cluster_tQueue = cluster_Base.classes.tQueue
-cluster_tComputer = cluster_Base.classes.tComputer
+def Engine():
+    uri = _get_db_uri()
+    return create_engine(uri, pool_recyle=POOL_RECYCLE)
 
-cluster_Session = sessionmaker(bind=cluster_engine)
+
+def Tables():
+    engine = Engine()
+    Base = automap_base()
+    Base.prepare(engine, reflect=True)
+    tables = {
+            'NarfUsers': Base.classes.NarfUsers,
+            'NarfAnalysis': Base.classes.NarfAnalysis,
+            'NarfBatches': Base.classes.NarfBatches,
+            'NarfResults': Base.classes.NarfResults,
+            'tQueue': Base.classes.tQueue,
+            'tComputer': Base.classes.tComputer,
+            'sCellFile': Base.classes.sCellFile,
+            'sBatch': Base.classes.sBatch,
+            'gCellMaster': Base.classes.gCellMaster,
+            }
+    return tables
+
+
+def _get_db_uri():
+    creds = nems_db.util.ensure_env_vars(
+            ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASS',
+             'MYSQL_DB', 'MYSQL_PORT']
+            )
+    db_uri = 'mysql+pymysql://{0}:{1}@{2}:{3}/{4}'.format(
+            creds['MYSQL_USER'], creds['MYSQL_PASS'], creds['MYSQL_HOST'],
+            creds['MYSQL_PORT'], creds['MYSQL_DB']
+            )
+    return db_uri
 
 
 def enqueue_models(celllist, batch, modellist, force_rerun=False,
@@ -106,14 +141,13 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
     # Not yet ready for testing - still need to coordinate the supporting
     # functions with the model queuer.
     session = Session()
-    cluster_session = cluster_Session()
 
     pass_fail = []
     for model in modellist:
         for cell in celllist:
             queueid, message = _enqueue_single_model(
                 cell, batch, model, force_rerun, user,
-                session, cluster_session, codeHash, jerbQuery,
+                session, codeHash, jerbQuery,
             )
             if queueid:
                 pass_fail.append(
@@ -131,13 +165,12 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
     log.info('\n'.join(pass_fail))
 
     session.close()
-    cluster_session.close()
     return
 
 
 def _enqueue_single_model(
         cellid, batch, modelname, force_rerun, user,
-        session, cluster_session, codeHash, jerbQuery
+        session, codeHash, jerbQuery
 ):
     """Adds a particular model to the queue to be fitted.
 
@@ -177,13 +210,12 @@ def _enqueue_single_model(
             "Entry in NarfResults already exists for: %s, skipping.\n" %
             note)
         session.close()
-        cluster_session.close()
         return -1, 'skip'
 
     # query tQueue to check if entry with same cell/batch/model already exists
     qdata = (
-        cluster_session.query(cluster_tQueue)
-        .filter(cluster_tQueue.note == note)
+        session.query(tQueue)
+        .filter(tQueue.note == note)
         .first()
     )
 
@@ -226,18 +258,10 @@ def _enqueue_single_model(
         job = _add_model_to_queue(
             commandPrompt, note, user, codeHash, jerbQuery
             )
-        cluster_session.add(job)
+        session.add(job)
 
-    cluster_session.commit()
+    session.commit()
     queueid = job.id
-
-    #if AWS:
-    #    # TODO: turn this back on if/when automated cluster management is
-    #    #       implemented.
-    #    pass
-    #    # check_instance_count()
-    #else:
-    #    pass
 
     return queueid, message
 
@@ -257,16 +281,13 @@ def _add_model_to_queue(commandPrompt, note, user, codeHash, jerbQuery,
 
     """
 
-    # TODO: does user need to be able to specificy priority and rundataid somewhere
-    #       in web UI?
-
     # TODO: why is narf version checking for list vs string on prompt and note?
     #       won't they always be a string passed from enqueue function?
     #       or want to be able to add multiple jobs manually from command line?
-    #       will need to rewrite with for loop to to add this functionality in the
-    #       future if desired
+    #       will need to rewrite with for loop to to add this functionality in
+    #       the future if needed.
 
-    job = cluster_tQueue()
+    job = tQueue()
 
     if user:
         user = user
@@ -288,7 +309,6 @@ def _add_model_to_queue(commandPrompt, note, user, codeHash, jerbQuery,
     job.note = note
     job.waitid = waitid
     job.codehash = codeHash
-    #job.jerbQuery = jerbQuery
 
     return job
 
@@ -299,21 +319,21 @@ def update_job_complete(queueid):
     #sql="UPDATE tQueue SET complete=1 WHERE id={}".format(queueid)
     #result = conn.execute(sql)
     # conn.close()
-    conn = cluster_engine.connect()
+    conn = engine.connect()
     # tick off progress, job is live
     sql = "UPDATE tQueue SET complete=1 WHERE id={}".format(queueid)
     r = conn.execute(sql)
     conn.close()
     return r
     """
-    cluster_session = cluster_Session()
+    ession = Session()
     # also filter based on note? - should only be one result to match either
     # filter, but double checks to make sure there's no conflict
     #note = "{0}/{1}/{2}".format(cellid, batch, modelname)
     #.filter(tQueue.note == note)
     qdata = (
-            cluster_session.query(cluster_tQueue)
-            .filter(cluster_tQueue.id == queueid)
+            session.query(tQueue)
+            .filter(tQueue.id == queueid)
             .first()
             )
     if not qdata:
@@ -323,14 +343,14 @@ def update_job_complete(queueid):
         log.info("/n for queueid: %s"%queueid)
     else:
         qdata.complete = 1
-        cluster_session.commit()
+        session.commit()
 
-    cluster_session.close()
+    session.close()
     """
 
 
 def update_job_start(queueid):
-    conn = cluster_engine.connect()
+    conn = engine.connect()
     # mark job as active and progress set to 1
     sql = ("UPDATE tQueue SET complete=-1,progress=1 WHERE id={}"
            .format(queueid))
@@ -348,7 +368,7 @@ def update_job_tick(queueid=0):
         log.warning('Error executing qsetload')
 
     if queueid:
-        conn = cluster_engine.connect()
+        conn = engine.connect()
         # tick off progress, job is live
         sql = "UPDATE tQueue SET progress=progress+1 WHERE id={}".format(queueid)
         r = conn.execute(sql)
@@ -360,14 +380,13 @@ def update_job_tick(queueid=0):
 
 def save_results(stack, preview_file, queueid=None):
     session = Session()
-    cluster_session = cluster_Session()
 
     # Can't retrieve user info without queueid, so if none was passed
     # use the default blank user info
     if queueid:
         job = (
-            cluster_session.query(cluster_tQueue)
-            .filter(cluster_tQueue.id == queueid)
+            session.query(tQueue)
+            .filter(tQueue.id == queueid)
             .first()
         )
         username = job.user
@@ -384,7 +403,6 @@ def save_results(stack, preview_file, queueid=None):
     results_id = update_results_table(stack, preview_file, username, labgroup)
 
     session.close()
-    cluster_session.close()
 
     return results_id
 
@@ -598,6 +616,7 @@ def get_batches(name=None):
 
     return d
 
+
 def get_cell_files(cellid=None, runclass=None):
     # eg, sql="SELECT * from sCellFile WHERE cellid like "TAR010c-30-1"
     params = ()
@@ -605,19 +624,20 @@ def get_cell_files(cellid=None, runclass=None):
            "gRunClass on sCellFile.runclassid=gRunClass.id "
            " INNER JOIN "
            "gSingleRaw on sCellFile.rawid=gSingleRaw.rawid and sCellFile.cellid=gSingleRaw.cellid WHERE 1")
-    if not cellid is None:
+    if cellid is not None:
         sql += " AND sCellFile.cellid like %s"
         params = params+("%"+cellid+"%",)
-    if not runclass is None:
+    if runclass is not None:
         sql += " AND gRunClass.name like %s"
         params = params+("%"+runclass+"%",)
 
-
-    d = pd.read_sql(sql=sql, con=cluster_engine, params=params)
+    d = pd.read_sql(sql=sql, con=engine, params=params)
 
     return d
 
-# temporary function while we migrate databases (don't have access to gRunClass right now, so need to use rawid)
+
+# temporary function while we migrate databases
+# (don't have access to gRunClass right now, so need to use rawid)
 def get_cell_files2(cellid=None, runclass=None, rawid=None):
     params = ()
     sql = ("SELECT sCellFile.* FROM sCellFile WHERE 1")
@@ -633,7 +653,7 @@ def get_cell_files2(cellid=None, runclass=None, rawid=None):
         params = params+(rawid,)
 
 
-    d = pd.read_sql(sql=sql, con=cluster_engine, params=params)
+    d = pd.read_sql(sql=sql, con=engine, params=params)
 
     return d
 
@@ -642,7 +662,7 @@ def get_isolation(cellid=None, batch=None):
 
     sql = ("SELECT min_isolation FROM NarfBatches WHERE cellid = {0}{1}{2} and batch = {3}".format("'",cellid,"'",batch))
 
-    d = pd.read_sql(sql=sql, con=cluster_engine)
+    d = pd.read_sql(sql=sql, con=engine)
     return d
 
 def get_cellids(rawid=None):
@@ -653,7 +673,7 @@ def get_cellids(rawid=None):
    else:
        sys.exit('Must give rawid')
 
-   cellids = pd.read_sql(sql=sql,con=cluster_engine)['cellid']
+   cellids = pd.read_sql(sql=sql,con=engine)['cellid']
 
    return cellids
 
@@ -683,7 +703,7 @@ def get_data_parms(rawid=None, parmfile=None):
     else:
         pass
 
-    d = pd.read_sql(sql=sql, con=cluster_engine)
+    d = pd.read_sql(sql=sql, con=engine)
 
     return d
 
