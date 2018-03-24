@@ -1109,11 +1109,13 @@ def baphy_load_recording_nonrasterized(cellid,batch,options):
         maxtime=np.max(event_times["end"])
         maxbin=int(options['rasterfs']*maxtime)
 
-        #TODO create this subclass
-        t_resp=nems.signal.SignalTimeSeries(fs=options['rasterfs'],data=spike_dict,maxbin=maxbin,name='resp',recording=cellid,chans=cellids,epochs=event_times)
+        #TODO create this subclass. maxtime paramter needs to be implemented.
+        t_resp=nems.signal.SignalTimeSeries(fs=options['rasterfs'],data=spike_dict,maxtime=maxtime,name='resp',recording=cellid,chans=cellids,epochs=event_times)
         if i==0:
             resp=t_resp
         else:
+            # TODO: concatenate_time for SignalTimeSeries has to add maxtime of
+            # signal 1 (resp) to timestamps for spikes in signal 2 (t_resp)
             resp=resp.concatenate_time([resp,t_resp])
 
         try:
@@ -1146,7 +1148,10 @@ def baphy_load_recording_nonrasterized(cellid,batch,options):
             else:
                 print("i={0} concatenating".format(i))
                  # TODO implement concatenate_time for SignalDictionary
+                 # this basicall just needs to merge the data dictionaries
+                 # a la : new_dict={**stim._data,**t_stim.data}
                 stim=stim.concatenate_time([stim,t_stim])
+
         if options['stim'] and options["runclass"]=="RDT":
             raise ValueError("RDT not supported yet")
 
