@@ -5,7 +5,6 @@ import os
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
 
 import nems
 import nems.initializers
@@ -21,17 +20,22 @@ import nems_db.baphy as nb
 import nems_db.db as nd
 from nems.recording import Recording
 from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
-import nems.xforms as xforms
+
 
 import logging
 log = logging.getLogger(__name__)
 
 
+#logging.basicConfig(level=logging.INFO)
+
+import sys
+import nems.xforms as xforms
+
+
 def get_recording_file(cellid,batch,options={}):
 
     options["batch"]=batch
-    options["cellid"]=cellid
-    uri = nb.baphy_data_path(options)
+    uri = nb.baphy_data_path(options) + cellid
     return uri
 
 def get_recording_uri(cellid,batch,options={}):
@@ -60,79 +64,35 @@ def generate_loader_xfspec(cellid,batch,loader):
         options['includeprestim'] = 1
         options["average_stim"]=True
         options["state_vars"]=[]
-        #recording_uri = get_recording_uri(cellid,batch,options)
-        recording_uri = get_recording_file(cellid,batch,options)
+        recording_uri = get_recording_uri(cellid,batch,options)
+        #recording_uri = get_recording_file(cellid,batch,options)
         recordings = [recording_uri]
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
                   ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
                   ['nems.xforms.average_away_stim_occurrences',{}]]
 
     elif loader == "ozgf100ch18pup":
-        options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf',
-          'chancount': 18, 'pupil': True, 'stim': True,
-          'pupil_deblink': True, 'pupil_median': 1}
+        options["stimfmt"] = "ozgf"
+        options["chancount"] = 18
+        options["rasterfs"] = 100
+        options['includeprestim'] = 1
         options["average_stim"]=False
         options["state_vars"]=['pupil']
-        recording_uri = get_recording_file(cellid,batch,options)
+        recording_uri = get_recording_uri(cellid,batch,options)
         recordings = [recording_uri]
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-                  ['nems.xforms.make_state_signal', {'state_signals': ['pupil'], 'permute_signals': [], 'new_signalname': 'state'}]]
+                  ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}]]
 
-    elif loader == "nostim10pup":
+    elif loader == "nostim100pup":
         options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
           'chancount': 0, 'pupil': True, 'stim': False,
           'pupil_deblink': True, 'pupil_median': 1}
         options["average_stim"]=False
         options["state_vars"]=['pupil']
-        recording_uri = get_recording_file(cellid,batch,options)
+        recording_uri = get_recording_uri(cellid,batch,options)
         recordings = [recording_uri]
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-                  ['nems.preprocessing.make_state_signal', {'state_signals': ['pupil'], 'permute_signals': [], 'new_signalname': 'state'},['rec'],['rec']]]
-
-    elif loader in ["nostim10pup0beh0","nostim10pup0beh","nostim10pupbeh0","nostim10pupbeh"]:
-        options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
-          'chancount': 0, 'pupil': True, 'stim': False,
-          'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"]=False
-        options["state_vars"]=['pupil']
-
-        state_signals=['pupil','behavior_state']
-        if loader=="nostim10pup0beh0":
-            permute_signals=['pupil','behavior_state']
-        elif loader=="nostim10pup0beh":
-            permute_signals=['pupil']
-        elif loader=="nostim10pupbeh0":
-            permute_signals=['behavior_state']
-        else:
-            permute_signals=['']
-
-        recording_uri = get_recording_file(cellid,batch,options)
-        recordings = [recording_uri]
-        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-                  ['nems.xforms.make_state_signal', {'state_signals': state_signals, 'permute_signals': permute_signals, 'new_signalname': 'state'}]]
-
-    elif loader in ["nostim20pup0beh0","nostim20pup0beh","nostim20pupbeh0","nostim20pupbeh"]:
-        options={'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
-          'chancount': 0, 'pupil': True, 'stim': False,
-          'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"]=False
-        options["state_vars"]=['pupil']
-
-        state_signals=['pupil','behavior_state']
-        if loader=="nostim20pup0beh0":
-            permute_signals=['pupil','behavior_state']
-        elif loader=="nostim20pup0beh":
-            permute_signals=['pupil']
-        elif loader=="nostim20pupbeh0":
-            permute_signals=['behavior_state']
-        else:
-            permute_signals=['']
-
-        recording_uri = get_recording_file(cellid,batch,options)
-        recordings = [recording_uri]
-        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-                  ['nems.preprocessing.make_state_signal', {'state_signals': state_signals, 'permute_signals': permute_signals, 'new_signalname': 'state'},['rec'],['rec']]]
-
+                  ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}]]
     elif loader == "env100":
         options["stimfmt"] = "envelope"
         options["chancount"] = 0
@@ -140,54 +100,16 @@ def generate_loader_xfspec(cellid,batch,loader):
         options['includeprestim'] = 1
         options["average_stim"]=True
         options["state_vars"]=[]
-        recording_uri = get_recording_file(cellid,batch,options)
+        recording_uri = get_recording_uri(cellid,batch,options)
         recordings = [recording_uri]
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
                   ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
                   ['nems.xforms.average_away_stim_occurrences',{}]]
-
     else:
         raise ValueError('unknown loader string')
 
     return xfspec
 
-
-def generate_fitter_xfspec(cellid,batch,fitter):
-
-    xfspec=[]
-
-    # parse the fit spec: Use gradient descent on whole data set(Fast)
-    if fitter == "fit01":
-        # prefit strf
-        log.info("Prefitting STRF without other modules...")
-        xfspec.append(['nems.xforms.fit_basic_init', {}])
-        xfspec.append(['nems.xforms.fit_basic', {}])
-        xfspec.append(['nems.xforms.predict',    {}])
-
-    elif fitter == "fitjk01":
-
-        log.info("n-fold fitting...")
-        xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 5}])
-        xfspec.append(['nems.xforms.fit_nfold', {}])
-        xfspec.append(['nems.xforms.predict',    {}])
-
-    elif fitter == "fitpjk01":
-
-        log.info("n-fold fitting...")
-        xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 10}])
-        xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold',  {}])
-        xfspec.append(['nems.xforms.fit_nfold', {}])
-        xfspec.append(['nems.xforms.predict',    {}])
-
-    elif fitter == "fit02":
-        # no pre-fit
-        log.info("Performing full fit...")
-        xfspec.append(['nems.xforms.fit_basic', {}])
-        xfspec.append(['nems.xforms.predict',    {}])
-    else:
-        raise ValueError('unknown fitter string ' + fitter)
-
-    return xfspec
 
 
 
@@ -216,7 +138,7 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
         # ['nems.xforms.save_recordings', {'recordings': ['est', 'val']}],
         ['nems.xforms.fill_in_default_metadata',    {}],
     ]
-    """
+"""
 
     log.info('Initializing modelspec(s) for cell/batch {0}/{1}...'.format(cellid,batch))
 
@@ -226,28 +148,32 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
     modelspecname = "_".join(kws[1:-1])
     fitter = kws[-1]
 
-    if 'CODEHASH' in os.environ.keys():
-        githash=os.environ['CODEHASH']
-    else:
-        githash=""
-    meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
-            'loader': loader, 'fitter': fitter, 'modelspecname': modelspecname,
-            'username': 'svd', 'labgroup': 'lbhb', 'public': 1,
-            'githash': githash, 'recording': loader}
-
     # generate xfspec, which defines sequence of events to load data,
     # generate modelspec, fit data, plot results and save
     xfspec = generate_loader_xfspec(cellid,batch,loader)
 
-    xfspec.append(['nems.initializers.from_keywords_as_list',
-                   {'keyword_string': modelspecname, 'meta': meta},
-                   [],['modelspecs']])
+    xfspec.append(['nems.xforms.init_from_keywords', {'keywordstring': modelspecname}])
 
-    xfspec+=generate_fitter_xfspec(cellid,batch,fitter)
+    # parse the fit spec: Use gradient descent on whole data set(Fast)
+    if fitter == "fit01":
+        # prefit strf
+        log.info("Prefitting STRF without other modules...")
+        xfspec.append(['nems.xforms.fit_basic_init', {}])
+        xfspec.append(['nems.xforms.fit_basic', {}])
+    elif fitter == "fitjk01":
+        # prefit strf
+        log.info("Prefitting STRF without NL then JK...")
+        xfspec.append(['nems.xforms.fit_basic_init', {}])
+        xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 10}])
+        xfspec.append(['nems.xforms.fit_basic', {}])
+    elif fitter == "fit02":
+        # no pre-fit
+        log.info("Performing full fit...")
+        xfspec.append(['nems.xforms.fit_basic', {}])
+    else:
+        raise ValueError('unknown fitter string')
 
-    #xfspec.append(['nems.xforms.add_summary_statistics',    {}])
-    xfspec.append(['nems.analysis.api.standard_correlation', {},
-                   ['est', 'val', 'modelspecs'],['modelspecs']])
+    xfspec.append(['nems.xforms.add_summary_statistics',    {}])
 
     if autoPlot:
         # GENERATE PLOTS
@@ -260,20 +186,32 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
     # save some extra metadata
     modelspecs=ctx['modelspecs']
 
-    destination = '/auto/data/nems_db/results/{0}/{1}/{2}/'.format(
+    if 'CODEHASH' in os.environ.keys():
+        githash=os.environ['CODEHASH']
+    else:
+        githash=""
+    meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
+            'loader': loader, 'fitter': fitter, 'modelspecname': modelspecname,
+            'username': 'svd', 'labgroup': 'lbhb', 'public': 1,
+            'githash': githash, 'recording': loader}
+    if not 'meta' in modelspecs[0][0].keys():
+        modelspecs[0][0]['meta'] = meta
+    else:
+        modelspecs[0][0]['meta'].update(meta)
+    destination = '/auto/data/tmp/modelspecs/{0}/{1}/{2}/'.format(
             batch,cellid,ms.get_modelspec_longname(modelspecs[0]))
     modelspecs[0][0]['meta']['modelpath']=destination
     modelspecs[0][0]['meta']['figurefile']=destination+'figure.0000.png'
 
     # save results
 
-    log.info('Saving modelspec(s) to {0} ...'.format(destination))
     xforms.save_analysis(destination,
                          recording=ctx['rec'],
                          modelspecs=modelspecs,
                          xfspec=xfspec,
                          figures=ctx['figures'],
                          log=log_xf)
+    log.info('Saved modelspec(s) to {0} ...'.format(destination))
 
     # save in database as well
     if saveInDB:
@@ -286,18 +224,17 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
 def load_model_baphy_xform(cellid="chn020f-b1", batch=271,
                modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01",eval=True):
 
+    logging.info('Loading modelspecs...')
     d=nd.get_results_file(batch,[modelname],[cellid])
     savepath=d['modelpath'][0]
-    logging.info('Loading modelspecs from {0}...'.format(savepath))
 
     xfspec=xforms.load_xform(savepath + 'xfspec.json')
     mspath=savepath+'modelspec.0000.json'
-    ctx=xforms.load_modelspecs([],uris=[mspath],
+    context=xforms.load_modelspecs([],uris=[mspath],
                                       IsReload=False)
-    ctx['IsReload']=True
 
-    if eval:
-        ctx,log_xf=xforms.evaluate(xfspec,ctx)
+    context['IsReload']=True
+    ctx,log_xf=xforms.evaluate(xfspec,context)
 
     return ctx
 
@@ -337,6 +274,17 @@ savepath = fit_model_baphy(cellid=cellid, batch=batch, modelname=modelname,
                            autoPlot=False, saveInDB=True)
 modelspec,est,val=load_model_baphy(savepath)
 
+# A1 NAT example
+cellid = 'TAR010c-18-1'
+batch=271
+modelname = "ozgf100ch18_wcg18x2_fir2x15_lvl1_dexp1_fit01"
+
+ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
+
+
+savepath = fit_model_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
+
+modelspec,est,val=load_model_baphy(savepath)
 
 # A1 NAT + pupil example
 cellid = 'TAR010c-18-1'
@@ -353,44 +301,23 @@ modelname = "ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"
 
 savepath = fit_model_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
 modelspec,est,val=load_model_baphy(savepath)
-"""
-
-
-# A1 NAT + pupil example
-"""
-cellid = 'TAR010c-18-1'
-batch=289
-modelname = "ozgf100ch18pup_wcg18x1_fir1x15_lvl1_stategain2_fitjk01"
-ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
 
 """
 
+#plt.close('all')
 
-# A1 NAT example
-"""
+#cellid = "bbl034e-a1"
+#batch=291
+#modelname = "ozgf100ch18_dlog_wc18x1_fir15x1_lvl1_dexp1_fit01"
 
-cellid = 'zee019b-b1'
-batch=271
-modelname = "ozgf100ch18_dlog_wcg18x1_fir1x15_lvl1_dexp1_fit01"
-ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
+# this does now work:
+#savepath = fit_model_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
+#modelspec,est,val=load_model_baphy(savepath)
 
-savepath = fit_model_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
+#modelspec,est,val=quick_inspect("bbl036e-a2",291,"ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01")
 
-modelspec,est,val=load_model_baphy(savepath)
+# this works the first time you run
+#savepath = fit_model_baphy(cellid= 'chn020f-b1',batch=batch,modelname=modelname, autoPlot=True, saveInDB=True)
 
-"""
-
-# A1 VOC+pup example
-"""
-cellid = 'eno052d-a1'
-batch=294
-modelname = "nostim10pup_stategain2_fitpjk01"
-ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-"""
-
-"""
-cellid = 'TAR010c-06-1'
-batch=301
-modelname = "nostim10pup_stategain2_fitpjk01"
-ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-"""
+# what I'd like to be able to run:
+#fit_batch(batch,modelname)

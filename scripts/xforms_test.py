@@ -30,17 +30,17 @@ example_list=['TAR010c-06-1','TAR010c-22-1',
               'TAR010c-60-1','TAR010c-44-1',
               'bbl074g-a1','bbl081d-a1','BRT006d-a1','BRT007c-a1',
               'BRT009a-a1','BRT015c-a1','BRT016f-a1','BRT017g-a1']
+cellid = 'zee019b-a1'
+batch=271
+modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
-cellid='TAR010c-22-1'
-batch=301
-modelname = "nostim20pup0beh0_stategain3_fitpjk01"
 
 ctx=load_model_baphy_xform(cellid, batch,modelname)
 
 """
-cellid = 'zee019b-a1'
-batch=271
-modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
+cellid='TAR010c-22-1'
+batch=301
+modelname = "nostim20pup0beh0_stategain3_fitpjk01"
 
 
 autoPlot=True
@@ -68,11 +68,12 @@ meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
 # generate modelspec, fit data, plot results and save
 xfspec = nw.generate_loader_xfspec(cellid,batch,loader)
 
-xfspec.append(['nems.xforms.init_from_keywords', {'keywordstring': modelspecname, 'meta': meta}])
+xfspec.append(['nems.initializers.from_keywords_as_list', {'keyword_string': modelspecname, 'meta': meta},[],['modelspecs']])
 
 xfspec += nw.generate_fitter_xfspec(cellid,batch,fitter)
 
-xfspec.append(['nems.xforms.add_summary_statistics',    {}])
+xfspec.append(['nems.analysis.api.standard_correlation', {},
+               ['est', 'val', 'modelspecs'],['modelspecs']])
 
 if autoPlot:
     # GENERATE PLOTS
