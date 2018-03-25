@@ -538,7 +538,7 @@ def baphy_load_data(parmfilepath, options={}):
     #       or make s3 match LBHB?
 
     # figure out stimulus cachefile to load
-    if options['stim']:
+    if 'stim' in options.keys() and options['stim']:
         stimfilepath = baphy_stim_cachefile(exptparams, options, parmfilepath)
         print("Cached stim: {0}".format(stimfilepath))
         # load stimulus spectrogram
