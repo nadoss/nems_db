@@ -34,17 +34,19 @@ cellid = 'zee019b-a1'
 batch=271
 modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
+cellid='BRT026c-15-1'
+batch=301
+modelname = "nostim20pup0beh0_stategain3_fitpjk01"
 
 ctx=load_model_baphy_xform(cellid, batch,modelname)
 
 """
-cellid='TAR010c-22-1'
-batch=301
-modelname = "nostim20pup0beh0_stategain3_fitpjk01"
-
+cellid = 'chn002h-a1'
+batch=259
+modelname = "env100_dlog_stp2_fir2x15_lvl1_dexp1_fit01"
 
 autoPlot=True
-saveInDB=True
+saveInDB=False
 
 log.info('Initializing modelspec(s) for cell/batch {0}/{1}...'.format(cellid,batch))
 
@@ -86,33 +88,27 @@ if autoPlot:
 ctx={}
 for xfa in xfspec:
     ctx = xforms.evaluate_step(xfa, ctx)
-
+log_xf=""
 # save some extra metadata
 modelspecs=ctx['modelspecs']
+val=ctx['val'][0]
 
 destination = '/auto/data/tmp/modelspecs/{0}/{1}/{2}/'.format(
         batch,cellid,ms.get_modelspec_longname(modelspecs[0]))
 modelspecs[0][0]['meta']['modelpath']=destination
 modelspecs[0][0]['meta']['figurefile']=destination+'figure.0000.png'
 
-# save results
-
-log.info('Saving modelspec(s) to {0} ...'.format(destination))
-xforms.save_analysis(destination,
-                     recording=ctx['rec'],
-                     modelspecs=modelspecs,
-                     xfspec=xfspec,
-                     figures=ctx['figures'],
-                     log=log_xf)
-
-# save in database as well
 if saveInDB:
-    # TODO : db results
+    # save results
+    log.info('Saving modelspec(s) to {0} ...'.format(destination))
+    xforms.save_analysis(destination,
+                         recording=ctx['rec'],
+                         modelspecs=modelspecs,
+                         xfspec=xfspec,
+                         figures=ctx['figures'],
+                         log=log_xf)
+    # save in database as well
     nd.update_results_table(modelspecs[0])
-
-# save some extra metadata
-modelspecs=ctx['modelspecs']
-val=ctx['val'][0]
 
 #plt.figure();
 #plt.plot(val['resp'].as_continuous().T)
