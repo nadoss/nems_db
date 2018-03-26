@@ -990,21 +990,19 @@ def dict_to_signal(stim_dict, fs=100, event_times=None, signal_name='stim',
     z = np.zeros([chancount, maxbin])
 
     empty_stim = nems.signal.Signal(
-            matrix=z, fs=fs, name=signal_name,
+            data=z, fs=fs, name=signal_name,
             epochs=event_times, recording=recording_name
             )
     stim = empty_stim.replace_epochs(stim_dict)
 
     return stim
 
-def dict_to_SignalDictionary(stim_dict,fs=100,event_times=None,signal_name='stim',recording_name='rec'):
 
-    maxtime = np.max(event_times["end"])
-    maxbin = int(fs*maxtime)
+def dict_to_SignalDictionary(stim_dict, fs=100, event_times=None,
+                             signal_name='stim', recording_name='rec'):
 
-    # TODO: Create this subclass
     stim = nems.signal.SignalDictionary(
-            data=stim_dict, fs=fs, maxnin=maxbin, name=signal_name,
+            data=stim_dict, fs=fs, name=signal_name,
             epochs=event_times, recording=recording_name
             )
 
@@ -1055,7 +1053,7 @@ def baphy_load_recording(cellid, batch, options):
 
         # generate response signal
         t_resp = nems.signal.Signal(
-                fs=options['rasterfs'], matrix=raster_all, name='resp',
+                fs=options['rasterfs'], data=raster_all, name='resp',
                 recording=cellid, chans=cellids, epochs=event_times
                 )
         if i == 0:
@@ -1077,7 +1075,7 @@ def baphy_load_recording(cellid, batch, options):
 
             # generate pupil signals
             t_pupil = nems.signal.Signal(
-                    fs=options['rasterfs'], matrix=state_dict['pupiltrace'],
+                    fs=options['rasterfs'], data=state_dict['pupiltrace'],
                     name='pupil', recording=cellid, chans=['pupil'],
                     epochs=event_times
                     )
@@ -1209,11 +1207,13 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
         maxtime = np.max(event_times["end"])
         maxbin = int(options['rasterfs']*maxtime)
 
-        # TODO: cellids not defined anymore (from spike_time_to_raster)
+        # TODO: cellids not defined anymore (from spike_time_to_raster)?
+        #       changed to spike_dict.keys() for now, seems like it should be
+        #       about the same?
         # TODO: create this subclass. maxtime paramter needs to be implemented.
         t_resp = nems.signal.SignalTimeSeries(
                 fs=options['rasterfs'], data=spike_dict, maxtime=maxtime,
-                name='resp', recording=cellid, chans=cellids,
+                name='resp', recording=cellid, chans=list(spike_dict.keys()),
                 epochs=event_times
                 )
 
@@ -1239,7 +1239,7 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
 
             # generate pupil signals
             t_pupil = nems.signal.Signal(
-                    fs=options['rasterfs'], matrix=state_dict['pupiltrace'],
+                    fs=options['rasterfs'], data=state_dict['pupiltrace'],
                     name='pupil', recording=cellid, chans=['pupil'],
                     epochs=event_times
                     )
