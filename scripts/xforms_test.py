@@ -41,9 +41,10 @@ modelname = "nostim20pup0beh0_stategain3_fitpjk01"
 ctx=load_model_baphy_xform(cellid, batch,modelname)
 
 """
-cellid = 'chn002h-a1'
+#cellid = 'chn069b-d1'
+cellid = 'chn073b-b1'
 batch=259
-modelname = "env100_dlog_stp2_fir2x15_lvl1_dexp1_fit01"
+modelname = "env100_dlog_fir2x15_lvl1_dexp1_fit01"
 
 autoPlot=True
 saveInDB=False
