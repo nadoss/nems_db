@@ -964,7 +964,7 @@ def spike_time_to_raster(spike_dict, fs=100, event_times=None):
     if event_times is not None:
         maxtime = np.max(event_times["end"])
 
-    maxbin = int(fs*maxtime)
+    maxbin = np.int(np.ceil(fs*maxtime))
     unitcount = len(spike_dict.keys())
     raster = np.zeros([unitcount, maxbin])
 
@@ -989,7 +989,7 @@ def dict_to_signal(stim_dict, fs=100, event_times=None, signal_name='stim',
 
     z = np.zeros([chancount, maxbin])
 
-    empty_stim = nems.signal.Signal(
+    empty_stim = nems.signal.RasterizedSignal(
             data=z, fs=fs, name=signal_name,
             epochs=event_times, recording=recording_name
             )
@@ -1052,7 +1052,7 @@ def baphy_load_recording(cellid, batch, options):
                 )
 
         # generate response signal
-        t_resp = nems.signal.Signal(
+        t_resp = nems.signal.RasterizedSignal(
                 fs=options['rasterfs'], data=raster_all, name='resp',
                 recording=cellid, chans=cellids, epochs=event_times
                 )
@@ -1074,7 +1074,7 @@ def baphy_load_recording(cellid, batch, options):
                     state_dict['pupiltrace'][:, 0:-(rlen-plen)]
 
             # generate pupil signals
-            t_pupil = nems.signal.Signal(
+            t_pupil = nems.signal.RasterizedSignal(
                     fs=options['rasterfs'], data=state_dict['pupiltrace'],
                     name='pupil', recording=cellid, chans=['pupil'],
                     epochs=event_times
@@ -1203,16 +1203,12 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
 
         # generate response signal
 
-        # figure out how long the signal should be
-        maxtime = np.max(event_times["end"])
-        maxbin = int(options['rasterfs']*maxtime)
-
         # TODO: cellids not defined anymore (from spike_time_to_raster)?
         #       changed to spike_dict.keys() for now, seems like it should be
         #       about the same?
         # TODO: create this subclass. maxtime paramter needs to be implemented.
-        t_resp = nems.signal.SignalTimeSeries(
-                fs=options['rasterfs'], data=spike_dict, maxtime=maxtime,
+        t_resp = nems.signal.PointProcess(
+                fs=options['rasterfs'], data=spike_dict,
                 name='resp', recording=cellid, chans=list(spike_dict.keys()),
                 epochs=event_times
                 )
@@ -1238,7 +1234,7 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
                     state_dict['pupiltrace'][:, 0:-(rlen-plen)]
 
             # generate pupil signals
-            t_pupil = nems.signal.Signal(
+            t_pupil = nems.signal.RasterizedSignal(
                     fs=options['rasterfs'], data=state_dict['pupiltrace'],
                     name='pupil', recording=cellid, chans=['pupil'],
                     epochs=event_times
@@ -1253,8 +1249,9 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
 
         if options['stim']:
             # accumulate dictionaries
-            t_stim = dict_to_SignalDictionary(
-                    stim_dict, fs=options['rasterfs'], event_times=event_times
+            t_stim = nems.signal.TiledSignal(
+                    data=stim_dict, fs=options['rasterfs'], name='stim',
+                    epochs=event_times, recording=cellid
                     )
 
             if i==0:
@@ -1265,7 +1262,7 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
                 # TODO implement concatenate_time for SignalDictionary
                 # this basicall just needs to merge the data dictionaries
                 # a la : new_dict={**stim._data,**t_stim.data}
-                stim = stim.concatenate_time([stim, t_stim])
+                stim = stim.append_time(t_stim)
 
         if options['stim'] and options["runclass"] == "RDT":
             raise ValueError("RDT not supported yet")
