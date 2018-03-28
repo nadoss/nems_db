@@ -26,3 +26,10 @@ resp2=rec2['resp'].rasterize()
 assert (np.sum(np.square(stim1.as_continuous()-stim2.as_continuous())))==0
 
 assert (np.sum(np.square(resp1.as_continuous()-resp2.as_continuous())))==0
+
+dataroot='/tmp/test/'
+rec['resp'].save(dataroot+'resp1/')
+rec2['resp'].save(dataroot+'resp2/')
+rec['stim'].save(dataroot+'stim1/')
+rec2['stim'].save(dataroot+'stim2/')
+
