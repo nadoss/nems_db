@@ -212,7 +212,7 @@ def baphy_stim_cachefile(exptparams,options,parmfilepath=None):
 
 def baphy_load_spike_data_raw(spkfilepath,channel=None,unit=None):
 
-    matdata = scipy.io.loadmat(spkfilepath)#, chars_as_strings=True)
+    matdata = scipy.io.loadmat(spkfilepath, chars_as_strings=True)
 
     sortinfo=matdata['sortinfo']
     if sortinfo.shape[0]>1:
@@ -320,6 +320,7 @@ def baphy_load_pupil_trace(pupilfilepath,exptevents,options={}):
         trial. need to make sure the big_rs vector aligns with the other signals
     """
 
+    options=options.copy()
     rasterfs = options.get('rasterfs', 1000)
     pupil_offset = options.get('pupil_offset', 0.75)
     pupil_deblink = options.get('pupil_deblink',True)
@@ -351,11 +352,16 @@ def baphy_load_pupil_trace(pupilfilepath,exptevents,options={}):
     params=p['params']
     if 'pupil_variable_name' not in options:
         options['pupil_variable_name']=params[0][0]['default_var'][0][0][0]
+        print("Using default pupil_variable_name: "+options['pupil_variable_name'])
     if 'pupil_algorithm' not in options:
         options['pupil_algorithm']=params[0][0]['default'][0][0][0]
+        print("Using default pupil_algorithm: "+options['pupil_algorithm'])
 
     results=p['results'][0][0][-1][options['pupil_algorithm']]
     pupil_diameter=np.array(results[0][options['pupil_variable_name']][0][0])
+    if pupil_diameter.shape[0]==1:
+        pupil_diameter=pupil_diameter.T
+    print("pupil_diameter.shape: " + str(pupil_diameter.shape))
 
     fs_approximate = 10  # approx video framerate
     if pupil_deblink:
@@ -363,6 +369,7 @@ def baphy_load_pupil_trace(pupilfilepath,exptevents,options={}):
         blink = np.zeros(dp.shape)
         blink[dp > np.mean(dp) + 6*np.std(dp)]= 1
         box=np.ones([fs_approximate])/(fs_approximate)
+        print(blink.shape)
         blink=np.convolve(blink[:,0],box,mode='same')
         blink[blink>0]=1
         blink[blink<=0]=0
@@ -556,7 +563,7 @@ def baphy_load_data(parmfilepath,options={}):
             state_dict['pupiltrace']=pupiltrace
 
         except:
-            print("No pupil data")
+            print("No pupil data: " + pupilfilepath)
 
     return exptevents, stim, spike_dict, state_dict, tags, stimparam, exptparams
 

@@ -15,6 +15,14 @@ options['includeprestim'] = 1
 cellid = 'TAR010c-18-1'
 batch=271
 
+options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
+  'chancount': 0, 'pupil': True, 'stim': False,
+  'pupil_deblink': True, 'pupil_median': 1}
+options["average_stim"]=False
+options["state_vars"]=['pupil']
+cellid='BRT033b-12-1'
+batch=301
+
 rec=nb.baphy_load_recording(cellid,batch,options)
 
 #rec2=nb.baphy_load_recording_nonrasterized(cellid,batch,options)
