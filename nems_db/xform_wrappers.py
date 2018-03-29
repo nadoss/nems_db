@@ -239,7 +239,7 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
     # generate modelspec, fit data, plot results and save
     xfspec = generate_loader_xfspec(cellid,batch,loader)
 
-    xfspec.append(['nems.xforms.init_from_keywords', {'keywordstring': modelspecname}])
+    xfspec.append(['nems.xforms.init_from_keywords', {'keywordstring': modelspecname, 'meta': meta}])
     #xfspec.append(['nems.initializers.from_keywords_as_list',
     #               {'keyword_string': modelspecname, 'meta': meta},
     #               [],['modelspecs']])
