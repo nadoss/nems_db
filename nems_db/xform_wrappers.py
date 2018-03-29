@@ -239,9 +239,10 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
     # generate modelspec, fit data, plot results and save
     xfspec = generate_loader_xfspec(cellid,batch,loader)
 
-    xfspec.append(['nems.initializers.from_keywords_as_list',
-                   {'keyword_string': modelspecname, 'meta': meta},
-                   [],['modelspecs']])
+    xfspec.append(['nems.xforms.init_from_keywords', {'keywordstring': modelspecname}])
+    #xfspec.append(['nems.initializers.from_keywords_as_list',
+    #               {'keyword_string': modelspecname, 'meta': meta},
+    #               [],['modelspecs']])
 
     xfspec+=generate_fitter_xfspec(cellid,batch,fitter)
 
@@ -291,15 +292,18 @@ def load_model_baphy_xform(cellid="chn020f-b1", batch=271,
     logging.info('Loading modelspecs from {0}...'.format(savepath))
 
     xfspec=xforms.load_xform(savepath + 'xfspec.json')
-    mspath=savepath+'modelspec.0000.json'
-    ctx=xforms.load_modelspecs([],uris=[mspath],
-                                      IsReload=False)
+
+    mspaths=[]
+    for file in os.listdir(savepath):
+        if file.startswith("modelspec"):
+            mspaths.append(savepath + "/" + file)
+    ctx=xforms.load_modelspecs([],uris=mspaths,IsReload=False)
     ctx['IsReload']=True
 
     if eval:
         ctx,log_xf=xforms.evaluate(xfspec,ctx)
 
-    return ctx
+    return xfspec,ctx
 
 
 def quick_inspect(cellid="chn020f-b1", batch=271,
