@@ -9,6 +9,7 @@ Created on Wed Mar  7 15:30:15 2018
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import io
 
 #import nems.recording
 import nems.modelspec as ms
@@ -42,13 +43,12 @@ modelname = "env100_dlog_fir2x15_lvl1_dexp1_fit01"
 ctx=load_model_baphy_xform(cellid, batch,modelname)
 
 """
-cellid='BRT033b-12-1'
-batch=301
-modelname = "nostim20pupbeh_stategain3_fitpjk01"
-
+cellid = 'TAR010c-29-1'
+batch=271
+modelname = "ozgf100ch18_wcg18x2_fir2x15_lvl1_dexp1_fit01"
 
 autoPlot=True
-saveInDB=False
+saveInDB=True
 
 log.info('Initializing modelspec(s) for cell/batch {0}/{1}...'.format(cellid,batch))
 
@@ -87,36 +87,48 @@ if autoPlot:
 # actually do the fit
 #ctx, log_xf = xforms.evaluate(xfspec)
 # Evaluate the xforms
+
+# Create a log stream set to the debug level; add it as a root log handler
+log_stream = io.StringIO()
+ch = logging.StreamHandler(log_stream)
+ch.setLevel(logging.DEBUG)
+fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+formatter = logging.Formatter(fmt)
+ch.setFormatter(formatter)
+rootlogger = logging.getLogger()
+rootlogger.addHandler(ch)
+
 ctx={}
 for xfa in xfspec:
     ctx = xforms.evaluate_step(xfa, ctx)
-log_xf=""
-# save some extra metadata
+
+# Close the log, remove the handler, and add the 'log' string to context
+log.info('Done (re-)evaluating xforms.')
+ch.close()
+rootlogger.removeFilter(ch)
+
+log_xf=log_stream.getvalue()
+
+
 modelspecs=ctx['modelspecs']
 val=ctx['val'][0]
 
+# save some extra metadata
 destination = '/auto/data/tmp/modelspecs/{0}/{1}/{2}/'.format(
         batch,cellid,ms.get_modelspec_longname(modelspecs[0]))
 modelspecs[0][0]['meta']['modelpath']=destination
 modelspecs[0][0]['meta']['figurefile']=destination+'figure.0000.png'
 
+# save results
+log.info('Saving modelspec(s) to {0} ...'.format(destination))
+xforms.save_analysis(destination,
+                     recording=ctx['rec'],
+                     modelspecs=modelspecs,
+                     xfspec=xfspec,
+                     figures=ctx['figures'],
+                     log=log_xf)
+
 if saveInDB:
-    # save results
-    log.info('Saving modelspec(s) to {0} ...'.format(destination))
-    xforms.save_analysis(destination,
-                         recording=ctx['rec'],
-                         modelspecs=modelspecs,
-                         xfspec=xfspec,
-                         figures=ctx['figures'],
-                         log=log_xf)
     # save in database as well
     nd.update_results_table(modelspecs[0])
-
-#plt.figure();
-#plt.plot(val['resp'].as_continuous().T)
-#plt.plot(val['pred'].as_continuous().T)
-#if 'state' in val.signals.keys():
-#    plt.plot(val['state'].as_continuous().T/100)
-#
-
 
