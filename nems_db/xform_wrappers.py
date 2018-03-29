@@ -283,8 +283,8 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
     return ctx
 
 
-def load_model_baphy_xform(cellid="chn020f-b1", batch=271,
-               modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01",eval=True):
+def load_model_baphy_xform(cellid, batch=271,
+               modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",eval=True):
 
     d=nd.get_results_file(batch,[modelname],[cellid])
     savepath=d['modelpath'][0]

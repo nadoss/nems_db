@@ -1026,6 +1026,9 @@ def baphy_load_recording(cellid, batch, options):
     options['batch'] = int(batch)
 
     d = db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm')
+    if len(d)==0:
+        raise ValueError('cellid/batch entry not found in NarfData')
+
     files = list(d['parm'])
 
     for i, parmfilepath in enumerate(files):
@@ -1292,17 +1295,20 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
 
 def baphy_data_path(options):
 
-    data_path = ("/auto/data/nems_db/recordings/{0}/{1}{2}_fs{3}/{4}.tgz"
+    data_path = ("/auto/data/nems_db/recordings/{0}/{1}{2}_fs{3}/"
                  .format(options["batch"], options['stimfmt'],
-                         options["chancount"], options["rasterfs"],
-                         options["cellid"]))
+                         options["chancount"], options["rasterfs"]))
+    data_file=data_path+options["cellid"]+'.tgz'
 
-    if not os.path.exists(data_path):
-        rec = baphy_load_recording(
+    log.info(data_file)
+    log.info(options)
+#    print(data_file)
+#    print(data_path)
+
+    if not os.path.exists(data_file):
+        rec = baphy_load_recording_nonrasterized(
                 options['cellid'], options['batch'], options
                 )
-        rec.save(data_path)
-    log.info(data_path)
-    log.info(options)
+        rec.save(data_file)
 
-    return data_path
+    return data_file

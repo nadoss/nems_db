@@ -34,7 +34,6 @@ POOL_RECYCLE = 7200
 # Create a database connection engine
 engine = create_engine(db_uri, pool_recycle=POOL_RECYCLE)
 
-
 # TODO: How to handle moving these inside a function?
 #       Could return them all in a dict each. Then any module that needs
 #       Tables can just import 'get_db_tables' function and use ala
@@ -61,10 +60,11 @@ Session = sessionmaker(bind=engine)
 
 # TODO: Come up with a better naming scheme for these? Goes against pep8
 #       but sort of makes sense with the sqlalchemy theme
-def Session():
-    uri = _get_db_uri()
-    engine = create_engine(uri, pool_recyle=POOL_RECYCLE)
-    return sessionmaker(bind=engine)
+#def Session():
+#    uri = _get_db_uri()
+#    #engine = create_engine(uri, pool_recyle=POOL_RECYCLE)
+#    engine = create_engine(uri)
+#    return sessionmaker(bind=engine)
 
 
 def Engine():
