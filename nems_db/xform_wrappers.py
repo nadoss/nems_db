@@ -285,25 +285,12 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
 
 
 def load_model_baphy_xform(cellid, batch=271,
-               modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",eval=True):
+               modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",eval_model=True):
 
     d=nd.get_results_file(batch,[modelname],[cellid])
     savepath=d['modelpath'][0]
-    logging.info('Loading modelspecs from {0}...'.format(savepath))
 
-    xfspec=xforms.load_xform(savepath + 'xfspec.json')
-
-    mspaths=[]
-    for file in os.listdir(savepath):
-        if file.startswith("modelspec"):
-            mspaths.append(savepath + "/" + file)
-    ctx=xforms.load_modelspecs([],uris=mspaths,IsReload=False)
-    ctx['IsReload']=True
-
-    if eval:
-        ctx,log_xf=xforms.evaluate(xfspec,ctx)
-
-    return xfspec,ctx
+    return xforms.load_analysis(filepath,eval_model)
 
 
 def quick_inspect(cellid="chn020f-b1", batch=271,

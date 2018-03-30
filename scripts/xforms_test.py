@@ -40,12 +40,18 @@ cellid = 'chn073b-b1'
 batch=259
 modelname = "env100_dlog_fir2x15_lvl1_dexp1_fit01"
 
-ctx=load_model_baphy_xform(cellid, batch,modelname)
+cellid='BRT033b-12-1'
+batch=301
+modelname = "nostim20pupbeh_stategain3_fitpjk01"
+
+cellid = 'TAR010c-45-1'
+batch=271
+modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
 """
-cellid = 'TAR010c-29-1'
+cellid = 'TAR010c-45-1'
 batch=271
-modelname = "ozgf100ch18_wcg18x2_fir2x15_lvl1_dexp1_fit01"
+modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
 autoPlot=True
 saveInDB=True
