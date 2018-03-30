@@ -45,14 +45,16 @@ batch=301
 modelname = "nostim20pupbeh_stategain3_fitpjk01"
 
 cellid = 'TAR010c-45-1'
-batch=271
-modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
-
-"""
 cellid = 'zee015e-04-1'
 cellid='BRT033b-12-1'
 batch=271
 modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
+
+"""
+cellid='BRT033b-12-1'
+batch=301
+modelname = "nostim20pupbeh_stategain3_fitpjk01"
+
 
 autoPlot=True
 saveInDB=True

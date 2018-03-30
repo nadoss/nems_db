@@ -289,7 +289,7 @@ def load_model_baphy_xform(cellid, batch=271,
 
     d=nd.get_results_file(batch,[modelname],[cellid])
     filepath=d['modelpath'][0]
-
+    print("Loading from " + filepath)
     return xforms.load_analysis(filepath,eval_model=eval_model)
 
 
