@@ -288,9 +288,9 @@ def load_model_baphy_xform(cellid, batch=271,
                modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",eval_model=True):
 
     d=nd.get_results_file(batch,[modelname],[cellid])
-    savepath=d['modelpath'][0]
+    filepath=d['modelpath'][0]
 
-    return xforms.load_analysis(filepath,eval_model)
+    return xforms.load_analysis(filepath,eval_model=eval_model)
 
 
 def quick_inspect(cellid="chn020f-b1", batch=271,

@@ -40,28 +40,25 @@ cellid = 'chn073b-b1'
 batch=259
 modelname = "env100_dlog_fir2x15_lvl1_dexp1_fit01"
 
-ctx=load_model_baphy_xform(cellid, batch,modelname)
-
 cellid='BRT033b-12-1'
 batch=301
 modelname = "nostim20pupbeh_stategain3_fitpjk01"
 
 """
-cellid = 'TAR010c-23-1'
+cellid='BRT033b-12-1'
 batch=271
-modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
+modelname = "ozgf100ch18_wcg18x2_fir2x15_lvl1_dexp1_fit01"
 
-xfspec,ctx=nw.load_model_baphy_xform(cellid, batch, modelname,eval=False)
+xfspec,ctx=nw.load_model_baphy_xform(cellid, batch, modelname,eval_model=True)
 
-for xfa in xfspec:
-    if xfa[0]=='nems.initializers.from_keywords_as_list':
-        pass
-    else:
-        ctx = xforms.evaluate_step(xfa, ctx)
+#for xfa in xfspec:
+#    if xfa[0]=='nems.initializers.from_keywords_as_list':
+#        pass
+#    else:
+#        ctx = xforms.evaluate_step(xfa, ctx)
 
 modelspecs=ctx['modelspecs']
 val=ctx['val'][0]
-
 
 nplt.plot_summary(val,modelspecs)
 

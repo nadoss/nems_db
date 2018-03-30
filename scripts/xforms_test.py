@@ -49,7 +49,8 @@ batch=271
 modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
 """
-cellid = 'TAR010c-45-1'
+cellid = 'zee015e-04-1'
+cellid='BRT033b-12-1'
 batch=271
 modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
