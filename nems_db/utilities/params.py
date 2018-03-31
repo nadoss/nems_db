@@ -6,7 +6,7 @@ from nems_db.xform_wrappers import load_model_baphy_xform
 import nems.modelspec as ms
 
 
-def fitted_parms_per_cell(cellids, batch, modelname, include_stats=True):
+def fitted_params_per_cell(cellids, batch, modelname, include_stats=True):
     # query nems_db results to get a list of modelspecs
     # (should end up with one modelspec per cell)
     modelspecs = _get_modelspecs(cellids, batch, modelname)
