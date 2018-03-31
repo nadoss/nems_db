@@ -15,12 +15,13 @@ def fitted_params_per_cell(cellids, batch, modelname, include_stats=True):
     index = stats.keys()
     columns = cellids
     data = {}
-    for c in cellids:
+    for i, c in enumerate(cellids):
         for k in index:
+            val = ms.try_scalar(stats[k]['values'][i])
             if c in data.keys():
-                data[c].append(stats[k]['values'])
+                data[c].append(val)
             else:
-                data[c] = [stats[k]['values']]
+                data[c] = [val]
 
     if include_stats:
         columns.insert(0, 'std')
