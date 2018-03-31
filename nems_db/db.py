@@ -732,6 +732,7 @@ def batch_comp(batch, modelnames=[], cellids=['%']):
 
     return results
 
+
 def get_results_file(batch, modelnames=[], cellids=['%']):
 
     session = Session()
@@ -749,4 +750,9 @@ def get_results_file(batch, modelnames=[], cellids=['%']):
 
     session.close()
 
-    return results
+    if results.empty:
+        raise ValueError("No result exists for:\n"
+                         "batch: {0}\nmodelnames: {1}\ncellids: {2}\n"
+                         .format(batch, modelnames, cellids))
+    else:
+        return results

@@ -285,26 +285,26 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
 
 
 def load_model_baphy_xform(cellid, batch=271,
-               modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",eval_model=True):
+                           modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
+                           eval_model=True):
 
-    d=nd.get_results_file(batch,[modelname],[cellid])
-    filepath=d['modelpath'][0]
+    d = nd.get_results_file(batch,[modelname],[cellid])
+    filepath = d['modelpath'][0]
     print("Loading from " + filepath)
-    return xforms.load_analysis(filepath,eval_model=eval_model)
+    return xforms.load_analysis(filepath, eval_model=eval_model)
 
 
 def quick_inspect(cellid="chn020f-b1", batch=271,
                modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"):
 
-    ctx=load_model_baphy_xform(cellid, batch,
-               modelname,eval=True)
+    ctx = load_model_baphy_xform(cellid, batch, modelname, eval=True)
 
-    modelspecs=ctx['modelspecs']
-    est=ctx['est']
-    val=ctx['val']
+    modelspecs = ctx['modelspecs']
+    est = ctx['est']
+    val = ctx['val']
     nplt.plot_summary(val, modelspecs)
 
-    return modelspecs,est,val
+    return modelspecs, est, val
 
 """
 # SPN example
