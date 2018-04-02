@@ -118,13 +118,13 @@ def generate_loader_xfspec(cellid,batch,loader):
         options["average_stim"]=False
         options["state_vars"]=['pupil']
 
-        state_signals=['pupil','behavior_state']
+        state_signals=['pupil','active']
         if loader=="nostim20pup0beh0":
-            permute_signals=['pupil','behavior_state']
+            permute_signals=['pupil','active']
         elif loader=="nostim20pup0beh":
             permute_signals=['pupil']
         elif loader=="nostim20pupbeh0":
-            permute_signals=['behavior_state']
+            permute_signals=['active']
         else:
             permute_signals=['']
 

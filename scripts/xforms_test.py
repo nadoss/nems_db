@@ -51,9 +51,9 @@ batch=271
 modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
 """
-cellid='BRT033b-12-1'
+cellid='TAR010c-60-1'
 batch=301
-modelname = "nostim20pupbeh_stategain3_fitpjk01"
+modelname = "nostim20pup0beh0_stategain3_fitpjk01"
 
 
 autoPlot=True
