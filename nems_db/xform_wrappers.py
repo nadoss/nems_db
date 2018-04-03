@@ -106,17 +106,22 @@ def generate_loader_xfspec(cellid,batch,loader):
         else:
             permute_signals=['']
 
-        recording_uri = get_recording_file(cellid,batch,options)
+        recording_uri = get_recording_file(cellid, batch, options)
         recordings = [recording_uri]
-        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-                  ['nems.xforms.make_state_signal', {'state_signals': state_signals, 'permute_signals': permute_signals, 'new_signalname': 'state'}]]
+        xfspec = [['nems.xforms.load_recordings',
+                   {'recording_uri_list': recordings}],
+                  ['nems.xforms.make_state_signal',
+                   {'state_signals': state_signals,
+                    'permute_signals': permute_signals,
+                    'new_signalname': 'state'}]]
 
-    elif loader in ["nostim20pup0beh0","nostim20pup0beh","nostim20pupbeh0","nostim20pupbeh"]:
-        options={'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
-          'chancount': 0, 'pupil': True, 'stim': False,
-          'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"]=False
-        options["state_vars"]=['pupil']
+    elif loader in ["nostim20pup0beh0", "nostim20pup0beh",
+                    "nostim20pupbeh0", "nostim20pupbeh"]:
+        options = {'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
+                   'chancount': 0, 'pupil': True, 'stim': False,
+                   'pupil_deblink': True, 'pupil_median': 1}
+        options["average_stim"] = False
+        options["state_vars"] = ['pupil']
 
         state_signals=['pupil','active']
         if loader=="nostim20pup0beh0":
