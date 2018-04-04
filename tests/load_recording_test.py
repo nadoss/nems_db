@@ -15,7 +15,7 @@ options['stim']=True
 cellid = 'TAR010c-18-1'
 batch = 271
 
-#rec = nb.baphy_load_recording(cellid, batch, options)
+rec = nb.baphy_load_recording(cellid, batch, options)
 rec2= nb.baphy_load_recording_nonrasterized(cellid, batch, options)
 
 stim1=rec['stim']

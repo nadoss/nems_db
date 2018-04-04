@@ -51,15 +51,15 @@ batch=271
 modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
 """
-cellid='TAR010c-60-1'
-batch=301
-modelname = "nostim20pup0beh0_stategain3_fitpjk01"
+cellid = 'TAR010c-18-1'
+batch = 271
+modelname = "ozgf100ch18_dlog_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
+autoPlot = True
+saveInDB = True
 
-autoPlot=True
-saveInDB=True
-
-log.info('Initializing modelspec(s) for cell/batch {0}/{1}...'.format(cellid,batch))
+log.info('Initializing modelspec(s) for cell/batch {0}/{1}...'.format(
+        cellid, batch))
 
 # parse modelname
 kws = modelname.split("_")
@@ -94,7 +94,7 @@ if autoPlot:
     xfspec.append(['nems.xforms.plot_summary',    {}])
 
 # actually do the fit
-#ctx, log_xf = xforms.evaluate(xfspec)
+# ctx, log_xf = xforms.evaluate(xfspec)
 # Evaluate the xforms
 
 # Create a log stream set to the debug level; add it as a root log handler
@@ -107,7 +107,7 @@ ch.setFormatter(formatter)
 rootlogger = logging.getLogger()
 rootlogger.addHandler(ch)
 
-ctx={}
+ctx = {}
 for xfa in xfspec:
     ctx = xforms.evaluate_step(xfa, ctx)
 
@@ -116,11 +116,11 @@ log.info('Done (re-)evaluating xforms.')
 ch.close()
 rootlogger.removeFilter(ch)
 
-log_xf=log_stream.getvalue()
+log_xf = log_stream.getvalue()
 
 
-modelspecs=ctx['modelspecs']
-val=ctx['val'][0]
+modelspecs = ctx['modelspecs']
+val = ctx['val'][0]
 
 # save some extra metadata
 destination = '/auto/data/tmp/modelspecs/{0}/{1}/{2}/'.format(
