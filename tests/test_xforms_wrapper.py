@@ -54,7 +54,7 @@ modelname = "nostim20pupbeh_stategain3_fitpjk01"
 """
 cellid = 'TAR010c-18-1'
 batch = 271
-modelname = "ozgf100ch18_dlog_wcg18x1_fir1x15_lvl1_dexp1_fit01"
+modelname = "ozgf100ch18_dlog_wcg18x1_stp1_fir1x15_lvl1_dexp1_fit01"
 
 
 xfspec, ctx = nw.load_model_baphy_xform(cellid, batch, modelname,
@@ -68,7 +68,6 @@ for xfa in xfspec:
 
 modelspecs = ctx['modelspecs']
 val = ctx['val'][0]
-#nplt.plot_summary(val, modelspecs)
+# nplt.plot_summary(val, modelspecs)
 
-nplt.quickplot(ctx, epoch='REFERENCE')
-
+nplt.quickplot(ctx)

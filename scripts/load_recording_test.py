@@ -11,17 +11,11 @@ options["rasterfs"] = 100
 options['includeprestim'] = 1
 #options["average_stim"]=True
 #options["state_vars"]=[]
+options["cellid"]=['TAR010c-02-1', 'TAR010c-07-1', 'TAR010c-09-1',
+       'TAR010c-11-1', 'TAR010c-12-1', 'TAR010c-13-1', 'TAR010c-15-1']
 
 cellid = 'TAR010c-18-1'
 batch=271
-
-options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
-  'chancount': 0, 'pupil': True, 'stim': False,
-  'pupil_deblink': True, 'pupil_median': 1}
-options["average_stim"]=False
-options["state_vars"]=['pupil']
-cellid='BRT033b-12-1'
-batch=301
 
 rec=nb.baphy_load_recording(cellid,batch,options)
 

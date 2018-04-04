@@ -587,7 +587,9 @@ def baphy_load_data(parmfilepath, options={}):
     # pull out a single cell if 'all' not specified
     spike_dict = {}
     for i, x in enumerate(unit_names):
-        if (x == options['cellid']) or (options['cellid'] == 'all'):
+        if (type(options['cellid']) is list) and (x in options['cellid']):
+            spike_dict[x] = spiketimes[i]
+        elif (x == options['cellid']) or (options['cellid'] == 'all'):
             spike_dict[x] = spiketimes[i]
 
     state_dict = {}
@@ -1075,13 +1077,15 @@ def baphy_load_recording(cellid, batch, options):
             options['pupil'] = True
             # create pupil signal if it exists
             rlen = raster_all.shape[1]
+            pcount = state_dict['pupiltrace'].shape[0]
             plen = state_dict['pupiltrace'].shape[1]
             if plen > rlen:
                 state_dict['pupiltrace'] = \
                     state_dict['pupiltrace'][:, 0:-(plen-rlen)]
             elif rlen > plen:
-                state_dict['pupiltrace'] = \
-                    state_dict['pupiltrace'][:, 0:-(rlen-plen)]
+                state_dict['pupiltrace']=np.append(state_dict['pupiltrace'],
+                          np.ones([pcount,rlen-plen])*np.nan,
+                          axis=1)
 
             # generate pupil signals
             t_pupil = nems.signal.RasterizedSignal(
@@ -1230,18 +1234,20 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
             # signal 1 (resp) to timestamps for spikes in signal 2 (t_resp)
             resp = resp.concatenate_time([resp, t_resp])
 
-        # TODO: raster_all not defined anymore, would this still be valid?
         try:
             options['pupil'] = True
+
             # create pupil signal if it exists
-            rlen = raster_all.shape[1]
+            rlen = int(t_resp.ntimes)
+            pcount = state_dict['pupiltrace'].shape[0]
             plen = state_dict['pupiltrace'].shape[1]
             if plen > rlen:
                 state_dict['pupiltrace'] = \
                     state_dict['pupiltrace'][:, 0:-(plen-rlen)]
             elif rlen > plen:
-                state_dict['pupiltrace'] = \
-                    state_dict['pupiltrace'][:, 0:-(rlen-plen)]
+                state_dict['pupiltrace']=np.append(state_dict['pupiltrace'],
+                          np.ones([pcount,rlen-plen])*np.nan,
+                          axis=1)
 
             # generate pupil signals
             t_pupil = nems.signal.RasterizedSignal(
