@@ -756,3 +756,37 @@ def get_results_file(batch, modelnames=[], cellids=['%']):
                          .format(batch, modelnames, cellids))
     else:
         return results
+
+def get_stable_batch_cellids(batch=None, cellid=None, label = 'raster'):
+    '''
+    Used to return only the information for units that were stable across all
+    rawids that match this batch and site (cellid)
+    '''
+    # eg, sql="SELECT * from NarfData WHERE batch=301 and cellid="
+    params = ()
+    sql = "SELECT cellid FROM NarfData WHERE 1"
+    sql_rawids = "SELECT DISTINCT rawid FROM NarfData WHERE 1" # for rawids
+    
+    if not batch is None:
+        sql += " AND batch=%s"
+        sql_rawids += " AND batch=%s"
+        params = params+(batch,)
+
+    if not cellid is None:
+       sql += " AND cellid like %s"
+       sql_rawids += " AND cellid like %s"
+       params = params+(cellid+"%",)
+
+    if not label is None:
+       sql += " AND label = %s"
+       sql_rawids += " AND label = %s"
+       params = params+(label,)
+       
+    rawids = pd.read_sql(sql=sql_rawids, con=engine, params=params)
+    nruns = len(rawids)
+    
+    d = pd.read_sql(sql=sql, con=engine, params=params)
+
+    d_out = np.sort(list(d['cellid'].value_counts().index[d['cellid'].value_counts().values == nruns]))
+
+    return d_out
