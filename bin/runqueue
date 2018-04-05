@@ -52,7 +52,7 @@ echo "QUEUEID=$QUEUEID QPID=$QPID TMP=$TMP" > $QUEUEOUTPATH/$QUEUEIDROUNDED/$QUE
 chmod a+w $QUEUEOUTPATH/$QUEUEIDROUNDED/$QUEUEID.*
 DEBUGLOG="$QUEUEOUTPATH/$QUEUEIDROUNDED/$QUEUEID.out"
 
-QUEUEPARMS=$(mysql --host=$DBSERVER --user=$DBUSER --password=$DBPASSWORD --raw --database=cell --execute="select parmstring from tQueue where id=$QUEUEID;" | tail -n +2)
+QUEUEPARMS=$(mysql --host=$DBSERVER --user=$DBUSER --password=$DBPASSWORD --port=$DBPORT --raw --database=cell --execute="select parmstring from tQueue where id=$QUEUEID;" | tail -n +2)
 export QUEUEPARMS
 
 # tell the queue where're starting
@@ -67,12 +67,14 @@ echo "about to get codehash from mysql" >> $DEBUGLOG
 # get codehash from mysql
 CODEHASH=$(mysql --host=$DBSERVER --user=$DBUSER --password=$DBPASSWORD --port=$DBPORT --database=cell -N -s --execute="select codehash from tQueue where id=$QUEUEID;")
 export CODEHASH
+echo "CODEHASH: $CODEHASH"
+
 DEFAULTNEMS=1
 export DEFAULTNEMS 
 
 echo "about to check for codehash stuff" >> $DEBUGLOG
 # check if codehash returned non-empty and jerb wasn't used
-if [ "$CODEHASH" != "master" || "$CODEHASH" != "" ]
+if [[ "$CODEHASH" != "NULL" && "$CODEHASH" != "master" && "$CODEHASH" != "" ]];
 then
     echo "making temp directory" >> $DEBUGLOG
     TMPDIR="tempnems$QUEUEID"
