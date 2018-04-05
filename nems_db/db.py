@@ -757,14 +757,14 @@ def get_results_file(batch, modelnames=[], cellids=['%']):
     else:
         return results
 
-def get_stable_batch_cell_data(batch=None, cellid=None):
+def get_stable_batch_cellids(batch=None, cellid=None, label = 'raster'):
     '''
     Used to return only the information for units that were stable across all
     rawids that match this batch and site (cellid)
     '''
     # eg, sql="SELECT * from NarfData WHERE batch=301 and cellid="
     params = ()
-    sql = "SELECT * FROM NarfData WHERE 1"
+    sql = "SELECT cellid FROM NarfData WHERE 1"
     sql_rawids = "SELECT DISTINCT rawid FROM NarfData WHERE 1" # for rawids
     
     if not batch is None:
@@ -777,19 +777,16 @@ def get_stable_batch_cell_data(batch=None, cellid=None):
        sql_rawids += " AND cellid like %s"
        params = params+(cellid+"%",)
 
-    
+    if not label is None:
+       sql += " AND label = %s"
+       sql_rawids += " AND label = %s"
+       params = params+(label,)
+       
     rawids = pd.read_sql(sql=sql_rawids, con=engine, params=params)
+    nruns = len(rawids)
     
-    for i, rawid in enumerate(rawids['rawid']):
-        if i == 0:
-            sql += " AND rawid=%s"
-            params = params+(rawid,)
-        else:
-            sql += " OR rawid=%s"
-            params = params+(rawid,)
-
     d = pd.read_sql(sql=sql, con=engine, params=params)
-    d.set_index(['cellid', 'groupid', 'label', 'rawid'], inplace=True)
-    d=d['filepath'].unstack('label')
 
-    return d
+    d_out = np.sort(list(d['cellid'].value_counts().index[d['cellid'].value_counts().values == nruns]))
+
+    return d_out
