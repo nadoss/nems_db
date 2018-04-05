@@ -169,6 +169,13 @@ def generate_fitter_xfspec(cellid,batch,fitter):
         xfspec.append(['nems.xforms.fit_basic', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
+    elif fitter == "fit01a":
+        # prefit strf
+        log.info("Prefitting STRF without other modules...")
+        xfspec.append(['nems.xforms.fit_basic_init', {}])
+        xfspec.append(['nems.xforms.fit_basic', {'maxiter': 1000, 'ftol': 1e-5}])
+        xfspec.append(['nems.xforms.predict',    {}])
+
     elif fitter == "fitjk01":
 
         log.info("n-fold fitting...")
@@ -195,10 +202,8 @@ def generate_fitter_xfspec(cellid,batch,fitter):
     return xfspec
 
 
-
-def fit_model_xforms_baphy(cellid,batch,modelname,
+def fit_model_xforms_baphy(cellid, batch, modelname,
                            autoPlot=True, saveInDB=False):
-
     """
     Fits a single NEMS model using data from baphy/celldb
     eg, 'ozgf100ch18_wc18x1_lvl1_fir15x1_dexp1_fit01'
@@ -223,7 +228,7 @@ def fit_model_xforms_baphy(cellid,batch,modelname,
     ]
     """
 
-    log.info('Initializing modelspec(s) for cell/batch {0}/{1}...'.format(cellid,batch))
+    log.info('Initializing modelspec(s) for cell/batch {0}/{1}...'.format(cellid, batch))
 
     # parse modelname
     kws = modelname.split("_")

@@ -36,9 +36,9 @@ batch=271
 modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
 #cellid = 'chn069b-d1'
-cellid = 'chn073b-b1'
+cellid = 'por017c-a1'
 batch=259
-modelname = "env100_dlog_fir2x15_lvl1_dexp1_fit01"
+modelname = "env100_fir2x15_lvl1_dexp1_fit01"
 
 cellid='BRT033b-12-1'
 cellid='TAR010c-06-1'
@@ -50,11 +50,14 @@ cellid = 'zee015e-04-1'
 cellid='BRT033b-12-1'
 batch=271
 modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
+cellid = 'TAR010c-18-1'
+batch=271
+modelname = "ozgf100ch18_wcg18x1_stp1_fir1x15_lvl1_fit01"
 
 """
-cellid='TAR010c-06-1'
-batch=301
-modelname = "nostim20pupbeh_stategain3_fitpjk01"
+cellid = 'TAR010c-18-1'
+batch=271
+modelname = "ozgf100ch18_wcg18x1_stp1_fir1x15_lvl1_fit01a"
 
 autoPlot = True
 saveInDB = True
@@ -80,14 +83,18 @@ meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
 
 # generate xfspec, which defines sequence of events to load data,
 # generate modelspec, fit data, plot results and save
-xfspec = nw.generate_loader_xfspec(cellid,batch,loader)
+xfspec = nw.generate_loader_xfspec(cellid, batch, loader)
 
-xfspec.append(['nems.initializers.from_keywords_as_list', {'keyword_string': modelspecname, 'meta': meta},[],['modelspecs']])
+#xfspec.append(['nems.initializers.from_keywords_as_list',
+#               {'keyword_string': modelspecname, 'meta': meta},
+#               [],['modelspecs']])
+xfspec.append(['nems.xforms.init_from_keywords',
+               {'keywordstring': modelspecname, 'meta': meta}])
 
-xfspec += nw.generate_fitter_xfspec(cellid,batch,fitter)
+xfspec += nw.generate_fitter_xfspec(cellid, batch, fitter)
 
 xfspec.append(['nems.analysis.api.standard_correlation', {},
-               ['est', 'val', 'modelspecs'],['modelspecs']])
+               ['est', 'val', 'modelspecs'], ['modelspecs']])
 
 if autoPlot:
     # GENERATE PLOTS
@@ -126,8 +133,8 @@ val = ctx['val'][0]
 # save some extra metadata
 destination = '/auto/data/tmp/modelspecs/{0}/{1}/{2}/'.format(
         batch,cellid,ms.get_modelspec_longname(modelspecs[0]))
-modelspecs[0][0]['meta']['modelpath']=destination
-modelspecs[0][0]['meta']['figurefile']=destination+'figure.0000.png'
+modelspecs[0][0]['meta']['modelpath'] = destination
+modelspecs[0][0]['meta']['figurefile'] = destination + 'figure.0000.png'
 
 # save results
 log.info('Saving modelspec(s) to {0} ...'.format(destination))
