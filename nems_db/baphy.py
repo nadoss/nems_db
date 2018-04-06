@@ -1075,10 +1075,10 @@ def baphy_load_recording(cellid, batch, options):
         else:
             resp = resp.concatenate_time([resp, t_resp])
 
-        try:
-            options['pupil'] = True
+        if options['pupil']:
+
             # create pupil signal if it exists
-            rlen = raster_all.shape[1]
+            rlen = int(t_resp.ntimes)
             pcount = state_dict['pupiltrace'].shape[0]
             plen = state_dict['pupiltrace'].shape[1]
             if plen > rlen:
@@ -1100,9 +1100,6 @@ def baphy_load_recording(cellid, batch, options):
                 pupil = t_pupil
             else:
                 pupil = pupil.concatenate_time([pupil, t_pupil])
-
-        except:
-            options['pupil'] = False
 
         if options['stim']:
             t_stim = dict_to_signal(stim_dict, fs=options['rasterfs'],
@@ -1154,11 +1151,10 @@ def baphy_load_recording(cellid, batch, options):
 
     resp.meta = options
 
-    if options['pupil']:
-        signals = {'resp': resp, 'pupil': pupil}
-    else:
-        signals = {'resp': resp}
+    signals = {'resp': resp}
 
+    if options['pupil']:
+        signals['pupil'] = pupil
     if options['stim']:
         signals['stim'] = stim
 
@@ -1234,10 +1230,9 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
         else:
             # TODO: concatenate_time for SignalTimeSeries has to add maxtime of
             # signal 1 (resp) to timestamps for spikes in signal 2 (t_resp)
-            resp = resp.concatenate_time([resp, t_resp])
+            resp = resp.append_time(t_resp)
 
-        try:
-            options['pupil'] = True
+        if options['pupil']:
 
             # create pupil signal if it exists
             rlen = int(t_resp.ntimes)
@@ -1262,8 +1257,6 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
                 pupil = t_pupil
             else:
                 pupil = pupil.concatenate_time([pupil, t_pupil])
-        except:
-            options['pupil'] = False
 
         if options['stim']:
             # accumulate dictionaries
@@ -1287,11 +1280,10 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
 
     resp.meta = options
 
-    if options['pupil']:
-        signals = {'resp': resp, 'pupil': pupil}
-    else:
-        signals = {'resp': resp}
+    signals = {'resp': resp}
 
+    if options['pupil']:
+        signals['pupil'] = pupil
     if options['stim']:
         signals['stim'] = stim
 
