@@ -58,9 +58,10 @@ batch=271
 modelname = "ozgf100ch18_dlog_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
 """
-cellid = 'por017a-a2'
-batch = 259
-modelname = "env100_fir2x15_lvl1_dexp1_fit01a"
+cellid = 'BRT017g-a1'
+batch=303
+modelname = "nostim20pupbeh_stategain3_fitpjk01"
+
 
 autoPlot = True
 saveInDB = True

@@ -1,12 +1,17 @@
 
 from nems_db.utilities.params import fitted_params_per_cell
+import nems_db.db as nd
 
-cellids = ['TAR010c-18-1', 'TAR010c-15-3', 'TAR010c-58-2',
-           'TAR017b-09-1', 'TAR017b-43-1']
 batch = 271
-modelname = 'ozgf100ch18_wc18x1_fir1x15_lvl1_dexp1_fit01'
+modelname = 'ozgf100ch18_wcg18x2_fir2x15_lvl1_dexp1_fit01'
+celldata=nd.get_batch_cells(batch=batch)
+cellids=list(celldata['cellid'])
+#cellids = ['TAR010c-18-1', 'TAR010c-15-3', 'TAR010c-58-2',
+#           'TAR017b-09-1', 'TAR017b-43-1']
+
 df = fitted_params_per_cell(cellids, batch, modelname, include_stats=True)
 print(df)
+print(df.loc['fir.basic---coefficients'].loc['std'])
 
 # example output (truncated)
 """                                                                                    mean  \
