@@ -173,7 +173,8 @@ def generate_fitter_xfspec(cellid,batch,fitter):
         # prefit strf
         log.info("Prefitting STRF without other modules...")
         xfspec.append(['nems.xforms.fit_basic_init', {}])
-        xfspec.append(['nems.xforms.fit_basic', {'maxiter': 1000, 'ftol': 1e-5}])
+        xfspec.append(['nems.xforms.fit_basic',
+                       {'maxiter': 1000, 'ftol': 1e-5}])
         xfspec.append(['nems.xforms.predict',    {}])
 
     elif fitter == "fitjk01":
@@ -236,29 +237,27 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     modelspecname = "_".join(kws[1:-1])
     fitter = kws[-1]
 
-    if 'CODEHASH' in os.environ.keys():
-        githash=os.environ['CODEHASH']
-    else:
-        githash=""
     meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
             'loader': loader, 'fitter': fitter, 'modelspecname': modelspecname,
-            'username': 'svd', 'labgroup': 'lbhb', 'public': 1,
-            'githash': githash, 'recording': loader}
+            'username': 'nems', 'labgroup': 'lbhb', 'public': 1,
+            'githash': os.environ.get('CODEHASH', ''),
+            'recording': loader}
 
     # generate xfspec, which defines sequence of events to load data,
     # generate modelspec, fit data, plot results and save
-    xfspec = generate_loader_xfspec(cellid,batch,loader)
+    xfspec = generate_loader_xfspec(cellid, batch, loader)
 
-    xfspec.append(['nems.xforms.init_from_keywords', {'keywordstring': modelspecname, 'meta': meta}])
-    #xfspec.append(['nems.initializers.from_keywords_as_list',
-    #               {'keyword_string': modelspecname, 'meta': meta},
-    #               [],['modelspecs']])
+    xfspec.append(['nems.xforms.init_from_keywords',
+                   {'keywordstring': modelspecname, 'meta': meta}])
+    # xfspec.append(['nems.initializers.from_keywords_as_list',
+    #                {'keyword_string': modelspecname, 'meta': meta},
+    #                [],['modelspecs']])
 
-    xfspec+=generate_fitter_xfspec(cellid,batch,fitter)
+    xfspec += generate_fitter_xfspec(cellid, batch, fitter)
 
-    #xfspec.append(['nems.xforms.add_summary_statistics',    {}])
+    # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
     xfspec.append(['nems.analysis.api.standard_correlation', {},
-                   ['est', 'val', 'modelspecs'],['modelspecs']])
+                   ['est', 'val', 'modelspecs'], ['modelspecs']])
 
     if autoPlot:
         # GENERATE PLOTS
@@ -269,15 +268,14 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     ctx, log_xf = xforms.evaluate(xfspec)
 
     # save some extra metadata
-    modelspecs=ctx['modelspecs']
+    modelspecs = ctx['modelspecs']
 
     destination = '/auto/data/nems_db/results/{0}/{1}/{2}/'.format(
-            batch,cellid,ms.get_modelspec_longname(modelspecs[0]))
-    modelspecs[0][0]['meta']['modelpath']=destination
-    modelspecs[0][0]['meta']['figurefile']=destination+'figure.0000.png'
+            batch, cellid, ms.get_modelspec_longname(modelspecs[0]))
+    modelspecs[0][0]['meta']['modelpath'] = destination
+    modelspecs[0][0]['meta']['figurefile'] = destination+'figure.0000.png'
 
     # save results
-
     log.info('Saving modelspec(s) to {0} ...'.format(destination))
     xforms.save_analysis(destination,
                          recording=ctx['rec'],
@@ -288,7 +286,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
 
     # save in database as well
     if saveInDB:
-        # TODO : db results
+        # TODO : db results finalized?
         nd.update_results_table(modelspecs[0])
 
     return ctx

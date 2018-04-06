@@ -36,25 +36,25 @@ batch=271
 modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
 #cellid = 'chn069b-d1'
-cellid = 'chn073b-b1'
-batch=259
-modelname = "env100_dlog_fir2x15_lvl1_dexp1_fit01"
 
 cellid='BRT033b-12-1'
 batch=301
 modelname = "nostim20pupbeh_stategain3_fitpjk01"
 
-cellid='TAR010c-18-1'
-batch=271
+cellid = 'TAR010c-18-1'
+batch = 271
 modelname = "ozgf100ch18_wcg18x2_fir2x15_lvl1_dexp1_fit01"
 
 cellid = 'TAR010c-22-1'
 batch = 301
 modelname = "nostim20pupbeh_stategain3_fitpjk01"
-"""
 cellid = 'TAR010c-18-1'
 batch = 271
 modelname = "ozgf100ch18_dlog_wcg18x1_fir1x15_lvl1_dexp1_fit01"
+"""
+cellid = 'sti028a-a1'
+batch = 259
+modelname = "env100_stp2_fir2x15_lvl1_dexp1_fit01"
 
 
 xfspec, ctx = nw.load_model_baphy_xform(cellid, batch, modelname,

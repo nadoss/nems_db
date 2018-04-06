@@ -53,11 +53,14 @@ modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 cellid = 'TAR010c-18-1'
 batch=271
 modelname = "ozgf100ch18_wcg18x1_stp1_fir1x15_lvl1_fit01"
+cellid = 'BRT026c-30-1'
+batch=271
+modelname = "ozgf100ch18_dlog_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
 """
-cellid = 'TAR010c-18-1'
-batch=271
-modelname = "ozgf100ch18_wcg18x1_stp1_fir1x15_lvl1_fit01a"
+cellid = 'por017a-a2'
+batch = 259
+modelname = "env100_fir2x15_lvl1_dexp1_fit01a"
 
 autoPlot = True
 saveInDB = True
@@ -72,14 +75,11 @@ modelspecname = "_".join(kws[1:-1])
 fitter = kws[-1]
 
 # figure out some meta data to save in the model spec
-if 'CODEHASH' in os.environ.keys():
-    githash=os.environ['CODEHASH']
-else:
-    githash=""
 meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
         'loader': loader, 'fitter': fitter, 'modelspecname': modelspecname,
         'username': 'svd', 'labgroup': 'lbhb', 'public': 1,
-        'githash': githash, 'recording': loader}
+        'githash': os.environ.get('CODEHASH', ''),
+        'recording': loader}
 
 # generate xfspec, which defines sequence of events to load data,
 # generate modelspec, fit data, plot results and save
@@ -132,7 +132,7 @@ val = ctx['val'][0]
 
 # save some extra metadata
 destination = '/auto/data/tmp/modelspecs/{0}/{1}/{2}/'.format(
-        batch,cellid,ms.get_modelspec_longname(modelspecs[0]))
+        batch, cellid, ms.get_modelspec_longname(modelspecs[0]))
 modelspecs[0][0]['meta']['modelpath'] = destination
 modelspecs[0][0]['meta']['figurefile'] = destination + 'figure.0000.png'
 
