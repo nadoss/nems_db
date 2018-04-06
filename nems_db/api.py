@@ -8,9 +8,6 @@ log = logging.getLogger(__name__)
 from flask import abort, Response, request
 from flask_restful import Resource
 from sqlalchemy import and_
-#    https://webargs.readthedocs.io/en/latest/
-from webargs import fields
-from webargs.flaskparser import use_kwargs
 
 from .db import NarfResults, Session
 from .query import grep_dirtree
@@ -20,15 +17,6 @@ RECORDING_REGEX = re.compile(r"[\-_a-zA-Z0-9]+\.tar\.gz$")
 CELLID_REGEX = re.compile(r"^[\-_a-zA-Z0-9]+$")
 BATCH_REGEX = re.compile(r"^\d+$")
 QUERY_REGEX = re.compile(r"[\-_a-zA-Z0-9\.]+$")
-
-query_args = {
-    'batch': fields.Int(required=False),
-    'cellid': fields.Str(required=False),
-    'recording': fields.Str(required=False),
-    'modelname': fields.Str(required=False),
-    'fitter': fields.Str(required=False),
-    'date': fields.Str(required=False)
-}
 
 
 def as_path(recording, modelname, fitter, date):
@@ -173,7 +161,6 @@ class QueryInterface(Resource):
         self.search_dir = kwargs['search_dir']
         self.results_uri = kwargs['results_uri']
 
-    # @use_kwargs(query_args)
     def get(self, **kwargs):
         '''
         Returns a JSON of URIs that matched the kwargs.
