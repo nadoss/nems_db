@@ -59,9 +59,9 @@ batch=271
 modelname = "ozgf100ch18_dlog_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
 """
-cellid = 'BRT017g-a1'
-batch=303
-modelname = "nostim20pupbeh_stategain3_fitpjk01"
+cellid = 'eno025c-c1'
+batch = 271
+modelname = "ozgf100ch18_dlog_wcg18x2_stp2_fir2x15_lvl1_dexp1_fit01"
 
 
 autoPlot = True
@@ -85,20 +85,20 @@ meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
 
 # generate xfspec, which defines sequence of events to load data,
 # generate modelspec, fit data, plot results and save
-recording_uri = nw.generate_recording_uri(cellid,batch,loader)
+recording_uri = nw.generate_recording_uri(cellid, batch, loader)
 
 # generate xfspec, which defines sequence of events to load data,
 # generate modelspec, fit data, plot results and save
-#xfspec = nw.generate_loader_xfspec(cellid,batch,loader)
+# xfspec = nw.generate_loader_xfspec(cellid,batch,loader)
 xfspec = xhelp.generate_loader_xfspec(loader, recording_uri)
 
-#xfspec.append(['nems.initializers.from_keywords_as_list',
+# xfspec.append(['nems.initializers.from_keywords_as_list',
 #               {'keyword_string': modelspecname, 'meta': meta},
 #               [],['modelspecs']])
 xfspec.append(['nems.xforms.init_from_keywords',
                {'keywordstring': modelspecname, 'meta': meta}])
 
-#xfspec += nw.generate_fitter_xfspec(cellid, batch, fitter)
+# xfspec += nw.generate_fitter_xfspec(cellid, batch, fitter)
 xfspec += xhelp.generate_fitter_xfspec(fitter)
 
 xfspec.append(['nems.analysis.api.standard_correlation', {},
