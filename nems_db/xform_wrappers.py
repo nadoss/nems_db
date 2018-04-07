@@ -22,6 +22,7 @@ import nems_db.db as nd
 from nems.recording import Recording
 from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
 import nems.xforms as xforms
+import nems.xform_helper as xhelp
 
 import logging
 log = logging.getLogger(__name__)
@@ -203,6 +204,69 @@ def generate_fitter_xfspec(cellid,batch,fitter):
     return xfspec
 
 
+def generate_recording_uri(cellid,batch,loader):
+
+    options = {}
+    if loader == "ozgf100ch18":
+        options["stimfmt"] = "ozgf"
+        options["chancount"] = 18
+        options["rasterfs"] = 100
+        options['includeprestim'] = 1
+        options["average_stim"]=True
+        options["state_vars"]=[]
+        #recording_uri = get_recording_uri(cellid,batch,options)
+        recording_uri = get_recording_file(cellid,batch,options)
+
+    elif loader == "ozgf100ch18pup":
+        options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf',
+          'chancount': 18, 'pupil': True, 'stim': True,
+          'pupil_deblink': True, 'pupil_median': 1}
+        options["average_stim"]=False
+        options["state_vars"]=['pupil']
+        recording_uri = get_recording_file(cellid,batch,options)
+
+    elif loader == "nostim10pup":
+        options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
+          'chancount': 0, 'pupil': True, 'stim': False,
+          'pupil_deblink': True, 'pupil_median': 1}
+        options["average_stim"]=False
+        options["state_vars"]=['pupil']
+        recording_uri = get_recording_file(cellid,batch,options)
+
+    elif loader in ["nostim10pup0beh0","nostim10pup0beh","nostim10pupbeh0","nostim10pupbeh"]:
+        options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
+          'chancount': 0, 'pupil': True, 'stim': False,
+          'pupil_deblink': True, 'pupil_median': 1}
+        options["average_stim"]=False
+        options["state_vars"]=['pupil']
+
+        recording_uri = get_recording_file(cellid, batch, options)
+
+    elif loader in ["nostim20pup0beh0", "nostim20pup0beh",
+                    "nostim20pupbeh0", "nostim20pupbeh"]:
+        options = {'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
+                   'chancount': 0, 'pupil': True, 'stim': False,
+                   'pupil_deblink': True, 'pupil_median': 1}
+        options["average_stim"] = False
+        options["state_vars"] = ['pupil']
+
+        recording_uri = get_recording_file(cellid,batch,options)
+
+    elif loader == "env100":
+        options["stimfmt"] = "envelope"
+        options["chancount"] = 0
+        options["rasterfs"] = 100
+        options['includeprestim'] = 1
+        options["average_stim"]=True
+        options["state_vars"]=[]
+        recording_uri = get_recording_file(cellid,batch,options)
+
+    else:
+        raise ValueError('unknown loader string')
+
+    return recording_uri
+
+
 def fit_model_xforms_baphy(cellid, batch, modelname,
                            autoPlot=True, saveInDB=False):
     """
@@ -243,9 +307,11 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
             'githash': os.environ.get('CODEHASH', ''),
             'recording': loader}
 
+    recording_uri = generate_recording_uri(cellid,batch,loader)
+
     # generate xfspec, which defines sequence of events to load data,
     # generate modelspec, fit data, plot results and save
-    xfspec = generate_loader_xfspec(cellid, batch, loader)
+    xfspec = xhelp.generate_loader_xfspec(loader, recording_uri)
 
     xfspec.append(['nems.xforms.init_from_keywords',
                    {'keywordstring': modelspecname, 'meta': meta}])
@@ -253,7 +319,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     #                {'keyword_string': modelspecname, 'meta': meta},
     #                [],['modelspecs']])
 
-    xfspec += generate_fitter_xfspec(cellid, batch, fitter)
+    xfspec += xhelp.generate_fitter_xfspec(fitter)
 
     # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
     xfspec.append(['nems.analysis.api.standard_correlation', {},

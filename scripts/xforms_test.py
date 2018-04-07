@@ -14,6 +14,7 @@ import io
 #import nems.recording
 import nems.modelspec as ms
 import nems.xforms as xforms
+import nems.xform_helper as xhelp
 
 #import nems_db.baphy as nb
 import nems_db.db as nd
@@ -84,7 +85,12 @@ meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
 
 # generate xfspec, which defines sequence of events to load data,
 # generate modelspec, fit data, plot results and save
-xfspec = nw.generate_loader_xfspec(cellid, batch, loader)
+recording_uri = nw.generate_recording_uri(cellid,batch,loader)
+
+# generate xfspec, which defines sequence of events to load data,
+# generate modelspec, fit data, plot results and save
+#xfspec = nw.generate_loader_xfspec(cellid,batch,loader)
+xfspec = xhelp.generate_loader_xfspec(loader, recording_uri)
 
 #xfspec.append(['nems.initializers.from_keywords_as_list',
 #               {'keyword_string': modelspecname, 'meta': meta},
@@ -92,7 +98,8 @@ xfspec = nw.generate_loader_xfspec(cellid, batch, loader)
 xfspec.append(['nems.xforms.init_from_keywords',
                {'keywordstring': modelspecname, 'meta': meta}])
 
-xfspec += nw.generate_fitter_xfspec(cellid, batch, fitter)
+#xfspec += nw.generate_fitter_xfspec(cellid, batch, fitter)
+xfspec += xhelp.generate_fitter_xfspec(fitter)
 
 xfspec.append(['nems.analysis.api.standard_correlation', {},
                ['est', 'val', 'modelspecs'], ['modelspecs']])
