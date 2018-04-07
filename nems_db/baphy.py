@@ -1214,11 +1214,6 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
         #       spike_dict,fs=options['rasterfs'],event_times=event_times)
 
         # generate response signal
-
-        # TODO: cellids not defined anymore (from spike_time_to_raster)?
-        #       changed to spike_dict.keys() for now, seems like it should be
-        #       about the same?
-        # TODO: create this subclass. maxtime paramter needs to be implemented.
         t_resp = nems.signal.PointProcess(
                 fs=options['rasterfs'], data=spike_dict,
                 name='resp', recording=cellid, chans=list(spike_dict.keys()),
@@ -1228,8 +1223,7 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
         if i == 0:
             resp = t_resp
         else:
-            # TODO: concatenate_time for SignalTimeSeries has to add maxtime of
-            # signal 1 (resp) to timestamps for spikes in signal 2 (t_resp)
+            # concatenate onto end of main response signal
             resp = resp.append_time(t_resp)
 
         if options['pupil']:
@@ -1242,8 +1236,8 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
                 state_dict['pupiltrace'] = \
                     state_dict['pupiltrace'][:, 0:-(plen-rlen)]
             elif rlen > plen:
-                state_dict['pupiltrace']=np.append(state_dict['pupiltrace'],
-                          np.ones([pcount,rlen-plen])*np.nan,
+                state_dict['pupiltrace'] = np.append(state_dict['pupiltrace'],
+                          np.ones([pcount, rlen-plen])*np.nan,
                           axis=1)
 
             # generate pupil signals
@@ -1265,7 +1259,7 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
                     epochs=event_times, recording=cellid
                     )
 
-            if i==0:
+            if i == 0:
                 print("i={0} starting".format(i))
                 stim = t_stim
             else:
@@ -1311,9 +1305,9 @@ def baphy_data_path(options):
     log.info(options)
 
     if not os.path.exists(data_file):
-#        rec = baphy_load_recording(
-#                options['cellid'], options['batch'], options
-#                )
+        #  rec = baphy_load_recording(
+        #          options['cellid'], options['batch'], options
+        #          )
         rec = baphy_load_recording_nonrasterized(
                 options['cellid'], options['batch'], options
                 )
