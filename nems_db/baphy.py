@@ -46,7 +46,7 @@ def baphy_mat2py(s):
 
     s4 = re.sub(r'\(([0-9]*)\)', r'[\g<1>]', s3)
 
-    s5 = re.sub(r'\.([A-Za-z][A-Za-z1-9_]+)', r"['\g<1>']", s4)
+    s5 = re.sub(r'\.([A-Za-z][A-Za-z0-9_]+)', r"['\g<1>']", s4)
 
     s6 = re.sub(r'([0-9]+) ', r"\g<0>,", s5)
     s6 = re.sub(r'NaN ', r"np.nan,", s6)
@@ -194,6 +194,8 @@ def baphy_stim_cachefile(exptparams, options, parmfilepath=None):
     # include all parameter values, even defaults, in filename
     fields = RefObject['UserDefinableFields']
     for cnt1 in range(0, len(fields), 3):
+        #print(fields[cnt1])
+        #print(dstr)
         dstr = "{0}-{1}".format(dstr, RefObject[fields[cnt1]])
 
     dstr = re.sub(r":", r"", dstr)

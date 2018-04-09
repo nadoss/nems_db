@@ -3,12 +3,11 @@ import nems_db.baphy as nb
 import nems_db.xform_wrappers as nw
 import numpy as np
 
-test_batch = 303
+batch = 306
 test_save = False
 
-if test_batch == 271:
+if batch == 271:
     cellid = 'TAR010c-18-1'
-    batch = 271
     options = {}
     options["stimfmt"] = "ozgf"
     options["chancount"] = 18
@@ -16,19 +15,27 @@ if test_batch == 271:
     options['includeprestim'] = 1
     options['stim']=True
 
-elif test_batch == 303:
+elif batch == 303:
     cellid = 'BRT017g-a1'
-    batch = 303
     options = {'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
                'chancount': 0, 'pupil': True, 'stim': False,
                'pupil_deblink': True, 'pupil_median': 1}
+
+elif batch == 306:
+    cellid = 'fre196b-08-1'
+    options = {}
+    options["stimfmt"] = "envelope"
+    options["chancount"] = 0
+    options["rasterfs"] = 100
+    options['includeprestim'] = 1
+
 
 rec = nb.baphy_load_recording(cellid, batch, options)
 rec2 = nb.baphy_load_recording_nonrasterized(cellid, batch, options)
 
 if 'stim' in rec.signals.keys():
-    stim1=rec['stim']
-    stim2=rec2['stim'].rasterize()
+    stim1 = rec['stim']
+    stim2 = rec2['stim'].rasterize()
     assert (np.sum(np.square(stim1.as_continuous()-stim2.as_continuous())))==0
 
 resp1=rec['resp']

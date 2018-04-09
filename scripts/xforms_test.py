@@ -57,11 +57,12 @@ modelname = "ozgf100ch18_wcg18x1_stp1_fir1x15_lvl1_fit01"
 cellid = 'BRT026c-30-1'
 batch=271
 modelname = "ozgf100ch18_dlog_wcg18x1_fir1x15_lvl1_dexp1_fit01"
-
-"""
 cellid = 'eno025c-c1'
-batch = 271
-modelname = "ozgf100ch18_dlog_wcg18x2_stp2_fir2x15_lvl1_dexp1_fit01"
+"""
+cellid = 'fre196b-08-1'
+batch=306
+modelname = "env100_stp2_fir2x15_lvl1_dexp1_fit01"
+
 
 
 autoPlot = True
