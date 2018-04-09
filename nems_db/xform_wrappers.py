@@ -364,7 +364,9 @@ def load_model_baphy_xform(cellid, batch=271,
 
     d = nd.get_results_file(batch,[modelname],[cellid])
     filepath = d['modelpath'][0]
-    print("Loading from " + filepath)
+    # Removed print statement here since load_analysis already does it.
+    # Was causing a lot of log spam when loading many modelspecs.
+    # -jacob 4-8-2018
     return xforms.load_analysis(filepath, eval_model=eval_model)
 
 

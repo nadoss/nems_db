@@ -1,52 +1,59 @@
+from nems_db.params import fitted_params_per_batch, plot_all_params
 
-from nems_db.utilities.params import fitted_params_per_cell
-import nems_db.db as nd
 
 batch = 271
 modelname = 'ozgf100ch18_wcg18x2_fir2x15_lvl1_dexp1_fit01'
-celldata=nd.get_batch_cells(batch=batch)
-cellids=list(celldata['cellid'])
-#cellids = ['TAR010c-18-1', 'TAR010c-15-3', 'TAR010c-58-2',
-#           'TAR017b-09-1', 'TAR017b-43-1']
 
-df = fitted_params_per_cell(cellids, batch, modelname, include_stats=True)
+# Can use mod_key='fn', mod_key='id', etc to display more info in index.
+# Formatted as: '<mspec_index--mod_key--parameter_name>'
+# So mod_key='id' gives something like: '0--wc15x1--coefficients'.
+df = fitted_params_per_batch(batch, modelname, include_stats=True, mod_key='')
 print(df)
-print(df.loc['fir.basic---coefficients'].loc['std'])
+
+# Not handling arrays yet, just scalar params
+scalar_df = df.iloc[4:]
+plot_all_params(scalar_df)
+#print(df.loc['fir.basic---coefficients'].loc['std'])
 
 # example output (truncated)
-"""                                                                                    mean  \
-weight_channels.basic---coefficients         [[-0.15906195968842768, 0.3843768871847452, 0....
-fir.basic---coefficients                     [[0.1656700154496499, 0.8316530120326318, 0.55...
-levelshift.levelshift---level                                                         0.203298
-nonlinearity.double_exponential---amplitude                                           0.218866
-nonlinearity.double_exponential---base                                               0.0515607
-nonlinearity.double_exponential---kappa                                               0.117831
-nonlinearity.double_exponential---shift                                              -0.118553
+"""
+                                                              mean  \
+0--mean                   [0.6428007712025126, 1.0079999163612767]
+0--sd                    [0.4607000818990278, 0.41440913122937123]
+1--coefficients  [[0.22104853498428548, 0.3174402233420055, 0.0...
+2--level                                                 -0.267411
+3--amplitude                                              0.466702
+3--base                                                  0.0105623
+3--kappa                                                  0.316573
+3--shift                                                  0.363319
 
-                                                                                           std  \
-weight_channels.basic---coefficients         [[0.40403571595725013, 0.7331578015069575, 0.9...
-fir.basic---coefficients                     [[0.29994481838872183, 0.17224095449207594, 0....
-levelshift.levelshift---level                                                         0.968149
-nonlinearity.double_exponential---amplitude                                           0.291951
-nonlinearity.double_exponential---base                                               0.0491721
-nonlinearity.double_exponential---kappa                                               0.240207
-nonlinearity.double_exponential---shift                                               0.943362
+                                                               std  \
+0--mean                   [1.6975881781786677, 1.1959587701620937]
+0--sd                    [0.38278921895876744, 0.6927154706654831]
+1--coefficients  [[2.06565150846871, 2.262147292283313, 2.05974...
+2--level                                                  0.839406
+3--amplitude                                                1.4866
+3--base                                                   0.207179
+3--kappa                                                  0.849237
+3--shift                                                   0.83023
 
-                                                                                  TAR010c-18-1  \
-weight_channels.basic---coefficients         [[0.0887608158389488, 0.14670809100674873, 0.1...
-fir.basic---coefficients                     [[0.12310242089016128, 0.7140680798391459, 0.3...
-levelshift.levelshift---level                                                        -0.678747
-nonlinearity.double_exponential---amplitude                                           0.795443
-nonlinearity.double_exponential---base                                                0.140065
-nonlinearity.double_exponential---kappa                                              0.0326327
-nonlinearity.double_exponential---shift                                               0.825605
+                                                      bbl086b-02-1  \
+0--mean                  [0.23013036492763214, 0.6304225736574065]
+0--sd                     [0.5907674068753405, 0.5820608771096261]
+1--coefficients  [[-0.014322736264307473, -0.003411946901872087...
+2--level                                               -0.00398745
+3--amplitude                                              0.147603
+3--base                                                 -0.0497636
+3--kappa                                               -0.00249152
+3--shift                                                0.00799814
 
-                                                                                  TAR010c-15-3  \
-weight_channels.basic---coefficients         [[-0.07748810621554607, -0.10302684755519784, ...
-fir.basic---coefficients                     [[0.27883152277346396, 0.8797231551859458, 0.4...
-levelshift.levelshift---level                                                          1.99263
-nonlinearity.double_exponential---amplitude                                          0.0796707
-nonlinearity.double_exponential---base                                               0.0639726
-nonlinearity.double_exponential---kappa                                               0.530775
-nonlinearity.double_exponential---shift                                               -1.85929
+                                                      bbl086b-03-1  \
+0--mean                   [0.4346427550345195, 0.7570562046631056]
+0--sd                    [0.40228958193793546, 0.9470540791882479]
+1--coefficients  [[0.013146256809296559, -0.012661030896089427,...
+2--level                                                0.00369642
+3--amplitude                                             0.0887719
+3--base                                                 -0.0147672
+3--kappa                                                 -0.012191
+3--shift                                                 0.0145183
 """
