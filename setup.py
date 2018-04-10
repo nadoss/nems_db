@@ -10,7 +10,7 @@ with codecs.open('README.md', encoding='utf-8') as f:
     long_description = f.read()
 
 GENERAL_REQUIRES = ['flask', 'flask_restful', 'numpy',
-                    'scipy', 'matplotlib', 'pandas']
+                    'scipy', 'matplotlib', 'pandas','sqlalchemy','pymysql']
 
 setup(
     name=NAME,
