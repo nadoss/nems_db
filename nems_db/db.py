@@ -55,16 +55,16 @@ gCellMaster = Base.classes.gCellMaster
 
 # import this when another module needs to use the database connection.
 # used like a class - ex: 'session = Session()'
-Session = sessionmaker(bind=engine)
+#Session = sessionmaker(bind=engine)
 
 
 # TODO: Come up with a better naming scheme for these? Goes against pep8
 #       but sort of makes sense with the sqlalchemy theme
-#def Session():
-#    uri = _get_db_uri()
-#    #engine = create_engine(uri, pool_recyle=POOL_RECYCLE)
-#    engine = create_engine(uri)
-#    return sessionmaker(bind=engine)
+def Session():
+    uri = _get_db_uri()
+    #engine = create_engine(uri, pool_recyle=POOL_RECYCLE)
+    engine = create_engine(uri)
+    return sessionmaker(bind=engine)()
 
 
 def Engine():
@@ -766,7 +766,7 @@ def get_stable_batch_cellids(batch=None, cellid=None, label = 'raster'):
     params = ()
     sql = "SELECT cellid FROM NarfData WHERE 1"
     sql_rawids = "SELECT DISTINCT rawid FROM NarfData WHERE 1" # for rawids
-    
+
     if not batch is None:
         sql += " AND batch=%s"
         sql_rawids += " AND batch=%s"
@@ -781,10 +781,10 @@ def get_stable_batch_cellids(batch=None, cellid=None, label = 'raster'):
        sql += " AND label = %s"
        sql_rawids += " AND label = %s"
        params = params+(label,)
-       
+
     rawids = pd.read_sql(sql=sql_rawids, con=engine, params=params)
     nruns = len(rawids)
-    
+
     d = pd.read_sql(sql=sql, con=engine, params=params)
 
     d_out = np.sort(list(d['cellid'].value_counts().index[d['cellid'].value_counts().values == nruns]))
