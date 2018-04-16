@@ -1007,17 +1007,7 @@ def dict_to_signal(stim_dict, fs=100, event_times=None, signal_name='stim',
             epochs=event_times, recording=recording_name
             )
     stim = empty_stim.replace_epochs(stim_dict)
-
-    return stim
-
-
-def dict_to_SignalDictionary(stim_dict, fs=100, event_times=None,
-                             signal_name='stim', recording_name='rec'):
-
-    stim = nems.signal.SignalDictionary(
-            data=stim_dict, fs=fs, name=signal_name,
-            epochs=event_times, recording=recording_name
-            )
+    #stim = stim.normalize('minmax')
 
     return stim
 
@@ -1039,7 +1029,7 @@ def baphy_load_recording(cellid, batch, options):
     options['batch'] = int(batch)
 
     d = db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm')
-    if len(d)==0:
+    if len(d) == 0:
         raise ValueError('cellid/batch entry not found in NarfData')
 
     files = list(d['parm'])
@@ -1246,8 +1236,7 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
             t_pupil = nems.signal.RasterizedSignal(
                     fs=options['rasterfs'], data=state_dict['pupiltrace'],
                     name='pupil', recording=cellid, chans=['pupil'],
-                    epochs=event_times
-                    )
+                    epochs=event_times)
 
             if i == 0:
                 pupil = t_pupil
