@@ -590,14 +590,31 @@ def baphy_load_data(parmfilepath, options={}):
     siteid = globalparams['SiteID']
     unit_names = [(siteid + "-" + x) for x in unit_names]
     # print(unit_names)
+    
+    # test for special case where psuedo cellid suffix has been added to
+    # cellid by stripping anything after a "_" underscore in the cellid (list)
+    # provided
+    pcellids = options['cellid'] if (type(options['cellid']) is list) else [options['cellid']]
+    cellids = []
+    pcellidmap={}
+    for pcellid in pcellids:
+        t = pcellid.split("_")
+        cellids.append(t[0])
+        pcellidmap[t[0]] = pcellid
+        
     # pull out a single cell if 'all' not specified
     spike_dict = {}
     for i, x in enumerate(unit_names):
-        if (type(options['cellid']) is list) and (x in options['cellid']):
+        if (cellids[0]=='all'):
             spike_dict[x] = spiketimes[i]
-        elif (x == options['cellid']) or (options['cellid'] == 'all'):
-            spike_dict[x] = spiketimes[i]
-
+        elif (x in cellids):
+            spike_dict[pcellidmap[x]] = spiketimes[i]
+            
+            
+            
+    if not spike_dict:
+        raise ValueError('No matching cellid in baphy spike file')
+        
     state_dict = {}
     if options['pupil']:
         try:
