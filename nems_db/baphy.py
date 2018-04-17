@@ -303,7 +303,7 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
     # convert spike times from samples since trial started to
     # (approximate) seconds since experiment started (matched to exptevents)
     totalunits = 0
-    spiketimes = []  # list of spike event times for each unit in this recording
+    spiketimes = []  # list of spike event times for each unit in recording
     unit_names = []  # string suffix for each unit (CC-U)
     chan_names = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
     for c in range(0, chancount):
@@ -323,6 +323,7 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
                     ff = (st[0, :] == trialidx)
                     this_spike_events = (st[1, ff]
                                          + Offset_spikefs[np.int(trialidx-1)])
+                    log.info('Comment: %s', comment)
                     if comment == 'PC-cluster sorted by mespca.m':
                         # remove last spike, which is stray
                         this_spike_events = this_spike_events[:-1]
@@ -349,7 +350,7 @@ def baphy_load_pupil_trace(pupilfilepath, exptevents, options={}):
     trial. need to make sure the big_rs vector aligns with the other signals
     """
 
-    options=options.copy()
+    options = options.copy()
     rasterfs = options.get('rasterfs', 1000)
     pupil_offset = options.get('pupil_offset', 0.75)
     pupil_deblink = options.get('pupil_deblink', True)
@@ -380,34 +381,35 @@ def baphy_load_pupil_trace(pupilfilepath, exptevents, options={}):
     p = matdata['pupil_data']
     params = p['params']
     if 'pupil_variable_name' not in options:
-        options['pupil_variable_name']=params[0][0]['default_var'][0][0][0]
-        print("Using default pupil_variable_name: "+options['pupil_variable_name'])
+        options['pupil_variable_name'] = params[0][0]['default_var'][0][0][0]
+        print("Using default pupil_variable_name: " +
+              options['pupil_variable_name'])
     if 'pupil_algorithm' not in options:
-        options['pupil_algorithm']=params[0][0]['default'][0][0][0]
-        print("Using default pupil_algorithm: "+options['pupil_algorithm'])
+        options['pupil_algorithm'] = params[0][0]['default'][0][0][0]
+        print("Using default pupil_algorithm: " + options['pupil_algorithm'])
 
-    results=p['results'][0][0][-1][options['pupil_algorithm']]
-    pupil_diameter=np.array(results[0][options['pupil_variable_name']][0][0])
-    if pupil_diameter.shape[0]==1:
-        pupil_diameter=pupil_diameter.T
+    results = p['results'][0][0][-1][options['pupil_algorithm']]
+    pupil_diameter = np.array(results[0][options['pupil_variable_name']][0][0])
+    if pupil_diameter.shape[0] == 1:
+        pupil_diameter = pupil_diameter.T
     print("pupil_diameter.shape: " + str(pupil_diameter.shape))
 
     fs_approximate = 10  # approx video framerate
     if pupil_deblink:
         dp = np.abs(np.diff(pupil_diameter, axis=0))
         blink = np.zeros(dp.shape)
-        blink[dp > np.mean(dp) + 6*np.std(dp)]= 1
-        box=np.ones([fs_approximate])/(fs_approximate)
-        print(blink.shape)
-        blink=np.convolve(blink[:,0],box,mode='same')
-        blink[blink>0]=1
-        blink[blink<=0]=0
-        onidx,=np.where(np.diff(blink) > 0)
-        offidx,=np.where(np.diff(blink) < 0)
-        if onidx[0]>offidx[0]:
-            onidx=np.concatenate((np.array([0]),onidx))
-        if len(onidx)>len(offidx):
-            offidx=np.concatenate((offidx,np.array([len(blink)])))
+        blink[dp > np.mean(dp) + 6*np.std(dp)] = 1
+        box = np.ones([fs_approximate]) / (fs_approximate)
+        # print(blink.shape)
+        blink = np.convolve(blink[:, 0], box, mode='same')
+        blink[blink > 0] = 1
+        blink[blink <= 0] = 0
+        onidx, = np.where(np.diff(blink) > 0)
+        offidx, = np.where(np.diff(blink) < 0)
+        if onidx[0] > offidx[0]:
+            onidx = np.concatenate((np.array([0]), onidx))
+        if len(onidx) > len(offidx):
+            offidx = np.concatenate((offidx, np.array([len(blink)])))
         deblinked = pupil_diameter.copy()
         for i, x1 in enumerate(onidx):
             x2 = offidx[i]

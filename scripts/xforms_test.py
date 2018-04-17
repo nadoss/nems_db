@@ -64,11 +64,15 @@ modelname = "env100_dlogn2_fir2x15_lvl1_dexp1_fit01"
 cellid = 'fre196b-15-2'
 batch = 306
 modelname = "env100_fir2x15_lvl1_dexp1_fit01"
-
-"""
 cellid = 'BRT026c-02-1'
 batch = 301
 modelname = "nostim20pupbeh_stategain3_fitpjk01"
+
+"""
+
+cellid = 'TAR010c-18-1'
+batch=271
+modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
 autoPlot = True
 saveInDB = True

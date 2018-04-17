@@ -207,13 +207,13 @@ def generate_fitter_xfspec(cellid,batch,fitter):
 def generate_recording_uri(cellid,batch,loader):
 
     options = {}
-    if loader == "ozgf100ch18":
+    if loader in ["ozgf100ch18", "ozgf100ch18n"]:
         options["stimfmt"] = "ozgf"
         options["chancount"] = 18
         options["rasterfs"] = 100
         options['includeprestim'] = 1
-        options["average_stim"]=True
-        options["state_vars"]=[]
+        options["average_stim"] = True
+        options["state_vars"] = []
         #recording_uri = get_recording_uri(cellid,batch,options)
         recording_uri = get_recording_file(cellid,batch,options)
 
@@ -252,7 +252,7 @@ def generate_recording_uri(cellid,batch,loader):
 
         recording_uri = get_recording_file(cellid,batch,options)
 
-    elif loader == "env100":
+    elif loader in ["env100", "env100n"]:
         options["stimfmt"] = "envelope"
         options["chancount"] = 0
         options["rasterfs"] = 100
