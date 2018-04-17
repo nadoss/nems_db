@@ -757,7 +757,7 @@ def get_results_file(batch, modelnames=[], cellids=['%']):
     else:
         return results
 
-def get_stable_batch_cellids(batch=None, cellid=None, label = 'raster'):
+def get_stable_batch_cellids(batch=None, cellid=None, rawid=None, label ='parm'):
     '''
     Used to return only the information for units that were stable across all
     rawids that match this batch and site (cellid)
@@ -780,13 +780,24 @@ def get_stable_batch_cellids(batch=None, cellid=None, label = 'raster'):
     if not label is None:
        sql += " AND label = %s"
        sql_rawids += " AND label = %s"
-       params = params+(label,)
+       params = params+(label,) 
+       
+    if not rawid is None:
+        sql += " AND rawid IN %s"
+        rawid=tuple([str(i) for i in rawid])
+        params = params+(rawid,)
 
-    rawids = pd.read_sql(sql=sql_rawids, con=engine, params=params)
-    nruns = len(rawids)
-
+    else:
+        rawid = pd.read_sql(sql=sql_rawids, con=engine, params=params)
+        rawid = tuple([str(i[0]) for i in rawid.values])
+        sql += " AND rawid IN %s"
+        params = params+(rawid,)
+            
+    print('returning cellids stable across rawids:')
+    print(rawid)
+    
     d = pd.read_sql(sql=sql, con=engine, params=params)
 
-    d_out = np.sort(list(d['cellid'].value_counts().index[d['cellid'].value_counts().values == nruns]))
-
-    return d_out
+    cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
+    
+    return cellids
