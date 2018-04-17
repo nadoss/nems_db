@@ -37,14 +37,16 @@ cellid = 'zee019b-a1'
 batch=271
 modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
-#cellid = 'chn069b-d1'
+cellid = 'chn069b-d1'
+cellid='chn009b-a1'
 cellid = 'por017c-a1'
 batch=259
 modelname = "env100_fir2x15_lvl1_dexp1_fit01"
 
 cellid='BRT033b-12-1'
 cellid='TAR010c-06-1'
-batch=301
+cellid = 'BRT026c-02-1'
+batch = 301
 modelname = "nostim20pupbeh_stategain3_fitpjk01"
 
 cellid = 'TAR010c-45-1'
@@ -53,26 +55,21 @@ cellid = 'BRT033b-12-1'
 cellid = 'TAR010c-18-1'
 cellid = 'BRT026c-30-1'
 cellid = 'eno025c-c1'
-batch=271
+cellid = 'TAR010c-18-1'
+batch = 271
 modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 modelname = "ozgf100ch18_wcg18x1_stp1_fir1x15_lvl1_fit01"
 modelname = "ozgf100ch18_dlog_wcg18x1_fir1x15_lvl1_dexp1_fit01"
 
-cellid='chn009b-a1'
-batch=259
-modelname = "env100_dlogn2_fir2x15_lvl1_dexp1_fit01"
 cellid = 'fre196b-15-2'
 batch = 306
-modelname = "env100_fir2x15_lvl1_dexp1_fit01"
-cellid = 'BRT026c-02-1'
-batch = 301
-modelname = "nostim20pupbeh_stategain3_fitpjk01"
+modelname = "env100_dlogn2_fir2x15_lvl1_dexp1_fit01"
 
 """
-
 cellid = 'TAR010c-18-1'
-batch=271
-modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fit01"
+batch = 271
+modelname = "ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_basic-cd"
+
 
 autoPlot = True
 saveInDB = True

@@ -51,158 +51,6 @@ def get_recording_uri(cellid,batch,options={}):
                 batch, cellid, optstring)
     return url
 
-def generate_loader_xfspec(cellid,batch,loader):
-
-    options = {}
-    if loader == "ozgf100ch18":
-        options["stimfmt"] = "ozgf"
-        options["chancount"] = 18
-        options["rasterfs"] = 100
-        options['includeprestim'] = 1
-        options["average_stim"]=True
-        options["state_vars"]=[]
-        #recording_uri = get_recording_uri(cellid,batch,options)
-        recording_uri = get_recording_file(cellid,batch,options)
-        recordings = [recording_uri]
-        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-                  ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
-                  ['nems.xforms.average_away_stim_occurrences',{}]]
-
-    elif loader == "ozgf100ch18pup":
-        options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf',
-          'chancount': 18, 'pupil': True, 'stim': True,
-          'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"]=False
-        options["state_vars"]=['pupil']
-        recording_uri = get_recording_file(cellid,batch,options)
-        recordings = [recording_uri]
-        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-                  ['nems.xforms.make_state_signal', {'state_signals': ['pupil'], 'permute_signals': [], 'new_signalname': 'state'}]]
-
-    elif loader == "nostim10pup":
-        options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
-          'chancount': 0, 'pupil': True, 'stim': False,
-          'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"]=False
-        options["state_vars"]=['pupil']
-        recording_uri = get_recording_file(cellid,batch,options)
-        recordings = [recording_uri]
-        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-                  ['nems.preprocessing.make_state_signal', {'state_signals': ['pupil'], 'permute_signals': [], 'new_signalname': 'state'},['rec'],['rec']]]
-
-    elif loader in ["nostim10pup0beh0","nostim10pup0beh","nostim10pupbeh0","nostim10pupbeh"]:
-        options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
-          'chancount': 0, 'pupil': True, 'stim': False,
-          'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"]=False
-        options["state_vars"]=['pupil']
-
-        state_signals=['pupil','behavior_state']
-        if loader=="nostim10pup0beh0":
-            permute_signals=['pupil','behavior_state']
-        elif loader=="nostim10pup0beh":
-            permute_signals=['pupil']
-        elif loader=="nostim10pupbeh0":
-            permute_signals=['behavior_state']
-        else:
-            permute_signals=['']
-
-        recording_uri = get_recording_file(cellid, batch, options)
-        recordings = [recording_uri]
-        xfspec = [['nems.xforms.load_recordings',
-                   {'recording_uri_list': recordings}],
-                  ['nems.xforms.make_state_signal',
-                   {'state_signals': state_signals,
-                    'permute_signals': permute_signals,
-                    'new_signalname': 'state'}]]
-
-    elif loader in ["nostim20pup0beh0", "nostim20pup0beh",
-                    "nostim20pupbeh0", "nostim20pupbeh"]:
-        options = {'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
-                   'chancount': 0, 'pupil': True, 'stim': False,
-                   'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"] = False
-        options["state_vars"] = ['pupil']
-
-        state_signals=['pupil','active']
-        if loader=="nostim20pup0beh0":
-            permute_signals=['pupil','active']
-        elif loader=="nostim20pup0beh":
-            permute_signals=['pupil']
-        elif loader=="nostim20pupbeh0":
-            permute_signals=['active']
-        else:
-            permute_signals=['']
-
-        recording_uri = get_recording_file(cellid,batch,options)
-        recordings = [recording_uri]
-        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-                  ['nems.preprocessing.make_state_signal', {'state_signals': state_signals, 'permute_signals': permute_signals, 'new_signalname': 'state'},['rec'],['rec']]]
-
-    elif loader == "env100":
-        options["stimfmt"] = "envelope"
-        options["chancount"] = 0
-        options["rasterfs"] = 100
-        options['includeprestim'] = 1
-        options["average_stim"]=True
-        options["state_vars"]=[]
-        recording_uri = get_recording_file(cellid,batch,options)
-        recordings = [recording_uri]
-        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-                  ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
-                  ['nems.xforms.average_away_stim_occurrences',{}]]
-
-    else:
-        raise ValueError('unknown loader string')
-
-    return xfspec
-
-
-def generate_fitter_xfspec(cellid,batch,fitter):
-
-    xfspec=[]
-
-    # parse the fit spec: Use gradient descent on whole data set(Fast)
-    if fitter == "fit01":
-        # prefit strf
-        log.info("Prefitting STRF without other modules...")
-        xfspec.append(['nems.xforms.fit_basic_init', {}])
-        xfspec.append(['nems.xforms.fit_basic', {}])
-        xfspec.append(['nems.xforms.predict',    {}])
-
-    elif fitter == "fit01a":
-        # prefit strf
-        log.info("Prefitting STRF without other modules...")
-        xfspec.append(['nems.xforms.fit_basic_init', {}])
-        xfspec.append(['nems.xforms.fit_basic',
-                       {'maxiter': 1000, 'ftol': 1e-5}])
-        xfspec.append(['nems.xforms.predict',    {}])
-
-    elif fitter == "fitjk01":
-
-        log.info("n-fold fitting...")
-        xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 5}])
-        xfspec.append(['nems.xforms.fit_nfold', {}])
-        xfspec.append(['nems.xforms.predict',    {}])
-
-    elif fitter == "fitpjk01":
-
-        log.info("n-fold fitting...")
-        xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 10}])
-        xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold',  {}])
-        xfspec.append(['nems.xforms.fit_nfold', {}])
-        xfspec.append(['nems.xforms.predict',    {}])
-
-    elif fitter == "fit02":
-        # no pre-fit
-        log.info("Performing full fit...")
-        xfspec.append(['nems.xforms.fit_basic', {}])
-        xfspec.append(['nems.xforms.predict',    {}])
-    else:
-        raise ValueError('unknown fitter string ' + fitter)
-
-    return xfspec
-
 
 def generate_recording_uri(cellid,batch,loader):
 
@@ -212,57 +60,36 @@ def generate_recording_uri(cellid,batch,loader):
         options["chancount"] = 18
         options["rasterfs"] = 100
         options['includeprestim'] = 1
-        options["average_stim"] = True
-        options["state_vars"] = []
-        #recording_uri = get_recording_uri(cellid,batch,options)
-        recording_uri = get_recording_file(cellid,batch,options)
 
-    elif loader == "ozgf100ch18pup":
-        options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf',
-          'chancount': 18, 'pupil': True, 'stim': True,
-          'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"]=False
-        options["state_vars"]=['pupil']
-        recording_uri = get_recording_file(cellid,batch,options)
+    elif loader in ["ozgf100ch18pup", "ozgf100ch18npup"]:
+        options = {'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf',
+                   'chancount': 18, 'pupil': True, 'stim': True,
+                   'pupil_deblink': True, 'pupil_median': 1}
 
-    elif loader == "nostim10pup":
-        options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
-          'chancount': 0, 'pupil': True, 'stim': False,
-          'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"]=False
-        options["state_vars"]=['pupil']
-        recording_uri = get_recording_file(cellid,batch,options)
-
-    elif loader in ["nostim10pup0beh0","nostim10pup0beh","nostim10pupbeh0","nostim10pupbeh"]:
-        options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
-          'chancount': 0, 'pupil': True, 'stim': False,
-          'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"]=False
-        options["state_vars"]=['pupil']
-
-        recording_uri = get_recording_file(cellid, batch, options)
+    elif loader in ["nostim10pup0beh0", "nostim10pup0beh",
+                    "nostim10pupbeh0", "nostim10pupbeh",
+                    "nostim10pup"]:
+        options = {'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
+                   'chancount': 0, 'pupil': True, 'stim': False,
+                   'pupil_deblink': True, 'pupil_median': 1}
 
     elif loader in ["nostim20pup0beh0", "nostim20pup0beh",
                     "nostim20pupbeh0", "nostim20pupbeh"]:
         options = {'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': True, 'stim': False,
                    'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"] = False
-        options["state_vars"] = ['pupil']
-
-        recording_uri = get_recording_file(cellid,batch,options)
 
     elif loader in ["env100", "env100n"]:
         options["stimfmt"] = "envelope"
         options["chancount"] = 0
         options["rasterfs"] = 100
         options['includeprestim'] = 1
-        options["average_stim"]=True
-        options["state_vars"]=[]
-        recording_uri = get_recording_file(cellid,batch,options)
 
     else:
         raise ValueError('unknown loader string')
+
+    #recording_uri = get_recording_uri(cellid,batch,options)
+    recording_uri = get_recording_file(cellid,batch,options)
 
     return recording_uri
 
