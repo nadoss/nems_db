@@ -1037,8 +1037,12 @@ def baphy_load_recording(cellid, batch, options):
     options['runclass'] = options.get('runclass', None)
     options['cellid'] = options.get('cellid', cellid)
     options['batch'] = int(batch)
-
-    d = db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm')
+    options['rawid'] = options.get('rawid', None)    
+    
+    d = db.get_batch_cell_data(batch=batch, 
+                               cellid=cellid, 
+                               rawid = options['rawid'], 
+                               label='parm')
     if len(d)==0:
         raise ValueError('cellid/batch entry not found in NarfData')
 

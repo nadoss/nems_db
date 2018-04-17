@@ -591,7 +591,8 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None
        params = params+(cellid+"%",)
 
     if not rawid is None:
-       sql += " AND rawid=%s"
+       sql += " AND rawid IN %s"
+       rawid = tuple([str(i) for i in list(rawid)])
        params = params+(rawid,)
 
     if not label is None:
