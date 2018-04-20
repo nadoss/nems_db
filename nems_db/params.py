@@ -13,9 +13,11 @@ log = logging.getLogger(__name__)
 
 
 def fitted_params_per_batch(batch, modelname, include_stats=True,
-                            mod_key='id'):
+                            mod_key='id', limit=None):
     celldata = nd.get_batch_cells(batch=batch)
     cellids = celldata['cellid'].tolist()
+    if limit is not None:
+        cellids = cellids[:limit]
     return fitted_params_per_cell(cellids, batch, modelname,
                                   include_stats=include_stats, mod_key=mod_key)
 
@@ -53,13 +55,18 @@ def fitted_params_per_cell(cellids, batch, modelname, include_stats=True,
 def _get_modelspecs(cellids, batch, modelname):
     modelspecs = []
     for c in cellids:
-        _, ctx = load_model_baphy_xform(c, batch, modelname, eval_model=False)
-        mspecs = ctx['modelspecs']
-        if len(mspecs) > 1:
-            # TODO: Take mean? only want one modelspec per cell
-            raise NotImplementedError("No support yet for multi-modelspec fit")
-        else:
-            this_mspec = mspecs[0]
+        try:
+            _, ctx = load_model_baphy_xform(c, batch, modelname, eval_model=False)
+            mspecs = ctx['modelspecs']
+            if len(mspecs) > 1:
+                # TODO: Take mean? only want one modelspec per cell
+                raise NotImplementedError("No support yet for multi-modelspec fit")
+            else:
+                this_mspec = mspecs[0]
+        except ValueError as e:
+            log.warn("Error when retrieving modelspec for: %s", c)
+            log.exception(e)
+            pass
         modelspecs.append(this_mspec)
     return modelspecs
 

@@ -2,12 +2,14 @@ from nems_db.params import fitted_params_per_batch, plot_all_params
 
 
 batch = 271
+limit = 30
 modelname = 'ozgf100ch18_wcg18x2_fir2x15_lvl1_dexp1_fit01'
 
 # Can use mod_key='fn', mod_key='id', etc to display more info in index.
 # Formatted as: '<mspec_index--mod_key--parameter_name>'
 # So mod_key='id' gives something like: '0--wc15x1--coefficients'.
-df = fitted_params_per_batch(batch, modelname, include_stats=True, mod_key='')
+df = fitted_params_per_batch(batch, modelname, include_stats=True, mod_key='',
+                             limit=limit)
 print(df)
 
 # Not handling arrays yet, just scalar params
