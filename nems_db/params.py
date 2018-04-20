@@ -31,7 +31,10 @@ def fitted_params_per_cell(cellids, batch, modelname, include_stats=True,
     stats = ms.summary_stats(modelspecs, mod_key=mod_key)
 
     index = stats.keys()
-    columns = cellids
+    try:
+        columns = [m[0].get('meta').get('cellid') for m in modelspecs]
+    except:
+        columns = cellids
     data = {}
     for i, c in enumerate(cellids):
         for k in index:
@@ -61,26 +64,32 @@ def _get_modelspecs(cellids, batch, modelname):
             mspecs = ctx['modelspecs']
             if len(mspecs) > 1:
                 # TODO: Take mean? only want one modelspec per cell
-                stats = ms.summary_stats(mspecs)
-                temp_spec = copy.deepcopy(mspecs[0])
-                phis = [m['phi'] for m in temp_spec]
-                # TODO: This is awful. Make this better.
-                for p in phis:
-                    for k in p:
-                        for s in stats:
-                            if k in s:
-                                p[k] = stats[s]['mean']
-                for m, p in zip(temp_spec, phis):
-                    m['phi'] = p
-                this_mspec = temp_spec
-                log.info("temp_spec ended up being: %s", temp_spec)
+                #       Or just use first mspec with warning?
+                #       Or could just use all of the mspecs and extend
+                #       instead of append
+#                stats = ms.summary_stats(mspecs)
+#                temp_spec = copy.deepcopy(mspecs[0])
+#                phis = [m['phi'] for m in temp_spec]
+#                # TODO: This is awful. Make this better.
+#                for p in phis:
+#                    for k in p:
+#                        for s in stats:
+#                            if k in s:
+#                                p[k] = stats[s]['mean']
+#                for m, p in zip(temp_spec, phis):
+#                    m['phi'] = p
+#                this_mspec = temp_spec
+                #this_mspec = mspecs
+                log.warning("Fit had multiple modelspecs, using first one")
             else:
-                this_mspec = mspecs[0]
+                #this_mspec = mspecs[0]
+                pass
+                modelspecs.append(mspecs[0])
+            modelspecs.append(mspecs[0])
         except ValueError as e:
-            log.warn("Error when retrieving modelspec for: %s", c)
+            log.warning("Error when retrieving modelspec for: %s", c)
             log.exception(e)
             pass
-        modelspecs.append(this_mspec)
     return modelspecs
 
 
