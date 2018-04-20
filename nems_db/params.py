@@ -1,4 +1,5 @@
 import logging
+import copy
 
 import pandas as pd
 import numpy as np
@@ -60,7 +61,19 @@ def _get_modelspecs(cellids, batch, modelname):
             mspecs = ctx['modelspecs']
             if len(mspecs) > 1:
                 # TODO: Take mean? only want one modelspec per cell
-                raise NotImplementedError("No support yet for multi-modelspec fit")
+                stats = ms.summary_stats(mspecs)
+                temp_spec = copy.deepcopy(mspecs[0])
+                phis = [m['phi'] for m in temp_spec]
+                # TODO: This is awful. Make this better.
+                for p in phis:
+                    for k in p:
+                        for s in stats:
+                            if k in s:
+                                p[k] = stats[s]['mean']
+                for m, p in zip(temp_spec, phis):
+                    m['phi'] = p
+                this_mspec = temp_spec
+                log.info("temp_spec ended up being: %s", temp_spec)
             else:
                 this_mspec = mspecs[0]
         except ValueError as e:
@@ -74,8 +87,12 @@ def _get_modelspecs(cellids, batch, modelname):
 def plot_all_params(df, dists=None, num_bins=100):
     params = df.index.tolist()
     arrays = [_param_as_array(df, loc=p) for p in params]
+    flat = [x for sublist in arrays for x in sublist]
+    if len(flat) > len(params):
+        # Must have had array parameters, need to adjust
+        params = _flatten_param_names(df)
     figs = [plot_parameter(a, dists=dists, num_bins=num_bins, title=p)
-            for a, p in zip(arrays, params)]
+            for a, p in zip(flat, params)]
     return figs
 
 # https://stackoverflow.com/questions/6620471/fitting-empirical-distribution-
@@ -127,7 +144,28 @@ def _param_as_array(df, iloc=None, loc=None, dtype='float32'):
     elif loc is not None:
         param = df.loc[loc]
 
-    return np.array(param).astype(dtype)
+    if not np.isscalar(param):
+        param = np.array(param).astype(dtype)
+        params = param.flatten()
+        return params
+    else:
+        return np.array(param).astype(dtype)
+    
+def _flatten_param_names(df):
+    # TODO: repeats some code from plot params, could probably
+    #       make this more efficient.
+    params = df.index.tolist()
+    flat_params = []
+    for p in params:
+        vals = df.loc[p]
+        if not np.isscalar(vals):
+            vals = np.array(vals)
+            flat_vals = vals.flatten()
+            param = ['%s%d'%(p,i) for i,_ in enumerate(flat_vals)]
+        else:
+            param = p
+        flat_params.append(param)
+    return flat_params
 
 
 def _fit_distribution(array, dist_type):
