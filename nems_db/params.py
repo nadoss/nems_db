@@ -93,17 +93,6 @@ def _get_modelspecs(cellids, batch, modelname):
     return modelspecs
 
 
-def plot_all_params(df, dists=None, num_bins=100):
-    params = df.index.tolist()
-    arrays = [_param_as_array(df, loc=p) for p in params]
-    flat = [x for sublist in arrays for x in sublist]
-    if len(flat) > len(params):
-        # Must have had array parameters, need to adjust
-        params = _flatten_param_names(df)
-    figs = [plot_parameter(a, dists=dists, num_bins=num_bins, title=p)
-            for a, p in zip(flat, params)]
-    return figs
-
 # https://stackoverflow.com/questions/6620471/fitting-empirical-distribution-
 # to-theoretical-ones-with-scipy-python
 def plot_parameter(p, dists=None, num_bins=100, title=None):
@@ -142,24 +131,41 @@ def plot_parameter(p, dists=None, num_bins=100, title=None):
     return fig
 
 
-def _param_as_array(df, iloc=None, loc=None, dtype='float32'):
-    if (iloc is not None) and (loc is not None):
-        raise ValueError("Must provide one of either iloc or loc, got both")
-    if (iloc is None) and (loc is None):
-        raise ValueError("Must provide one of either iloc or loc, got neither")
+def plot_all_params(df, dists=None, num_bins=100, dtype='float32', 
+                    only_scalars=True):
+    params = df.index.tolist()
+    arrays = []
+    names = []
+    for p in params:
+        val = df.loc[p]
+        
+        if not np.isscalar(val.iat[0]):
+            if only_scalars:
+                log.info("<only_scalars> was True, skipping non-scalar"
+                         " parameter: %s" % p)
+                pass
+            else:
+                #print("\nfor parameter %s, non-scalar" % p)
+                combined = np.array(val.tolist())
+                #print("\ncombined was: %s" % combined)
+                n = combined[0].shape[0]
+                flattened = np.concatenate(combined, axis=0)
+                #print("\nflattened was: %s" % flattened)
+                per_n = flattened.reshape(n, -1).T.tolist()
+                #print("\nper_n was: %s" % per_n)
+                for i, _ in enumerate(per_n):
+                    names.append('%s_index_%d' % (p, i))
+                arrays.extend(per_n)
+        else:
+            a = np.array(val).astype(dtype)
+            arrays.append(a)
+            names.append(p)
 
-    if iloc is not None:
-        param = df.iloc[iloc]
-    elif loc is not None:
-        param = df.loc[loc]
+    figs = [plot_parameter(a, dists=dists, num_bins=num_bins, title=p)
+            for a, p in zip(arrays, names)]
+    return figs
 
-    if not np.isscalar(param):
-        param = np.array(param).astype(dtype)
-        params = param.flatten()
-        return params
-    else:
-        return np.array(param).astype(dtype)
-    
+
 def _flatten_param_names(df):
     # TODO: repeats some code from plot params, could probably
     #       make this more efficient.

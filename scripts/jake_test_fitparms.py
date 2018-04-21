@@ -6,19 +6,19 @@ from nems_db.params import fitted_params_per_batch, plot_all_params
 #modelname = 'ozgf100ch18_wcg18x2_fir2x15_lvl1_dexp1_fit01'
 
 batch = 303
-limit = 10
+limit = None
 modelname = 'nostim20pupbeh_stategain3_basic-nf'
 
 # Can use mod_key='fn', mod_key='id', etc to display more info in index.
 # Formatted as: '<mspec_index--mod_key--parameter_name>'
 # So mod_key='id' gives something like: '0--wc15x1--coefficients'.
-df = fitted_params_per_batch(batch, modelname, include_stats=True, mod_key='',
+df = fitted_params_per_batch(batch, modelname, include_stats=False, mod_key='',
                              limit=limit)
 print(df)
 
 # Not handling arrays yet, just scalar params
 #scalar_df = df.iloc[4:]
-#plot_all_params(df)
+plot_all_params(df, only_scalars=False)
 #print(df.loc['fir.basic---coefficients'].loc['std'])
 
 # example output (truncated)
