@@ -150,7 +150,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
 
     # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
     xfspec.append(['nems.analysis.api.standard_correlation', {},
-                   ['est', 'val', 'modelspecs'], ['modelspecs']])
+                   ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
 
     if autoPlot:
         # GENERATE PLOTS

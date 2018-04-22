@@ -530,6 +530,10 @@ def _fetch_attr_value(modelspec, k, default=0.0):
                 finally:
                     try:
                         v = np.asscalar(v)
+                        if np.isnan(v):
+                            log.warning("value for %s, converting to 0.0 to avoid errors when"
+                                        " saving to mysql", k)
+                            v = 0.0
                     except BaseException:
                         pass
             else:
@@ -780,8 +784,8 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None, label ='parm')
     if not label is None:
        sql += " AND label = %s"
        sql_rawids += " AND label = %s"
-       params = params+(label,) 
-       
+       params = params+(label,)
+
     if not rawid is None:
         sql += " AND rawid IN %s"
         rawid=tuple([str(i) for i in rawid])
@@ -792,12 +796,12 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None, label ='parm')
         rawid = tuple([str(i[0]) for i in rawid.values])
         sql += " AND rawid IN %s"
         params = params+(rawid,)
-            
+
     print('returning cellids stable across rawids:')
     print(rawid)
-    
+
     d = pd.read_sql(sql=sql, con=engine, params=params)
 
     cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
-    
+
     return cellids
