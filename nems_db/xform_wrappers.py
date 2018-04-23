@@ -74,7 +74,9 @@ def generate_recording_uri(cellid,batch,loader):
                    'pupil_deblink': True, 'pupil_median': 1}
 
     elif loader in ["nostim20pup0beh0", "nostim20pup0beh",
-                    "nostim20pupbeh0", "nostim20pupbeh"]:
+                    "nostim20pupbeh0", "nostim20pupbeh",
+                    "psth20pup0beh0", "psth20pup0beh",
+                    "psth20pupbeh0", "psth20pupbeh"]:
         options = {'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': True, 'stim': False,
                    'pupil_deblink': True, 'pupil_median': 1}
