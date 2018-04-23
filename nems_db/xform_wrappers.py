@@ -56,36 +56,31 @@ def generate_recording_uri(cellid,batch,loader):
 
     options = {}
     if loader in ["ozgf100ch18", "ozgf100ch18n"]:
-        options["stimfmt"] = "ozgf"
-        options["chancount"] = 18
-        options["rasterfs"] = 100
-        options['includeprestim'] = 1
+        options = {'rasterfs': 100, 'includeprestim': True,
+                   'stimfmt': 'ozgf', 'chancount': 18}
 
     elif loader in ["ozgf100ch18pup", "ozgf100ch18npup"]:
         options = {'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf',
                    'chancount': 18, 'pupil': True, 'stim': True,
                    'pupil_deblink': True, 'pupil_median': 1}
 
-    elif loader in ["nostim10pup0beh0", "nostim10pup0beh",
-                    "nostim10pupbeh0", "nostim10pupbeh",
-                    "nostim10pup"]:
+    elif loader.startswith("nostim10") or loader.startswith("psth10"):
         options = {'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': True, 'stim': False,
                    'pupil_deblink': True, 'pupil_median': 1}
 
-    elif loader in ["nostim20pup0beh0", "nostim20pup0beh",
-                    "nostim20pupbeh0", "nostim20pupbeh",
-                    "psth20pup0beh0", "psth20pup0beh",
-                    "psth20pupbeh0", "psth20pupbeh"]:
+    elif loader.startswith("nostim20") or loader.startswith("psth20"):
         options = {'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': True, 'stim': False,
                    'pupil_deblink': True, 'pupil_median': 1}
 
-    elif loader in ["env100", "env100n"]:
-        options["stimfmt"] = "envelope"
-        options["chancount"] = 0
-        options["rasterfs"] = 100
-        options['includeprestim'] = 1
+    elif loader.startswith("env100"):
+        options = {'rasterfs': 100, 'includeprestim': True,
+                   'stimfmt': 'envelope', 'chancount': 0}
+
+    elif loader.startswith("env200"):
+        options = {'rasterfs': 200, 'includeprestim': True,
+                   'stimfmt': 'envelope', 'chancount': 0}
 
     else:
         raise ValueError('unknown loader string')
