@@ -126,10 +126,10 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     kws = modelname.split("_")
     loader = kws[0]
     modelspecname = "_".join(kws[1:-1])
-    fitter = kws[-1]
+    fitkey = kws[-1]
 
     meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
-            'loader': loader, 'fitter': fitter, 'modelspecname': modelspecname,
+            'loader': loader, 'fitkey': fitkey, 'modelspecname': modelspecname,
             'username': 'nems', 'labgroup': 'lbhb', 'public': 1,
             'githash': os.environ.get('CODEHASH', ''),
             'recording': loader}
@@ -146,7 +146,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     #                {'keyword_string': modelspecname, 'meta': meta},
     #                [],['modelspecs']])
 
-    xfspec += xhelp.generate_fitter_xfspec(fitter)
+    xfspec += xhelp.generate_fitter_xfspec(fitkey)
 
     # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
     xfspec.append(['nems.analysis.api.standard_correlation', {},
