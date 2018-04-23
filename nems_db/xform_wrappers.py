@@ -134,7 +134,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
             'githash': os.environ.get('CODEHASH', ''),
             'recording': loader}
 
-    recording_uri = generate_recording_uri(cellid,batch,loader)
+    recording_uri = generate_recording_uri(cellid, batch, loader)
 
     # generate xfspec, which defines sequence of events to load data,
     # generate modelspec, fit data, plot results and save

@@ -411,7 +411,9 @@ Start new nems functions here
 """
 
 
-def update_results_table(modelspec, preview=None, username="svd", labgroup="lbhb"):
+def update_results_table(modelspec, preview=None,
+                         username="svd", labgroup="lbhb"):
+
     session = Session()
 
     cellid = modelspec[0]['meta']['cellid']
@@ -438,7 +440,7 @@ def update_results_table(modelspec, preview=None, username="svd", labgroup="lbhb
         if preview:
             r.figurefile = preview
         r.username = username
-        r.public=1
+        r.public = 1
         if not labgroup == 'SPECIAL_NONE_FLAG':
             try:
                 if not labgroup in r.labgroup:
@@ -669,24 +671,26 @@ def get_isolation(cellid=None, batch=None):
     d = pd.read_sql(sql=sql, con=engine)
     return d
 
+
 def get_cellids(rawid=None):
-   sql = ("SELECT distinct(cellid) FROM sCellFile WHERE 1")
+    sql = ("SELECT distinct(cellid) FROM sCellFile WHERE 1")
 
-   if rawid is not None:
-       sql+=" AND rawid = {0} order by cellid".format(rawid)
-   else:
-       sys.exit('Must give rawid')
+    if rawid is not None:
+        sql+=" AND rawid = {0} order by cellid".format(rawid)
+    else:
+        sys.exit('Must give rawid')
 
-   cellids = pd.read_sql(sql=sql,con=engine)['cellid']
+    cellids = pd.read_sql(sql=sql,con=engine)['cellid']
 
-   return cellids
-
+    return cellids
 
 
 def list_batches(name=None):
+
     d = get_batches(name)
-    for x in range(0,len(d)):
-        print("{} {}".format(d['batch'][x],d['name'][x]))
+
+    for x in range(0, len(d)):
+        print("{} {}".format(d['batch'][x], d['name'][x]))
 
     return d
 
@@ -698,7 +702,8 @@ def get_data_parms(rawid=None, parmfile=None):
         sql = ("SELECT gData.* FROM gData INNER JOIN "
                "gDataRaw ON gData.rawid=gDataRaw.id WHERE gDataRaw.id={0}"
                .format(rawid))
-        #sql="SELECT * FROM gData WHERE rawid={0}".format(rawid)
+        # sql="SELECT * FROM gData WHERE rawid={0}".format(rawid)
+
     elif parmfile is not None:
         sql = ("SELECT gData.* FROM gData INNER JOIN gDataRaw ON"
                "gData.rawid=gDataRaw.id WHERE gDataRaw.parmfile = '{0}'"
@@ -761,7 +766,9 @@ def get_results_file(batch, modelnames=[], cellids=['%']):
     else:
         return results
 
-def get_stable_batch_cellids(batch=None, cellid=None, rawid=None, label ='parm'):
+
+def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
+                             label ='parm'):
     '''
     Used to return only the information for units that were stable across all
     rawids that match this batch and site (cellid)
@@ -769,17 +776,17 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None, label ='parm')
     # eg, sql="SELECT * from NarfData WHERE batch=301 and cellid="
     params = ()
     sql = "SELECT cellid FROM NarfData WHERE 1"
-    sql_rawids = "SELECT DISTINCT rawid FROM NarfData WHERE 1" # for rawids
+    sql_rawids = "SELECT DISTINCT rawid FROM NarfData WHERE 1"  # for rawids
 
-    if not batch is None:
+    if batch is not None:
         sql += " AND batch=%s"
         sql_rawids += " AND batch=%s"
         params = params+(batch,)
 
-    if not cellid is None:
-       sql += " AND cellid like %s"
-       sql_rawids += " AND cellid like %s"
-       params = params+(cellid+"%",)
+    if cellid is not None:
+        sql += " AND cellid like %s"
+        sql_rawids += " AND cellid like %s"
+        params = params+(cellid+"%",)
 
     if not label is None:
        sql += " AND label = %s"
