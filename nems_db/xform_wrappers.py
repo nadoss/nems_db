@@ -28,31 +28,40 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def get_recording_file(cellid,batch,options={}):
+def get_recording_file(cellid, batch, options={}):
 
-    options["batch"]=batch
-    options["cellid"]=cellid
+    options["batch"] = batch
+    options["cellid"] = cellid
     uri = nb.baphy_data_path(options)
+
     return uri
 
-def get_recording_uri(cellid,batch,options={}):
 
-    opts=[]
-    for i,k in enumerate(options):
+def get_recording_uri(cellid, batch, options={}):
+
+    opts = []
+    for i, k in enumerate(options):
         if type(options[k]) is bool:
             opts.append(k+'='+str(int(options[k])))
         elif type(options[k]) is list:
             pass
         else:
             opts.append(k+'='+str(options[k]))
-    optstring="&".join(opts)
+    optstring = "&".join(opts)
 
-    url="http://hyrax.ohsu.edu:3000/baphy/{0}/{1}?{2}".format(
+    url = "http://hyrax.ohsu.edu:3000/baphy/{0}/{1}?{2}".format(
                 batch, cellid, optstring)
     return url
 
 
-def generate_recording_uri(cellid,batch,loader):
+def generate_recording_uri(cellid, batch, loader):
+    """
+    figure out filename (or eventually URI) of pre-generated
+    NEMS-format recording for a given cell/batch/loader string
+
+    very baphy-specific. Needs to be coordinated with loader processing
+    in nems.xform_helper
+    """
 
     options = {}
     if loader in ["ozgf100ch18", "ozgf100ch18n"]:
@@ -89,8 +98,8 @@ def generate_recording_uri(cellid,batch,loader):
     else:
         raise ValueError('unknown loader string')
 
-    #recording_uri = get_recording_uri(cellid,batch,options)
-    recording_uri = get_recording_file(cellid,batch,options)
+    # recording_uri = get_recording_uri(cellid, batch, options)
+    recording_uri = get_recording_file(cellid, batch, options)
 
     return recording_uri
 
@@ -121,7 +130,8 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     ]
     """
 
-    log.info('Initializing modelspec(s) for cell/batch {0}/{1}...'.format(cellid, batch))
+    log.info('Initializing modelspec(s) for cell/batch %s/%d...',
+             cellid, batch)
 
     # parse modelname
     kws = modelname.split("_")
@@ -187,10 +197,10 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
 
 
 def load_model_baphy_xform(cellid, batch=271,
-                           modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
-                           eval_model=True):
+        modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
+        eval_model=True):
 
-    d = nd.get_results_file(batch,[modelname],[cellid])
+    d = nd.get_results_file(batch, [modelname], [cellid])
     filepath = d['modelpath'][0]
     # Removed print statement here since load_analysis already does it.
     # Was causing a lot of log spam when loading many modelspecs.
@@ -199,7 +209,7 @@ def load_model_baphy_xform(cellid, batch=271,
 
 
 def quick_inspect(cellid="chn020f-b1", batch=271,
-               modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"):
+        modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"):
 
     ctx = load_model_baphy_xform(cellid, batch, modelname, eval=True)
 
@@ -209,6 +219,7 @@ def quick_inspect(cellid="chn020f-b1", batch=271,
     nplt.plot_summary(val, modelspecs)
 
     return modelspecs, est, val
+
 
 """
 # SPN example
