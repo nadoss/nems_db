@@ -131,7 +131,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     """
 
     log.info('Initializing modelspec(s) for cell/batch %s/%d...',
-             cellid, batch)
+             cellid, int(batch))
 
     # parse modelname
     kws = modelname.split("_")

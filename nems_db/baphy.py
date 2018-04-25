@@ -310,6 +310,8 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
         if len(sortinfo[c]) and sortinfo[c][0].size:
             s = sortinfo[c][0][0]['unitSpikes']
             comment = sortinfo[c][0][0][0][0][2][0]
+            log.info('Comment: %s', comment)
+
             s = np.reshape(s, (-1, 1))
             unitcount = s.shape[0]
             for u in range(0, unitcount):
@@ -323,7 +325,6 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
                     ff = (st[0, :] == trialidx)
                     this_spike_events = (st[1, ff]
                                          + Offset_spikefs[np.int(trialidx-1)])
-                    log.info('Comment: %s', comment)
                     if comment == 'PC-cluster sorted by mespca.m':
                         # remove last spike, which is stray
                         this_spike_events = this_spike_events[:-1]
@@ -590,7 +591,7 @@ def baphy_load_data(parmfilepath, options={}):
     siteid = globalparams['SiteID']
     unit_names = [(siteid + "-" + x) for x in unit_names]
     # print(unit_names)
-    
+
     # test for special case where psuedo cellid suffix has been added to
     # cellid by stripping anything after a "_" underscore in the cellid (list)
     # provided
@@ -601,7 +602,7 @@ def baphy_load_data(parmfilepath, options={}):
         t = pcellid.split("_")
         cellids.append(t[0])
         pcellidmap[t[0]] = pcellid
-        
+
     # pull out a single cell if 'all' not specified
     spike_dict = {}
     for i, x in enumerate(unit_names):
@@ -609,12 +610,12 @@ def baphy_load_data(parmfilepath, options={}):
             spike_dict[x] = spiketimes[i]
         elif (x in cellids):
             spike_dict[pcellidmap[x]] = spiketimes[i]
-            
-            
-            
+
+
+
     if not spike_dict:
         raise ValueError('No matching cellid in baphy spike file')
-        
+
     state_dict = {}
     if options['pupil']:
         try:
@@ -746,7 +747,10 @@ def baphy_load_dataset(parmfilepath, options={}):
 
     else:
         # generate stimulus events unique to each distinct stimulus
-        ff_tar_events = exptevents['name'].str.contains('Target')
+        ff_tar_events = exptevents['name'].str.endswith('Target')
+        ff_tar_pre = exptevents['name'].str.startswith('Pre') & ff_tar_events
+        ff_tar_post = exptevents['name'].str.startswith('Post') & ff_tar_events
+
         ff_pre_all = exptevents['name'] == ""
         ff_post_all = ff_pre_all.copy()
 
@@ -819,8 +823,8 @@ def baphy_load_dataset(parmfilepath, options={}):
 
         # generate list of corresponding pre/post events
         this_event_times2 = pd.concat(
-                [exptevents.loc[ff_pre_all,['start']],
-                 exptevents.loc[ff_pre_all,['end']]],
+                [exptevents.loc[ff_pre_all, ['start']],
+                 exptevents.loc[ff_pre_all, ['end']]],
                 axis=1
                 )
         this_event_times2['name'] = 'PreStimSilence'
@@ -833,6 +837,17 @@ def baphy_load_dataset(parmfilepath, options={}):
 
         event_times = event_times.append(this_event_times2, ignore_index=True)
         event_times = event_times.append(this_event_times3, ignore_index=True)
+
+        # create list of target events
+        this_event_times = pd.concat(
+                [exptevents.loc[ff_tar_pre, ['start']].reset_index(),
+                 exptevents.loc[ff_tar_post, ['end']].reset_index()],
+                axis=1
+                )
+        this_event_times = this_event_times.drop(columns=['index'])
+        this_event_times['name'] = "TARGET"
+        event_times = event_times.append(this_event_times, ignore_index=True)
+
         # event_times = pd.concat(
         #         [event_times, this_event_times2, this_event_times3]
         #         )
