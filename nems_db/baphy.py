@@ -303,13 +303,15 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
     # convert spike times from samples since trial started to
     # (approximate) seconds since experiment started (matched to exptevents)
     totalunits = 0
-    spiketimes = []  # list of spike event times for each unit in this recording
+    spiketimes = []  # list of spike event times for each unit in recording
     unit_names = []  # string suffix for each unit (CC-U)
     chan_names = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
     for c in range(0, chancount):
         if len(sortinfo[c]) and sortinfo[c][0].size:
             s = sortinfo[c][0][0]['unitSpikes']
             comment = sortinfo[c][0][0][0][0][2][0]
+            log.info('Comment: %s', comment)
+
             s = np.reshape(s, (-1, 1))
             unitcount = s.shape[0]
             for u in range(0, unitcount):
@@ -349,7 +351,7 @@ def baphy_load_pupil_trace(pupilfilepath, exptevents, options={}):
     trial. need to make sure the big_rs vector aligns with the other signals
     """
 
-    options=options.copy()
+    options = options.copy()
     rasterfs = options.get('rasterfs', 1000)
     pupil_offset = options.get('pupil_offset', 0.75)
     pupil_deblink = options.get('pupil_deblink', True)
@@ -380,34 +382,35 @@ def baphy_load_pupil_trace(pupilfilepath, exptevents, options={}):
     p = matdata['pupil_data']
     params = p['params']
     if 'pupil_variable_name' not in options:
-        options['pupil_variable_name']=params[0][0]['default_var'][0][0][0]
-        print("Using default pupil_variable_name: "+options['pupil_variable_name'])
+        options['pupil_variable_name'] = params[0][0]['default_var'][0][0][0]
+        print("Using default pupil_variable_name: " +
+              options['pupil_variable_name'])
     if 'pupil_algorithm' not in options:
-        options['pupil_algorithm']=params[0][0]['default'][0][0][0]
-        print("Using default pupil_algorithm: "+options['pupil_algorithm'])
+        options['pupil_algorithm'] = params[0][0]['default'][0][0][0]
+        print("Using default pupil_algorithm: " + options['pupil_algorithm'])
 
-    results=p['results'][0][0][-1][options['pupil_algorithm']]
-    pupil_diameter=np.array(results[0][options['pupil_variable_name']][0][0])
-    if pupil_diameter.shape[0]==1:
-        pupil_diameter=pupil_diameter.T
+    results = p['results'][0][0][-1][options['pupil_algorithm']]
+    pupil_diameter = np.array(results[0][options['pupil_variable_name']][0][0])
+    if pupil_diameter.shape[0] == 1:
+        pupil_diameter = pupil_diameter.T
     print("pupil_diameter.shape: " + str(pupil_diameter.shape))
 
     fs_approximate = 10  # approx video framerate
     if pupil_deblink:
         dp = np.abs(np.diff(pupil_diameter, axis=0))
         blink = np.zeros(dp.shape)
-        blink[dp > np.mean(dp) + 6*np.std(dp)]= 1
-        box=np.ones([fs_approximate])/(fs_approximate)
-        print(blink.shape)
-        blink=np.convolve(blink[:,0],box,mode='same')
-        blink[blink>0]=1
-        blink[blink<=0]=0
-        onidx,=np.where(np.diff(blink) > 0)
-        offidx,=np.where(np.diff(blink) < 0)
-        if onidx[0]>offidx[0]:
-            onidx=np.concatenate((np.array([0]),onidx))
-        if len(onidx)>len(offidx):
-            offidx=np.concatenate((offidx,np.array([len(blink)])))
+        blink[dp > np.mean(dp) + 6*np.std(dp)] = 1
+        box = np.ones([fs_approximate]) / (fs_approximate)
+        # print(blink.shape)
+        blink = np.convolve(blink[:, 0], box, mode='same')
+        blink[blink > 0] = 1
+        blink[blink <= 0] = 0
+        onidx, = np.where(np.diff(blink) > 0)
+        offidx, = np.where(np.diff(blink) < 0)
+        if onidx[0] > offidx[0]:
+            onidx = np.concatenate((np.array([0]), onidx))
+        if len(onidx) > len(offidx):
+            offidx = np.concatenate((offidx, np.array([len(blink)])))
         deblinked = pupil_diameter.copy()
         for i, x1 in enumerate(onidx):
             x2 = offidx[i]
@@ -589,13 +592,30 @@ def baphy_load_data(parmfilepath, options={}):
     siteid = globalparams['SiteID']
     unit_names = [(siteid + "-" + x) for x in unit_names]
     # print(unit_names)
+
+    # test for special case where psuedo cellid suffix has been added to
+    # cellid by stripping anything after a "_" underscore in the cellid (list)
+    # provided
+    pcellids = options['cellid'] if (type(options['cellid']) is list) else [options['cellid']]
+    cellids = []
+    pcellidmap={}
+    for pcellid in pcellids:
+        t = pcellid.split("_")
+        cellids.append(t[0])
+        pcellidmap[t[0]] = pcellid
+
     # pull out a single cell if 'all' not specified
     spike_dict = {}
     for i, x in enumerate(unit_names):
-        if (type(options['cellid']) is list) and (x in options['cellid']):
+        if (cellids[0]=='all'):
             spike_dict[x] = spiketimes[i]
-        elif (x == options['cellid']) or (options['cellid'] == 'all'):
-            spike_dict[x] = spiketimes[i]
+        elif (x in cellids):
+            spike_dict[pcellidmap[x]] = spiketimes[i]
+
+
+
+    if not spike_dict:
+        raise ValueError('No matching cellid in baphy spike file')
 
     state_dict = {}
     if options['pupil']:
@@ -698,10 +718,13 @@ def baphy_load_dataset(parmfilepath, options={}):
         start = d['start']
         fflate = ((exptevents['end'] > start)
                   & (exptevents['Trial'] == trialidx)
-                  & (exptevents['name'].str.contains('Stim , ')))
+                  & exptevents['name'].str.startswith('Stim , ')
+                  & ((1-exptevents['name'].str.endswith('Target')) |
+                         (exptevents['start'] > start+0.1)))
+
         for i, d in exptevents.loc[fflate].iterrows():
-            # print("{0}: {1} - {2} - {3}>{4}"
-            #       .format(i, d['Trial'], d['name'], d['end'], start))
+            #print("{0}: {1} - {2} - {3}>{4}"
+            #      .format(i, d['Trial'], d['name'], d['end'], start))
             # remove Pre- and PostStimSilence as well
             keepevents[(i-1):(i+2)] = False
 
@@ -728,7 +751,10 @@ def baphy_load_dataset(parmfilepath, options={}):
 
     else:
         # generate stimulus events unique to each distinct stimulus
-        ff_tar_events = exptevents['name'].str.contains('Target')
+        ff_tar_events = exptevents['name'].str.endswith('Target')
+        ff_tar_pre = exptevents['name'].str.startswith('Pre') & ff_tar_events
+        ff_tar_post = exptevents['name'].str.startswith('Post') & ff_tar_events
+
         ff_pre_all = exptevents['name'] == ""
         ff_post_all = ff_pre_all.copy()
 
@@ -801,8 +827,8 @@ def baphy_load_dataset(parmfilepath, options={}):
 
         # generate list of corresponding pre/post events
         this_event_times2 = pd.concat(
-                [exptevents.loc[ff_pre_all,['start']],
-                 exptevents.loc[ff_pre_all,['end']]],
+                [exptevents.loc[ff_pre_all, ['start']],
+                 exptevents.loc[ff_pre_all, ['end']]],
                 axis=1
                 )
         this_event_times2['name'] = 'PreStimSilence'
@@ -815,6 +841,17 @@ def baphy_load_dataset(parmfilepath, options={}):
 
         event_times = event_times.append(this_event_times2, ignore_index=True)
         event_times = event_times.append(this_event_times3, ignore_index=True)
+
+        # create list of target events
+        this_event_times = pd.concat(
+                [exptevents.loc[ff_tar_pre, ['start']].reset_index(),
+                 exptevents.loc[ff_tar_post, ['end']].reset_index()],
+                axis=1
+                )
+        this_event_times = this_event_times.drop(columns=['index'])
+        this_event_times['name'] = "TARGET"
+        event_times = event_times.append(this_event_times, ignore_index=True)
+
         # event_times = pd.concat(
         #         [event_times, this_event_times2, this_event_times3]
         #         )
@@ -1008,17 +1045,7 @@ def dict_to_signal(stim_dict, fs=100, event_times=None, signal_name='stim',
             epochs=event_times, recording=recording_name
             )
     stim = empty_stim.replace_epochs(stim_dict)
-
-    return stim
-
-
-def dict_to_SignalDictionary(stim_dict, fs=100, event_times=None,
-                             signal_name='stim', recording_name='rec'):
-
-    stim = nems.signal.SignalDictionary(
-            data=stim_dict, fs=fs, name=signal_name,
-            epochs=event_times, recording=recording_name
-            )
+    #stim = stim.normalize('minmax')
 
     return stim
 
@@ -1040,9 +1067,9 @@ def baphy_load_recording(cellid, batch, options):
     options['batch'] = int(batch)
     options['rawid'] = options.get('rawid', None)    
     
-    d = db.get_batch_cell_data(batch=batch, 
-                               cellid=cellid, 
-                               rawid = options['rawid'], 
+    d = db.get_batch_cell_data(batch=batch,
+                               cellid=cellid,
+                               rawid=options['rawid'],
                                label='parm')
     if len(d)==0:
         raise ValueError('cellid/batch entry not found in NarfData')
@@ -1251,8 +1278,7 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
             t_pupil = nems.signal.RasterizedSignal(
                     fs=options['rasterfs'], data=state_dict['pupiltrace'],
                     name='pupil', recording=cellid, chans=['pupil'],
-                    epochs=event_times
-                    )
+                    epochs=event_times)
 
             if i == 0:
                 pupil = t_pupil
