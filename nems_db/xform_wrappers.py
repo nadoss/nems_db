@@ -78,12 +78,14 @@ def generate_recording_uri(cellid, batch, loader):
                    'chancount': 0, 'pupil': True, 'stim': False,
                    'pupil_deblink': True, 'pupil_median': 1}
 
-    elif loader.startswith("nostim20pup") or loader.startswith("psth20pup"):
+    elif loader.startswith("nostim20pup") or loader.startswith("psth20pup") \
+       or loader.startswith("psths20pup"):
         options = {'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': True, 'stim': False,
                    'pupil_deblink': True, 'pupil_median': 1}
 
-    elif loader.startswith("nostim20") or loader.startswith("psth20"):
+    elif loader.startswith("nostim20") or loader.startswith("psth20") \
+       or loader.startswith("psths20"):
         options = {'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': False, 'stim': False}
 
