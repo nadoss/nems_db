@@ -569,6 +569,7 @@ def baphy_load_data(parmfilepath, options={}):
             stim_object = 'ReferenceHandle'
 
         tags = exptparams['TrialObject'][1][stim_object][1]['Names']
+        tags, tagids = np.unique(tags, return_index=True)
         stimparam = []
 
     # figure out spike file to load
@@ -1301,11 +1302,23 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
 
 
 def baphy_data_path(options):
-
+    """
+    TODO: include options['site'] for multichannel recordings
+    """
+    if (type(options['cellid'])==list) & (len(options["cellid"])>1):
+        cellid=options['cellid'][0]
+        siteid=cellid.split("-")[0]
+    elif (type(options['cellid'])==list):
+        cellid=options['cellid'][0]
+        siteid=cellid
+    else:
+        cellid=options['cellid']
+        siteid=cellid
+        
     data_path = ("/auto/data/nems_db/recordings/{0}/{1}{2}_fs{3}/"
                  .format(options["batch"], options['stimfmt'],
                          options["chancount"], options["rasterfs"]))
-    data_file = data_path + options["cellid"] + '.tgz'
+    data_file = data_path + siteid + '.tgz'
 
     log.info(data_file)
     log.info(options)
@@ -1315,7 +1328,7 @@ def baphy_data_path(options):
         #          options['cellid'], options['batch'], options
         #          )
         rec = baphy_load_recording_nonrasterized(
-                options['cellid'], options['batch'], options
+                cellid, options['batch'], options
                 )
         rec.save(data_file)
 
