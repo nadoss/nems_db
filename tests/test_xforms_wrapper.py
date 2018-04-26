@@ -57,6 +57,11 @@ batch = 271
 modelname = "ozgf100ch18_dlog_wcg18x1_stp1_fir1x15_lvl1_dexp1_fit01"
 #modelname = "ozgf100ch18_wcg18x1_stp1pc_fir1x15_lvl1_fit01"
 """
+cellid='chn009b-a1'
+batch=259
+modelname = "env100_dlogn2_wccn2x2_stp2_fir2x15_lvl1_dexp1_fit01"
+
+
 
 
 xfspec, ctx = nw.load_model_baphy_xform(cellid, batch, modelname,

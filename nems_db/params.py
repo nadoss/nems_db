@@ -1,4 +1,5 @@
 import logging
+import copy
 
 import pandas as pd
 import numpy as np
@@ -13,9 +14,11 @@ log = logging.getLogger(__name__)
 
 
 def fitted_params_per_batch(batch, modelname, include_stats=True,
-                            mod_key='id'):
+                            mod_key='id', limit=None):
     celldata = nd.get_batch_cells(batch=batch)
     cellids = celldata['cellid'].tolist()
+    if limit is not None:
+        cellids = cellids[:limit]
     return fitted_params_per_cell(cellids, batch, modelname,
                                   include_stats=include_stats, mod_key=mod_key)
 
@@ -28,7 +31,10 @@ def fitted_params_per_cell(cellids, batch, modelname, include_stats=True,
     stats = ms.summary_stats(modelspecs, mod_key=mod_key)
 
     index = stats.keys()
-    columns = cellids
+    try:
+        columns = [m[0].get('meta').get('cellid') for m in modelspecs]
+    except:
+        columns = cellids
     data = {}
     for i, c in enumerate(cellids):
         for k in index:
@@ -53,23 +59,39 @@ def fitted_params_per_cell(cellids, batch, modelname, include_stats=True,
 def _get_modelspecs(cellids, batch, modelname):
     modelspecs = []
     for c in cellids:
-        _, ctx = load_model_baphy_xform(c, batch, modelname, eval_model=False)
-        mspecs = ctx['modelspecs']
-        if len(mspecs) > 1:
-            # TODO: Take mean? only want one modelspec per cell
-            raise NotImplementedError("No support yet for multi-modelspec fit")
-        else:
-            this_mspec = mspecs[0]
-        modelspecs.append(this_mspec)
+        try:
+            _, ctx = load_model_baphy_xform(c, batch, modelname, eval_model=False)
+            mspecs = ctx['modelspecs']
+            if len(mspecs) > 1:
+                # TODO: Take mean? only want one modelspec per cell
+                #       Or just use first mspec with warning?
+                #       Or could just use all of the mspecs and extend
+                #       instead of append
+#                stats = ms.summary_stats(mspecs)
+#                temp_spec = copy.deepcopy(mspecs[0])
+#                phis = [m['phi'] for m in temp_spec]
+#                # TODO: This is awful. Make this better.
+#                for p in phis:
+#                    for k in p:
+#                        for s in stats:
+#                            if k in s:
+#                                p[k] = stats[s]['mean']
+#                for m, p in zip(temp_spec, phis):
+#                    m['phi'] = p
+#                this_mspec = temp_spec
+                #this_mspec = mspecs
+                log.warning("Fit had multiple modelspecs, using first one")
+            else:
+                #this_mspec = mspecs[0]
+                pass
+                modelspecs.append(mspecs[0])
+            modelspecs.append(mspecs[0])
+        except ValueError as e:
+            log.warning("Error when retrieving modelspec for: %s", c)
+            log.exception(e)
+            pass
     return modelspecs
 
-
-def plot_all_params(df, dists=None, num_bins=100):
-    params = df.index.tolist()
-    arrays = [_param_as_array(df, loc=p) for p in params]
-    figs = [plot_parameter(a, dists=dists, num_bins=num_bins, title=p)
-            for a, p in zip(arrays, params)]
-    return figs
 
 # https://stackoverflow.com/questions/6620471/fitting-empirical-distribution-
 # to-theoretical-ones-with-scipy-python
@@ -109,18 +131,56 @@ def plot_parameter(p, dists=None, num_bins=100, title=None):
     return fig
 
 
-def _param_as_array(df, iloc=None, loc=None, dtype='float32'):
-    if (iloc is not None) and (loc is not None):
-        raise ValueError("Must provide one of either iloc or loc, got both")
-    if (iloc is None) and (loc is None):
-        raise ValueError("Must provide one of either iloc or loc, got neither")
+def plot_all_params(df, dists=None, num_bins=100, dtype='float32', 
+                    only_scalars=True):
+    params = df.index.tolist()
+    arrays = []
+    names = []
+    for p in params:
+        val = df.loc[p]
+        
+        if not np.isscalar(val.iat[0]):
+            if only_scalars:
+                log.info("<only_scalars> was True, skipping non-scalar"
+                         " parameter: %s" % p)
+                pass
+            else:
+                #print("\nfor parameter %s, non-scalar" % p)
+                combined = np.array(val.tolist())
+                #print("\ncombined was: %s" % combined)
+                n = combined[0].shape[0]
+                flattened = np.concatenate(combined, axis=0)
+                #print("\nflattened was: %s" % flattened)
+                per_n = flattened.reshape(n, -1).T.tolist()
+                #print("\nper_n was: %s" % per_n)
+                for i, _ in enumerate(per_n):
+                    names.append('%s_index_%d' % (p, i))
+                arrays.extend(per_n)
+        else:
+            a = np.array(val).astype(dtype)
+            arrays.append(a)
+            names.append(p)
 
-    if iloc is not None:
-        param = df.iloc[iloc]
-    elif loc is not None:
-        param = df.loc[loc]
+    figs = [plot_parameter(a, dists=dists, num_bins=num_bins, title=p)
+            for a, p in zip(arrays, names)]
+    return figs
 
-    return np.array(param).astype(dtype)
+
+def _flatten_param_names(df):
+    # TODO: repeats some code from plot params, could probably
+    #       make this more efficient.
+    params = df.index.tolist()
+    flat_params = []
+    for p in params:
+        vals = df.loc[p]
+        if not np.isscalar(vals):
+            vals = np.array(vals)
+            flat_vals = vals.flatten()
+            param = ['%s%d'%(p,i) for i,_ in enumerate(flat_vals)]
+        else:
+            param = p
+        flat_params.append(param)
+    return flat_params
 
 
 def _fit_distribution(array, dist_type):
