@@ -3,7 +3,7 @@ import nems_db.baphy as nb
 import nems_db.xform_wrappers as nw
 import numpy as np
 
-batch = 301
+batch = 303
 test_save = False
 
 if batch == 271:
@@ -13,10 +13,16 @@ if batch == 271:
     options["chancount"] = 18
     options["rasterfs"] = 100
     options['includeprestim'] = 1
-    options['stim']=True
+    options['stim'] = True
 
 elif batch == 301:
     cellid = 'BRT026c-02-1'
+    options = {'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
+               'chancount': 0, 'pupil': True, 'stim': False,
+               'pupil_deblink': True, 'pupil_median': 1}
+
+elif batch == 303:
+    cellid = 'bbl071d-a1'
     options = {'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
                'chancount': 0, 'pupil': True, 'stim': False,
                'pupil_deblink': True, 'pupil_median': 1}

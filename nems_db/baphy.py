@@ -717,10 +717,13 @@ def baphy_load_dataset(parmfilepath, options={}):
         start = d['start']
         fflate = ((exptevents['end'] > start)
                   & (exptevents['Trial'] == trialidx)
-                  & (exptevents['name'].str.contains('Stim , ')))
+                  & exptevents['name'].str.startswith('Stim , ')
+                  & ((1-exptevents['name'].str.endswith('Target')) |
+                         (exptevents['start'] > start+0.1)))
+
         for i, d in exptevents.loc[fflate].iterrows():
-            # print("{0}: {1} - {2} - {3}>{4}"
-            #       .format(i, d['Trial'], d['name'], d['end'], start))
+            #print("{0}: {1} - {2} - {3}>{4}"
+            #      .format(i, d['Trial'], d['name'], d['end'], start))
             # remove Pre- and PostStimSilence as well
             keepevents[(i-1):(i+2)] = False
 
