@@ -1219,9 +1219,10 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
     options['runclass'] = options.get('runclass', None)
     options['cellid'] = options.get('cellid', cellid)
     options['batch'] = int(batch)
-
+    options['rawid'] = options.get('rawid', None)
+    
     # query database to find all baphy files that belong to this cell/batch
-    d = db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm')
+    d = db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm', rawid=options['rawid'])
     files = list(d['parm'])
 
     for i, parmfilepath in enumerate(files):
@@ -1349,7 +1350,7 @@ def baphy_data_path(options):
     log.info(data_file)
     log.info(options)
 
-    if not os.path.exists(data_file):
+    if not os.path.exists(data_file) or options['recache'] is True:
         #  rec = baphy_load_recording(
         #          options['cellid'], options['batch'], options
         #          )
