@@ -1341,7 +1341,8 @@ def baphy_data_path(options):
     else:
         cellid=options['cellid']
         siteid=cellid
-        
+    options['recache'] = options.get('recache', None)
+    
     data_path = ("/auto/data/nems_db/recordings/{0}/{1}{2}_fs{3}/"
                  .format(options["batch"], options['stimfmt'],
                          options["chancount"], options["rasterfs"]))
