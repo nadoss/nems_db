@@ -117,7 +117,7 @@ def baphy_parm_read(filepath):
 
     # rename columns to NEMS standard epoch names
     exptevents.columns = ['name', 'start', 'end', 'Trial']
-    for i in range(0, len(exptevents)):
+    for i in range(len(exptevents)):
         if exptevents.loc[i, 'end'] == []:
             exptevents.loc[i, 'end'] = exptevents.loc[i, 'start']
 
@@ -557,6 +557,29 @@ def baphy_load_data(parmfilepath, options={}):
         print("Cached stim: {0}".format(stimfilepath))
         # load stimulus spectrogram
         stim, tags, stimparam = baphy_load_specgram(stimfilepath)
+
+        if options["stimfmt"]=='envelope' and \
+            exptparams['TrialObject'][1]['ReferenceClass']=='SSA':
+            # SSA special case
+            stimo=stim.copy()
+            maxval=np.max(np.reshape(stimo,[2,-1]),axis=1)
+            print('special case for SSA stim!')
+            ref=exptparams['TrialObject'][1]['ReferenceHandle'][1]
+            stimlen=ref['PipDuration']+ref['PipInterval']
+            stimbins=int(stimlen*options['rasterfs'])
+
+            stim=np.zeros([2,stimbins,6])
+            prebins=int(ref['PipInterval']/2*options['rasterfs'])
+            durbins=int(ref['PipDuration']*options['rasterfs'])
+            stim[0,prebins:(prebins+durbins),0:3]=maxval[0]
+            stim[1,prebins:(prebins+durbins),3:]=maxval[1]
+            tags=["{}+ONSET".format(ref['Frequencies'][0]),
+                  "{}+{:.2f}".format(ref['Frequencies'][0],ref['F1Rates'][0]),
+                  "{}+{:.2f}".format(ref['Frequencies'][0],ref['F1Rates'][1]),
+                  "{}+ONSET".format(ref['Frequencies'][1]),
+                  "{}+{:.2f}".format(ref['Frequencies'][1],ref['F1Rates'][0]),
+                  "{}+{:.2f}".format(ref['Frequencies'][1],ref['F1Rates'][1])]
+
     else:
         stim = np.array([])
 
@@ -611,8 +634,6 @@ def baphy_load_data(parmfilepath, options={}):
             spike_dict[x] = spiketimes[i]
         elif (x in cellids):
             spike_dict[pcellidmap[x]] = spiketimes[i]
-
-
 
     if not spike_dict:
         raise ValueError('No matching cellid in baphy spike file')
@@ -1065,8 +1086,8 @@ def baphy_load_recording(cellid, batch, options):
     options['runclass'] = options.get('runclass', None)
     options['cellid'] = options.get('cellid', cellid)
     options['batch'] = int(batch)
-    options['rawid'] = options.get('rawid', None)    
-    
+    options['rawid'] = options.get('rawid', None)
+
     d = db.get_batch_cell_data(batch=batch,
                                cellid=cellid,
                                rawid=options['rawid'],
@@ -1220,7 +1241,7 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
     options['cellid'] = options.get('cellid', cellid)
     options['batch'] = int(batch)
     options['rawid'] = options.get('rawid', None)
-    
+
     # query database to find all baphy files that belong to this cell/batch
     d = db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm', rawid=options['rawid'])
     files = list(d['parm'])
@@ -1332,6 +1353,7 @@ def baphy_data_path(options):
     """
     TODO: include options['site'] for multichannel recordings
     """
+    options['recache'] = options.get('recache', 0)
     if (type(options['cellid'])==list) & (len(options["cellid"])>1):
         cellid=options['cellid'][0]
         siteid=cellid.split("-")[0]
@@ -1341,8 +1363,7 @@ def baphy_data_path(options):
     else:
         cellid=options['cellid']
         siteid=cellid
-    options['recache'] = options.get('recache', None)
-    
+
     data_path = ("/auto/data/nems_db/recordings/{0}/{1}{2}_fs{3}/"
                  .format(options["batch"], options['stimfmt'],
                          options["chancount"], options["rasterfs"]))
