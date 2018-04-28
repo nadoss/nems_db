@@ -9,9 +9,12 @@ VERSION = 'pre-alpha'
 with codecs.open('README.md', encoding='utf-8') as f:
     long_description = f.read()
 
-GENERAL_REQUIRES = ['flask', 'flask_restful', 'numpy',
-                    'scipy', 'matplotlib', 'pandas','sqlalchemy','pymysql']
-
+GENERAL_REQUIRES = [
+        'flask', 'flask_restful', 'pandas','pymysql', 'sqlalchemy',
+        'numpy', 'scipy', 'matplotlib', 'mpld3', 'boto3', 'bokeh',
+        'flask-socketio', 'eventlet', 'bcrypt', 'flask-WTF', 'flask-login',
+        'flask-bcrypt', 'flask-assets', 'gevent',
+        ]
 setup(
     name=NAME,
     version=VERSION,

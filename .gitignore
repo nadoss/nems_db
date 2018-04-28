@@ -210,3 +210,4 @@ tags
 # configurations
 configs/*
 !configs/default_config.sh
+!configs/web_defaults.sh

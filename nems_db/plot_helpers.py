@@ -45,7 +45,7 @@ def get_plot(cells, models, measure, plot_type, only_fair=True,
     return plot
 
 
-def get_filtered_cells(cells, snr=0.0, iso=0.0, snr_idx=0.0):
+def get_filtered_cells(cells, batch, snr=0.0, iso=0.0, snr_idx=0.0):
     """Removes cellids from list if they do not meet snr/iso criteria."""
     session = Session()
     snr = max(snr, 0)
@@ -83,9 +83,5 @@ def get_filtered_cells(cells, snr=0.0, iso=0.0, snr_idx=0.0):
             return
 
         db_criteria.apply(filter_cells, axis=1)
-
-    removal_count = db_criteria['cellid'].size - len(cells)
-    log.info("Number of cells filtered due to snr/iso criteria: %d",
-             removal_count)
 
     return cells

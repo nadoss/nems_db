@@ -376,9 +376,9 @@ class Scatter(PlotGenerator):
                     x_axis_label=x_label, y_axis_label=y_label,
                     title=("{0}, prefix: {1}, suffix: {2}"
                            .format(self.measure[0], self.pre, self.suf)),
-                    tools=tools, responsive=True,
+                    tools=tools,
                     toolbar_location=TOOL_LOC, toolbar_sticky=TOOL_STICK,
-                    output_backend="svg", sizing_mode='stretch_both',
+                    output_backend="svg", sizing_mode='scale_width',
                     )
             glyph = Circle(
                     x='x_values', y='y_values', size=CIRCLE_SIZE,
@@ -397,8 +397,8 @@ class Scatter(PlotGenerator):
         #    return
         #elif len(plots) > 1:
         grid = gridplot(
-                plots, ncols=GRID_COLS, responsive=True,
-                sizing_mode='stretch_both',
+                plots, ncols=GRID_COLS,
+                sizing_mode='scale_width',
                 )
         self.script,self.div = components(grid)
         if not plots:
@@ -518,7 +518,7 @@ class Bar(PlotGenerator):
                         ),
                 y_range=yrange, y_axis_label='Mean %s'%self.measure[0],
                 title="Mean %s Performance By Model"%self.measure[0],
-                tools=tools, responsive=True, toolbar_location=TOOL_LOC,
+                tools=tools, toolbar_location=TOOL_LOC,
                 toolbar_sticky=TOOL_STICK, output_backend=OUTPUT_FORMAT,
                 sizing_mode='stretch_both',
                 )
@@ -526,13 +526,12 @@ class Bar(PlotGenerator):
         glyph = VBar(
                 x='index', top='mean', bottom=0, width=VBAR_WIDTH,
                 fill_color=VBAR_FILL, line_color='black',
-                sizing_mode='stretch_both',
                 )
         p.add_glyph(dat_source,glyph)
 
         # workaround to prevent title and toolbar from overlapping
         grid = gridplot(
-            [p], ncols=GRID_COLS, responsive=True,
+            [p], ncols=GRID_COLS, sizing_mode='stretch_both',
             )
         self.script, self.div = components(grid)
         self.plot = grid
@@ -648,14 +647,6 @@ class Pareto(PlotGenerator):
         self.plot = grid
         if self.display:
             show(grid)
-
-        #bokeh.charts deprecated by Bokeh
-        #p = BoxPlot(
-        #        self.data, values=self.measure[0], label='n_parms',
-        #        title="Mean Performance (%s) vs Complexity"%self.measure[0],
-        #        tools=tools, color='n_parms', responsive=True,
-        #        toolbar_location=TOOL_LOC, toolbar_sticky=TOOL_STICK,
-        #        )
 
 
 class Tabular(PlotGenerator):
