@@ -718,25 +718,32 @@ def get_data_parms(rawid=None, parmfile=None):
     return d
 
 
-def batch_comp(batch, modelnames=[], cellids=['%']):
+def batch_comp(batch=301, modelnames=None, cellids=['%'], stat='r_test'):
 
-    modelnames = ['parm100pt_wcg02_fir15_pupgainctl_fit01_nested5',
-                  'parm100pt_wcg02_fir15_pupgain_fit01_nested5',
-                  'parm100pt_wcg02_fir15_stategain_fit01_nested5'
-                  ]
-    batch = 301
-    cellids = ['%']
+    if modelnames is None:
+        modelnames = ['parm100pt_wcg02_fir15_pupgainctl_fit01_nested5',
+                      'parm100pt_wcg02_fir15_pupgain_fit01_nested5',
+                      'parm100pt_wcg02_fir15_stategain_fit01_nested5'
+                      ]
 
     session = Session()
-
-    #     .filter(NarfResults.cellid.in_(cellids))
-    results = psql.read_sql_query(
-        session.query(NarfResults)
-        .filter(NarfResults.batch == batch)
-        .filter(NarfResults.modelname.in_(modelnames))
-        .statement,
-        session.bind
-    )
+    results=None
+    for mn in modelnames:
+        #     .filter(NarfResults.cellid.in_(cellids))
+        tr = psql.read_sql_query(
+                session.query(NarfResults)
+                .filter(NarfResults.batch == batch)
+                .filter(NarfResults.modelname == mn)
+                .statement,
+                session.bind
+                )
+        tc=tr[['cellid',stat]]
+        tc=tc.set_index('cellid')
+        tc.columns=[mn]
+        if results is None:
+            results=tc
+        else:
+            results=results.join(tc)
 
     session.close()
 

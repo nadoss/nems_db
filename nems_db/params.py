@@ -30,7 +30,9 @@ def fitted_params_per_cell(cellids, batch, modelname, include_stats=True,
     modelspecs = _get_modelspecs(cellids, batch, modelname)
     stats = ms.summary_stats(modelspecs, mod_key=mod_key)
 
-    index = stats.keys()
+    index = list(stats.keys())
+    #index_perf = ['r_fit', 'r_test']
+    index_perf=[]
     try:
         columns = [m[0].get('meta').get('cellid') for m in modelspecs]
     except:
@@ -43,6 +45,9 @@ def fitted_params_per_cell(cellids, batch, modelname, include_stats=True,
                 data[c].append(val)
             else:
                 data[c] = [val]
+        for k in index_perf:
+            val = modelspecs[i][0]['meta'][k]
+            data[c].append(val)
 
     if include_stats:
         columns.insert(0, 'std')
@@ -52,6 +57,11 @@ def fitted_params_per_cell(cellids, batch, modelname, include_stats=True,
         for k in index:
             data['std'].append(stats[k]['std'])
             data['mean'].append(stats[k]['mean'])
+        for k in index_perf:
+            data['std'].append(0)
+            data['mean'].append(0)
+
+    index.extend(index_perf)
 
     return pd.DataFrame(data=data, index=index, columns=columns)
 
@@ -131,14 +141,14 @@ def plot_parameter(p, dists=None, num_bins=100, title=None):
     return fig
 
 
-def plot_all_params(df, dists=None, num_bins=100, dtype='float32', 
+def plot_all_params(df, dists=None, num_bins=100, dtype='float32',
                     only_scalars=True):
     params = df.index.tolist()
     arrays = []
     names = []
     for p in params:
         val = df.loc[p]
-        
+
         if not np.isscalar(val.iat[0]):
             if only_scalars:
                 log.info("<only_scalars> was True, skipping non-scalar"

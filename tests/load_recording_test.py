@@ -3,7 +3,7 @@ import nems_db.baphy as nb
 import nems_db.xform_wrappers as nw
 import numpy as np
 
-batch = 303
+batch = 296
 test_save = False
 
 if batch == 271:
@@ -34,6 +34,15 @@ elif batch == 306:
     options["chancount"] = 0
     options["rasterfs"] = 100
     options['includeprestim'] = 1
+
+elif batch == 296:
+    cellid = "chn002h-a1"
+    options = {}
+    options["stimfmt"] = "envelope"
+    options["chancount"] = 0
+    options["rasterfs"] = 100
+    options['includeprestim'] = 1
+    # modelname = "env100_fir2x18_dexp1_basic"
 
 
 rec = nb.baphy_load_recording(cellid, batch, options)
