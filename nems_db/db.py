@@ -567,15 +567,15 @@ def get_batch_cells(batch=None, cellid=None, rawid=None):
     # eg, sql="SELECT * from NarfBatches WHERE batch=301"
     params = ()
     sql = "SELECT DISTINCT cellid,batch FROM NarfData WHERE 1"
-    if not batch is None:
+    if batch is not None:
         sql += " AND batch=%s"
         params = params+(batch,)
 
-    if not cellid is None:
+    if cellid is not None:
        sql += " AND cellid like %s"
        params = params+(cellid+"%",)
 
-    if not rawid is None:
+    if rawid is not None:
         sql+= " AND rawid = %s"
         params=params+(rawid,)
 
