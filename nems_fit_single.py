@@ -3,6 +3,7 @@
 # This script runs nems_main.fit_single_model from the command line
 
 import nems_db.xform_wrappers as nw
+import nems.utils
 import sys
 import os
 

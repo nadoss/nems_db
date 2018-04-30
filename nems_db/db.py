@@ -360,12 +360,19 @@ def update_job_start(queueid):
 
 
 def update_job_tick(queueid=0):
-    path = os.path.dirname(nems_config.defaults.__file__)
-    i = path.find('nems/nems_config')
-    qsetload_path = (path[:i + 5] + 'misc/cluster/qsetload')
-    r=os.system(qsetload_path)
+    """
+    update current machine's load in the cluster db and tick off a step
+    of progress in the fit
+    """
+    path = nems_db.util.__file__
+    i = path.find('nems_db/util')
+    qsetload_path = (path[:i] + 'bin/qsetload')
+    r = os.system(qsetload_path)
     if r:
         log.warning('Error executing qsetload')
+
+    if (queueid == 0) & ('QUEUEID' in os.environ):
+        queueid = os.environ['QUEUEID']
 
     if queueid:
         conn = engine.connect()
@@ -373,7 +380,6 @@ def update_job_tick(queueid=0):
         sql = "UPDATE tQueue SET progress=progress+1 WHERE id={}".format(queueid)
         r = conn.execute(sql)
         conn.close()
-
 
     return r
 
