@@ -695,9 +695,29 @@ def baphy_load_dataset(parmfilepath, options={}):
     event_times['name'] = "TRIAL"
     event_times = event_times.drop(columns=['index'])
 
-    # figure out length of entire experiment
-    file_start_time = np.min(event_times['start'])
-    file_stop_time = np.max(event_times['end'])
+    print('Removing post-response stimuli')
+    keepevents = np.ones(len(exptevents)) == 1
+    for trialidx in range(1, TrialCount+1):
+        # remove stimulus events after TRIALSTOP or STIM,OFF event
+        fftrial_stop = (exptevents['Trial'] == trialidx) & \
+            ((exptevents['name'] == "STIM,OFF") |
+             (exptevents['name'] == "TRIALSTOP"))
+        if np.sum(fftrial_stop):
+            trialstoptime = np.min(exptevents[fftrial_stop]['start'])
+
+            fflate = (exptevents['Trial'] == trialidx) & \
+                exptevents['name'].str.startswith('PostStimSilence , ') & \
+                (exptevents['end'] > trialstoptime)
+
+        for i, d in exptevents.loc[fflate].iterrows():
+            # print("{0}: {1} - {2} - {3}>{4}"
+            #       .format(i, d['Trial'], d['name'], d['end'], start))
+            # remove Pre- and PostStimSilence as well
+            keepevents[(i-2):(i+1)] = False
+
+    print("Keeping {0}/{1} events that precede responses"
+          .format(np.sum(keepevents), len(keepevents)))
+    exptevents = exptevents[keepevents].reset_index()
 
     # add event characterizing outcome of each behavioral
     # trial (if behavior)
@@ -708,6 +728,8 @@ def baphy_load_dataset(parmfilepath, options={}):
     this_event_times = event_times.copy()
     any_behavior = False
     for trialidx in range(1, TrialCount+1):
+        # determine behavioral outcome, log event time to add epochs
+        # spanning each trial
         ff = (((exptevents['name'] == 'OUTCOME,FALSEALARM')
               | (exptevents['name'] == 'OUTCOME,MISS')
               | (exptevents['name'] == 'BEHAVIOR,PUMPON,Pump'))
@@ -719,7 +741,11 @@ def baphy_load_dataset(parmfilepath, options={}):
             this_event_times.loc[trialidx-1, 'name'] = note_map[d['name']]
             any_behavior = True
 
+    # figure out length of entire experiment
+    file_start_time = np.min(event_times['start'])
+    file_stop_time = np.max(event_times['end'])
     te = pd.DataFrame(index=[0], columns=(event_times.columns))
+
     if any_behavior:
         # only concatenate newly labeled trials if events occured that reflect
         # behavior. There's probably a less kludgy way of checking for this
@@ -729,29 +755,6 @@ def baphy_load_dataset(parmfilepath, options={}):
     else:
         te.loc[0] = [file_start_time, file_stop_time, 'PASSIVE_EXPERIMENT']
     event_times = event_times.append(te)
-
-    # remove events DURING or AFTER LICK
-    print('Removing post-response stimuli')
-    ff = (exptevents['name'] == 'LICK')
-    keepevents = np.ones(len(exptevents)) == 1
-    for i, d in exptevents.loc[ff].iterrows():
-        trialidx = d['Trial']
-        start = d['start']
-        fflate = ((exptevents['end'] > start)
-                  & (exptevents['Trial'] == trialidx)
-                  & exptevents['name'].str.startswith('Stim , ')
-                  & ((1-exptevents['name'].str.endswith('Target')) |
-                         (exptevents['start'] > start+0.1)))
-
-        for i, d in exptevents.loc[fflate].iterrows():
-            #print("{0}: {1} - {2} - {3}>{4}"
-            #      .format(i, d['Trial'], d['name'], d['end'], start))
-            # remove Pre- and PostStimSilence as well
-            keepevents[(i-1):(i+2)] = False
-
-    print("Keeping {0}/{1} events that precede responses"
-          .format(np.sum(keepevents), len(keepevents)))
-    exptevents = exptevents[keepevents].reset_index()
 
     # ff = (exptevents['Trial'] == 3)
     # exptevents.loc[ff]
