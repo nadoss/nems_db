@@ -12,6 +12,7 @@ the server, potentially causing harm.
 
 """
 
+import nems_web
 from nems_web.nems_analysis import app #socketio
 from gevent.wsgi import WSGIServer
 
@@ -30,6 +31,10 @@ from gevent.wsgi import WSGIServer
 # TODO: app.run() not meant to be used in production, just for testing
 #       according to Flask docs. Need to replace with better server.
 #       flask.pocoo.org/docs/0.12/deploying/wsgi-standalone/
-app.run(host="0.0.0.0", port=8000, debug=True, use_reloader=False)
+port = int(nems_web.get_setting('PORT'))
+debug = (nems_web.get_setting('DEBUG').lower() in ("yes", "true", "1"))
+print('Starting nems_web server on port {}, debug={}'.format(port,debug))
+app.run(host="0.0.0.0", port=port, debug=debug, use_reloader=False)
 #http_server = WSGIServer(('', 8000), app)
 #http_server.serve_forever()
+
