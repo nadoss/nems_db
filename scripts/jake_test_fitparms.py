@@ -17,7 +17,7 @@ df = fitted_params_per_batch(batch, modelname, include_stats=False, mod_key='',
 print(df)
 
 # Not handling arrays yet, just scalar params
-scalar_df = df.iloc[6:]
+scalar_df = df.iloc[[0,2,4,7]]
 plot_all_params(scalar_df, only_scalars=True)
 #print(df.loc['fir.basic---coefficients'].loc['std'])
 

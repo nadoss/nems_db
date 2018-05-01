@@ -3,6 +3,8 @@
 # This script runs nems_main.fit_single_model from the command line
 
 import nems_db.xform_wrappers as nw
+import nems_db.db as db
+import nems.utils
 import sys
 import os
 
@@ -33,6 +35,8 @@ if __name__ == '__main__':
     #offset=parser.offset[0]
     if 'QUEUEID' in os.environ:
         queueid = os.environ['QUEUEID']
+        nems.utils.progress_fun = nd.update_job_tick
+
     else:
         queueid = 0
 
