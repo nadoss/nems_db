@@ -209,5 +209,5 @@ tags
 
 # configurations
 configs/*
-!configs/default_config.sh
-!configs/web_defaults.sh
+!configs/db_defaults.py
+!configs/web_defaults.py
