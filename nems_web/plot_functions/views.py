@@ -49,7 +49,7 @@ def generate_plot_html():
     snr_idx = float(request.args.get('snri'))
 
     cells = dbp.get_filtered_cells(cells, snr, iso, snr_idx)
-    plot = dbp.get_plot(cells, models, measure, plot_type, only_fair,
+    plot = dbp.get_plot(cells, models, batch, measure, plot_type, only_fair,
                         include_outliers, display=False)
     log.debug("Plot successfully initialized")
     if plot.emptycheck:

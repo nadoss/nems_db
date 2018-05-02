@@ -13,17 +13,18 @@ def plot_filtered_batch(batch, models, measure, plot_type,
                         extra_cols=[], snr=0.0, iso=0.0, snr_idx=0.0):
     cells = get_batch_cells(batch)['cellid'].tolist()
     cells = get_filtered_cells(cells, snr, iso, snr_idx)
-    plot = get_plot(cells, models, measure, plot_type, only_fair,
+    plot = get_plot(cells, models, batch, measure, plot_type, only_fair,
                     include_outliers, display)
     plot.generate_plot()
     return plot
 
 
-def get_plot(cells, models, measure, plot_type, only_fair=True,
+def get_plot(cells, models, batch, measure, plot_type, only_fair=True,
              include_outliers=False, display=True):
     session = Session()
     results_df = psql.read_sql_query(
             session.query(NarfResults)
+            .filter(NarfResults.batch == batch)
             .filter(NarfResults.cellid.in_(cells))
             .filter(NarfResults.modelname.in_(models))
             .statement, session.bind
