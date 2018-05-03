@@ -1,4 +1,5 @@
 import os
+import subprocess
 import datetime
 import sys
 import pandas as pd
@@ -314,23 +315,19 @@ def _add_model_to_queue(commandPrompt, note, user, codeHash, jerbQuery,
 
 
 def update_job_complete(queueid):
-    # mark job complete
-    # svd old-fashioned way of doing
-    #sql="UPDATE tQueue SET complete=1 WHERE id={}".format(queueid)
-    #result = conn.execute(sql)
-    # conn.close()
+    """
+    mark job queueid complete in tQueue
+    svd old-fashioned way of doing it
+    """
     conn = engine.connect()
-    # tick off progress, job is live
     sql = "UPDATE tQueue SET complete=1 WHERE id={}".format(queueid)
     r = conn.execute(sql)
     conn.close()
+
     return r
     """
-    ession = Session()
-    # also filter based on note? - should only be one result to match either
-    # filter, but double checks to make sure there's no conflict
-    #note = "{0}/{1}/{2}".format(cellid, batch, modelname)
-    #.filter(tQueue.note == note)
+    # fancy sqlalchemy method?
+    session = Session()
     qdata = (
             session.query(tQueue)
             .filter(tQueue.id == queueid)
@@ -350,8 +347,10 @@ def update_job_complete(queueid):
 
 
 def update_job_start(queueid):
+    """
+    in tQueue, mark job as active and progress set to 1
+    """
     conn = engine.connect()
-    # mark job as active and progress set to 1
     sql = ("UPDATE tQueue SET complete=-1,progress=1 WHERE id={}"
            .format(queueid))
     r = conn.execute(sql)
@@ -362,14 +361,17 @@ def update_job_start(queueid):
 def update_job_tick(queueid=0):
     """
     update current machine's load in the cluster db and tick off a step
-    of progress in the fit
+    of progress in the fit in tQueue
     """
     path = nems_db.util.__file__
     i = path.find('nems_db/util')
     qsetload_path = (path[:i] + 'bin/qsetload')
-    r = os.system(qsetload_path)
+    result = subprocess.run(qsetload_path, stdout=subprocess.PIPE)
+    r = result.returncode
+
     if r:
         log.warning('Error executing qsetload')
+        log.warning(result.stdout.decode('utf-8'))
 
     if (queueid == 0) & ('QUEUEID' in os.environ):
         queueid = os.environ['QUEUEID']
@@ -377,7 +379,8 @@ def update_job_tick(queueid=0):
     if queueid:
         conn = engine.connect()
         # tick off progress, job is live
-        sql = "UPDATE tQueue SET progress=progress+1 WHERE id={}".format(queueid)
+        sql = ("UPDATE tQueue SET progress=progress+1 WHERE id={}"
+               .format(queueid))
         r = conn.execute(sql)
         conn.close()
 
