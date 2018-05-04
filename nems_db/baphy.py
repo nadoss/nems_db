@@ -194,8 +194,11 @@ def baphy_stim_cachefile(exptparams, options, parmfilepath=None):
     # include all parameter values, even defaults, in filename
     fields = RefObject['UserDefinableFields']
     for cnt1 in range(0, len(fields), 3):
-        #print(fields[cnt1])
-        #print(dstr)
+        if RefObject[fields[cnt1]]==0:
+            RefObject[fields[cnt1]]=int(0)
+            print(fields[cnt1])
+            print(RefObject[fields[cnt1]])
+            print(dstr)
         dstr = "{0}-{1}".format(dstr, RefObject[fields[cnt1]])
 
     dstr = re.sub(r":", r"", dstr)
@@ -821,7 +824,7 @@ def baphy_load_dataset(parmfilepath, options={}):
                 fdur = (ff_tar_dur
                      & (exptevents['start'] < d['end']-0.001)
                      & (exptevents['end'] > d['start']+0.001))
-                
+
                 if np.sum(fdur) and (exptevents['start'][fdur].min()<d['start']+0.5):
                     # assume fully overlapping, delete automaticlly
                     # print("Stim (event {0}: {1:.2f}-{2:.2f} {3}"
@@ -840,11 +843,11 @@ def baphy_load_dataset(parmfilepath, options={}):
                     #        this_event_times['end'][i]-exptevents['start'][fdur].min()))
                     this_event_times['end'][i] = exptevents['start'][fdur].min()
                     keeppostevents[i] = False
-                    
+
             if np.sum(keepevents == False):
                 print("Removed {0}/{1} events that overlap with target"
                       .format(np.sum(keepevents == False), len(keepevents)))
-    
+
             # create final list of these stimulus events
             this_event_times = this_event_times[keepevents]
             tff, = np.where(ffstart)
@@ -1086,10 +1089,10 @@ def dict_to_signal(stim_dict, fs=100, event_times=None, signal_name='stim',
 
 
 def baphy_load_recording(cellid, batch, options):
-    """ 
+    """
     query NarfData to find baphy files for specified cell/batch and then load
     """
-    
+
     # print(options)
     options['rasterfs'] = int(options.get('rasterfs', 100))
     options['stimfmt'] = options.get('stimfmt', 'ozgf')
