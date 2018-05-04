@@ -777,6 +777,7 @@ def baphy_load_dataset(parmfilepath, options={}):
         # generate stimulus events unique to each distinct stimulus
         ff_tar_events = exptevents['name'].str.endswith('Target')
         ff_tar_pre = exptevents['name'].str.startswith('Pre') & ff_tar_events
+        ff_tar_dur = exptevents['name'].str.startswith('Stim') & ff_tar_events
         ff_tar_post = exptevents['name'].str.startswith('Post') & ff_tar_events
 
         ff_pre_all = exptevents['name'] == ""
@@ -815,12 +816,14 @@ def baphy_load_dataset(parmfilepath, options={}):
 
             # screen for conflicts with target events
             keepevents = np.ones(len(this_event_times)) == 1
+            keeppostevents = np.ones(len(this_event_times)) == 1
             for i, d in this_event_times.iterrows():
-                f = (ff_tar_events
+                fdur = (ff_tar_dur
                      & (exptevents['start'] < d['end']-0.001)
                      & (exptevents['end'] > d['start']+0.001))
-
-                if np.sum(f):
+                
+                if np.sum(fdur) and (exptevents['start'][fdur].min()<d['start']+0.5):
+                    # assume fully overlapping, delete automaticlly
                     # print("Stim (event {0}: {1:.2f}-{2:.2f} {3}"
                     #       .format(eventidx,d['start'], d['end'],d['name']))
                     # print("??? But did it happen?"
@@ -829,17 +832,25 @@ def baphy_load_dataset(parmfilepath, options={}):
                     #               exptevents['end'][j],
                     #               exptevents['name'][j]))
                     keepevents[i] = False
-
+                    keeppostevents[i] = False
+                elif np.sum(fdur):
+                    # truncate reference period
+                    # print("adjusting {0}-{1}={2}".format(this_event_times['end'][i],
+                    #        exptevents['start'][fdur].min(),
+                    #        this_event_times['end'][i]-exptevents['start'][fdur].min()))
+                    this_event_times['end'][i] = exptevents['start'][fdur].min()
+                    keeppostevents[i] = False
+                    
             if np.sum(keepevents == False):
                 print("Removed {0}/{1} events that overlap with target"
                       .format(np.sum(keepevents == False), len(keepevents)))
-
+    
             # create final list of these stimulus events
             this_event_times = this_event_times[keepevents]
             tff, = np.where(ffstart)
             ffstart[tff[keepevents == False]] = False
             tff, = np.where(ffstop)
-            ffstop[tff[keepevents == False]] = False
+            ffstop[tff[keeppostevents == False]] = False
 
             event_times = event_times.append(this_event_times, ignore_index=True)
             this_event_times['name'] = "REFERENCE"
@@ -1075,6 +1086,10 @@ def dict_to_signal(stim_dict, fs=100, event_times=None, signal_name='stim',
 
 
 def baphy_load_recording(cellid, batch, options):
+    """ 
+    query NarfData to find baphy files for specified cell/batch and then load
+    """
+    
     # print(options)
     options['rasterfs'] = int(options.get('rasterfs', 100))
     options['stimfmt'] = options.get('stimfmt', 'ozgf')
