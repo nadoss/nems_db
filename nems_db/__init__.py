@@ -6,6 +6,8 @@ log = logging.getLogger(__name__)
 # 2) if not, check if appropriate settings.py file exists.
 #    -> if it does, use the value there and then export to env
 # 3) if not 1 or 2, use value in appropriate defaults.py file and export.
+
+
 def load_config():
     import os
     from configs import db_defaults
@@ -60,12 +62,15 @@ def _init_settings(environ, defaults, settings, cache):
                 environ[s] = d
             cache[s] = environ[s]
 
+
 _cached_config = load_config()
 # Other modules in the package that need access to the settings can
 # pull them from the environment.
 
 # TODO: Alternatively, use a get_setting function like bburan has in nems?
 #       So other mods would call nems_db.get_setting(xxx)?
+
+
 def get_setting(s):
     return _cached_config.get(s, None)
 

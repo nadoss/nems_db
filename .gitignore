@@ -211,3 +211,4 @@ tags
 configs/*
 !configs/db_defaults.py
 !configs/web_defaults.py
+!configs/__init__.py
