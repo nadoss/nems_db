@@ -699,7 +699,7 @@ def baphy_load_dataset(parmfilepath, options={}):
     event_times = event_times.drop(columns=['index'])
 
     print('Removing post-response stimuli')
-    keepevents = np.ones(len(exptevents)) == 1
+    keepevents = np.full(len(exptevents), True, dtype=bool)
     for trialidx in range(1, TrialCount+1):
         # remove stimulus events after TRIALSTOP or STIM,OFF event
         fftrial_stop = (exptevents['Trial'] == trialidx) & \
@@ -723,7 +723,8 @@ def baphy_load_dataset(parmfilepath, options={}):
             keepevents[(i-1):(i+2)] = False
 
         for i, d in exptevents.loc[fftrunc].iterrows():
-            print("stopping event {0} early at {1}".format(i, trialstoptime))
+            print("Truncating event {0} early at {1}"
+                  .format(i, trialstoptime))
             exptevents.loc[i, 'end'] = trialstoptime
             # also trim post stim silence
             exptevents.loc[i + 1, 'start'] = trialstoptime
@@ -792,7 +793,7 @@ def baphy_load_dataset(parmfilepath, options={}):
         ff_tar_events = exptevents['name'].str.endswith('Target')
         ff_tar_pre = exptevents['name'].str.startswith('Pre') & ff_tar_events
         ff_tar_dur = exptevents['name'].str.startswith('Stim') & ff_tar_events
-        ff_lick_dur = exptevents['name'].str=='LICK'
+        ff_lick_dur = (exptevents['name'] == 'LICK')
         ff_tar_post = exptevents['name'].str.startswith('Post') & ff_tar_events
 
         ff_pre_all = exptevents['name'] == ""
@@ -838,7 +839,7 @@ def baphy_load_dataset(parmfilepath, options={}):
                         & (exptevents['end'] > d['start'] + 0.001))
 
                 if np.sum(fdur) and \
-                (exptevents['start'][fdur].min() < d['start'] + 0.5):
+                   (exptevents['start'][fdur].min() < d['start'] + 0.5):
                     # assume fully overlapping, delete automaticlly
                     # print("Stim (event {0}: {1:.2f}-{2:.2f} {3}"
                     #       .format(eventidx,d['start'], d['end'],d['name']))
@@ -854,19 +855,20 @@ def baphy_load_dataset(parmfilepath, options={}):
                     # print("adjusting {0}-{1}={2}".format(this_event_times['end'][i],
                     #        exptevents['start'][fdur].min(),
                     #        this_event_times['end'][i]-exptevents['start'][fdur].min()))
-                    this_event_times.loc[i, 'end'] = exptevents['start'][fdur].min()
+                    this_event_times.loc[i, 'end'] = \
+                       exptevents['start'][fdur].min()
                     keeppostevents[i] = False
 
-            if np.sum(keepevents is False):
+            if np.sum(keepevents == False):
                 print("Removed {0}/{1} events that overlap with target"
-                      .format(np.sum(keepevents is False), len(keepevents)))
+                      .format(np.sum(keepevents == False), len(keepevents)))
 
             # create final list of these stimulus events
             this_event_times = this_event_times[keepevents]
             tff, = np.where(ffstart)
-            ffstart[tff[keepevents is False]] = False
+            ffstart[tff[keepevents == False]] = False
             tff, = np.where(ffstop)
-            ffstop[tff[keeppostevents is False]] = False
+            ffstop[tff[keeppostevents == False]] = False
 
             event_times = event_times.append(this_event_times,
                                              ignore_index=True)
