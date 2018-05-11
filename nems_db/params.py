@@ -25,30 +25,25 @@ def fitted_params_per_batch(batch, modelname, include_stats=True,
 
 
 def fitted_params_per_cell(cellids, batch, modelname, include_stats=True,
-                           mod_key='id'):
+                           mod_key='id', meta=['r_test', 'r_fit']):
     # query nems_db results to get a list of modelspecs
     # (should end up with one modelspec per cell)
     modelspecs = _get_modelspecs(cellids, batch, modelname)
-    stats = ms.summary_stats(modelspecs, mod_key=mod_key)
+    stats = ms.summary_stats(modelspecs, mod_key=mod_key, meta_include=meta)
 
     index = list(stats.keys())
-    #index_perf = ['r_fit', 'r_test']
-    index_perf=[]
     try:
         columns = [m[0].get('meta').get('cellid') for m in modelspecs]
     except:
         columns = cellids
     data = {}
-    for i, c in enumerate(cellids):
+    for i, c in enumerate(columns):
         for k in index:
             val = ms.try_scalar(stats[k]['values'][i])
             if c in data.keys():
                 data[c].append(val)
             else:
                 data[c] = [val]
-        for k in index_perf:
-            val = modelspecs[i][0]['meta'][k]
-            data[c].append(val)
 
     if include_stats:
         columns.insert(0, 'std')
@@ -58,11 +53,6 @@ def fitted_params_per_cell(cellids, batch, modelname, include_stats=True,
         for k in index:
             data['std'].append(stats[k]['std'])
             data['mean'].append(stats[k]['mean'])
-        for k in index_perf:
-            data['std'].append(0)
-            data['mean'].append(0)
-
-    index.extend(index_perf)
 
     return pd.DataFrame(data=data, index=index, columns=columns)
 
