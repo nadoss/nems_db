@@ -210,6 +210,11 @@ def load_model_baphy_xform(cellid, batch=271,
     return xforms.load_analysis(filepath, eval_model=eval_model)
 
 
+def load_batch_modelpaths(batch, modelnames, cellids=None, eval_model=True):
+    d = nd.get_results_file(batch, [modelnames], cellids=cellids)
+    return d['modelpath'].tolist()
+
+
 def quick_inspect(cellid="chn020f-b1", batch=271,
         modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"):
 

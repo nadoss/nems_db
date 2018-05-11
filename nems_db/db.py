@@ -759,21 +759,28 @@ def batch_comp(batch=301, modelnames=None, cellids=['%'], stat='r_test'):
     return results
 
 
-def get_results_file(batch, modelnames=[], cellids=['%']):
+def get_results_file(batch, modelnames=None, cellids=None):
 
     session = Session()
-
-    #     .filter(NarfResults.cellid.in_(cellids))
-    results = psql.read_sql_query(
+    query = (
         session.query(NarfResults)
         .filter(NarfResults.batch == batch)
-        .filter(NarfResults.modelname.in_(modelnames))
-        .filter(NarfResults.cellid.in_(cellids))
         .order_by(desc(NarfResults.lastmod))
-        .statement,
-        session.bind
-    )
+        )
 
+    if modelnames is not None:
+        if not isinstance(modelnames, list):
+            raise ValueError("Modelnames should be specified as a list, "
+                             "got %s", str(type(modelnames)))
+        query = query.filter(NarfResults.modelname.in_(modelnames))
+
+    if cellids is not None:
+        if not isinstance(cellids, list):
+            raise ValueError("Cellids should be specified as a list, "
+                             "got %s", str(type(cellids)))
+        query = query.filter(NarfResults.cellid.in_(cellids))
+
+    results = psql.read_sql_query(query.statement, session.bind)
     session.close()
 
     if results.empty:
