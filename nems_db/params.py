@@ -1,5 +1,6 @@
 import logging
 import os
+import copy
 
 import pandas as pd
 import numpy as np
@@ -15,30 +16,61 @@ log = logging.getLogger(__name__)
 
 
 def fitted_params_per_batch(batch, modelname, mod_key='id', limit=None,
+                            multi='mean', meta=['r_test', 'r_fit'],
                             stats_keys=['mean', 'std', 'sem', 'max', 'min']):
     celldata = nd.get_batch_cells(batch=batch)
     cellids = celldata['cellid'].tolist()
     if limit is not None:
         cellids = cellids[:limit]
     return fitted_params_per_cell(cellids, batch, modelname, mod_key=mod_key,
-                                  stats_keys=stats_keys)
+                                  stats_keys=stats_keys, meta=meta,
+                                  multi=multi)
 
 
 def fitted_params_per_cell(cellids, batch, modelname, mod_key='id',
-                           meta=['r_test', 'r_fit'],
+                           meta=['r_test', 'r_fit'], multi='mean',
                            stats_keys=['mean', 'std', 'sem', 'max', 'min']):
+    '''
+    Valid meta keys for LBHB (not exhaustive):
+        r_test, r_fit, r_ceiling, r_floor, cellid, batch ... etc
+    Valid stats_keys:
+        mean, std, sem, max, min
+    Valid 'multi' options (for dealing with multi-modelspec fits):
+        mean (default), first, all (work in progress)
+    '''
+
     # query nems_db results to get a list of modelspecs
     # (should end up with one modelspec per cell)
-    modelspecs = _get_modelspecs(cellids, batch, modelname)
+    modelspecs = _get_modelspecs(cellids, batch, modelname, multi=multi)
+    if multi == 'all':
+        raise NotImplementedError
+        # Flatten sublists of modelspecs
+        modelspecs = [m for ms in modelspecs for m in ms]
     stats = ms.summary_stats(modelspecs, mod_key=mod_key, meta_include=meta)
 
     index = list(stats.keys())
     try:
         columns = [m[0].get('meta').get('cellid') for m in modelspecs]
     except:
+        log.warning("Couldn't use cellids from modelspecs, using cellids "
+                    "from function parameters instead.")
         columns = cellids
+
     data = {}
+    current = columns[0]
+    counter = 1
     for i, c in enumerate(columns):
+        # Ensure unique column names, will have duplicates if multi='all'
+        # and there were multi-fit models included.
+        if i == 0:
+            pass
+        elif c == current:
+            columns[i] = '%s<%d>'%(c, counter)
+            counter += 1
+        else:
+            current = c
+            counter = 1
+
         for k in index:
             val = ms.try_scalar(stats[k]['values'][i])
             if c in data.keys():
@@ -56,7 +88,7 @@ def fitted_params_per_cell(cellids, batch, modelname, mod_key='id',
     return pd.DataFrame(data=data, index=index, columns=columns)
 
 
-def _get_modelspecs(cellids, batch, modelname):
+def _get_modelspecs(cellids, batch, modelname, multi='mean'):
     filepaths = load_batch_modelpaths(batch, modelname, cellids,
                                       eval_model=False)
     speclists = []
@@ -70,27 +102,31 @@ def _get_modelspecs(cellids, batch, modelname):
     modelspecs = []
     for m in speclists:
         if len(m) > 1:
-            # TODO: Take mean? only want one modelspec per cell
-            #       Or just use first mspec with warning?
-            #       Or could just use all of the mspecs and extend
-            #       instead of append
-    #                stats = ms.summary_stats(mspecs)
-    #                temp_spec = copy.deepcopy(mspecs[0])
-    #                phis = [m['phi'] for m in temp_spec]
-    #                # TODO: This is awful. Make this better.
-    #                for p in phis:
-    #                    for k in p:
-    #                        for s in stats:
-    #                            if k in s:
-    #                                p[k] = stats[s]['mean']
-    #                for m, p in zip(temp_spec, phis):
-    #                    m['phi'] = p
-    #                this_mspec = temp_spec
-            #this_mspec = mspecs
-            log.warning("Fit had multiple modelspecs, using first one")
+            if multi == 'first':
+                this_mspec = m[0]
+            elif multi == 'all':
+                this_mspec = m
+            elif multi == 'mean':
+                stats = ms.summary_stats(m)
+                temp_spec = copy.deepcopy(m[0])
+                phis = [m['phi'] for m in temp_spec]
+                for p in phis:
+                    for k in p:
+                        for s in stats:
+                            if k in s:
+                                p[k] = stats[s]['mean']
+                for m, p in zip(temp_spec, phis):
+                    m['phi'] = p
+                this_mspec = temp_spec
+            else:
+                log.warning("Couldn't interpret <multi> parameter. Got: %s,\n"
+                            "Expected one of: 'mean, first, random, all'.\n"
+                            "Using first modelspec instead.", multi)
+                this_mspec = m[0]
         else:
-            pass
-        modelspecs.append(m[0])
+            this_mspec = m[0]
+
+        modelspecs.append(this_mspec)
 
     return modelspecs
 
