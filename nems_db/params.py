@@ -14,18 +14,19 @@ from nems.uri import load_resource
 log = logging.getLogger(__name__)
 
 
-def fitted_params_per_batch(batch, modelname, include_stats=True,
-                            mod_key='id', limit=None):
+def fitted_params_per_batch(batch, modelname, mod_key='id', limit=None,
+                            stats_keys=['mean', 'std', 'sem', 'max', 'min']):
     celldata = nd.get_batch_cells(batch=batch)
     cellids = celldata['cellid'].tolist()
     if limit is not None:
         cellids = cellids[:limit]
-    return fitted_params_per_cell(cellids, batch, modelname,
-                                  include_stats=include_stats, mod_key=mod_key)
+    return fitted_params_per_cell(cellids, batch, modelname, mod_key=mod_key,
+                                  stats_keys=stats_keys)
 
 
-def fitted_params_per_cell(cellids, batch, modelname, include_stats=True,
-                           mod_key='id', meta=['r_test', 'r_fit']):
+def fitted_params_per_cell(cellids, batch, modelname, mod_key='id',
+                           meta=['r_test', 'r_fit'],
+                           stats_keys=['mean', 'std', 'sem', 'max', 'min']):
     # query nems_db results to get a list of modelspecs
     # (should end up with one modelspec per cell)
     modelspecs = _get_modelspecs(cellids, batch, modelname)
@@ -45,14 +46,12 @@ def fitted_params_per_cell(cellids, batch, modelname, include_stats=True,
             else:
                 data[c] = [val]
 
-    if include_stats:
-        columns.insert(0, 'std')
-        data['std'] = []
-        columns.insert(0, 'mean')
-        data['mean'] = []
-        for k in index:
-            data['std'].append(stats[k]['std'])
-            data['mean'].append(stats[k]['mean'])
+    if stats_keys:
+        for s in reversed(stats_keys):
+            columns.insert(0, s)
+            data[s] = []
+            for k in index:
+                data[s].append(stats[k][s])
 
     return pd.DataFrame(data=data, index=index, columns=columns)
 
