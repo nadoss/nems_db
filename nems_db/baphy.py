@@ -194,11 +194,11 @@ def baphy_stim_cachefile(exptparams, options, parmfilepath=None):
     # include all parameter values, even defaults, in filename
     fields = RefObject['UserDefinableFields']
     for cnt1 in range(0, len(fields), 3):
-        if RefObject[fields[cnt1]]==0:
-            RefObject[fields[cnt1]]=int(0)
-            print(fields[cnt1])
-            print(RefObject[fields[cnt1]])
-            print(dstr)
+        if RefObject[fields[cnt1]] == 0:
+            RefObject[fields[cnt1]] = int(0)
+            # print(fields[cnt1])
+            # print(RefObject[fields[cnt1]])
+            # print(dstr)
         dstr = "{0}-{1}".format(dstr, RefObject[fields[cnt1]])
 
     dstr = re.sub(r":", r"", dstr)
@@ -262,7 +262,7 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
             for u in range(0, unitcount):
                 st = s[u, 0]
 
-                #print('chan {0} unit {1}: {2} spikes'.format(c,u,st.shape[1]))
+                # print('chan {0} unit {1}: {2} spikes'.format(c,u,st.shape[1]))
                 for trialidx in range(1, TrialCount+1):
                     ff = (st[0, :] == trialidx)
                     if np.sum(ff):
@@ -627,16 +627,16 @@ def baphy_load_data(parmfilepath, options={}):
     pcellidmap={}
     for pcellid in pcellids:
         t = pcellid.split("_")
-        cellids.append(t[0])
+        cellids.append(t[0].lower())
         pcellidmap[t[0]] = pcellid
-
+    # print(pcellidmap)
     # pull out a single cell if 'all' not specified
     spike_dict = {}
     for i, x in enumerate(unit_names):
-        if (cellids[0]=='all'):
+        if (cellids[0] == 'all'):
             spike_dict[x] = spiketimes[i]
-        elif (x in cellids):
-            spike_dict[pcellidmap[x]] = spiketimes[i]
+        elif (x.lower() in cellids):
+            spike_dict[pcellidmap[x.lower()]] = spiketimes[i]
 
     if not spike_dict:
         raise ValueError('No matching cellid in baphy spike file')
@@ -699,7 +699,7 @@ def baphy_load_dataset(parmfilepath, options={}):
     event_times = event_times.drop(columns=['index'])
 
     print('Removing post-response stimuli')
-    keepevents = np.ones(len(exptevents)) == 1
+    keepevents = np.full(len(exptevents), True, dtype=bool)
     for trialidx in range(1, TrialCount+1):
         # remove stimulus events after TRIALSTOP or STIM,OFF event
         fftrial_stop = (exptevents['Trial'] == trialidx) & \
@@ -709,14 +709,26 @@ def baphy_load_dataset(parmfilepath, options={}):
             trialstoptime = np.min(exptevents[fftrial_stop]['start'])
 
             fflate = (exptevents['Trial'] == trialidx) & \
-                exptevents['name'].str.startswith('PostStimSilence , ') & \
+                exptevents['name'].str.startswith('Stim , ') & \
+                (exptevents['start'] > trialstoptime)
+            fftrunc = (exptevents['Trial'] == trialidx) & \
+                exptevents['name'].str.startswith('Stim , ') & \
+                (exptevents['start'] <= trialstoptime) & \
                 (exptevents['end'] > trialstoptime)
 
         for i, d in exptevents.loc[fflate].iterrows():
             # print("{0}: {1} - {2} - {3}>{4}"
             #       .format(i, d['Trial'], d['name'], d['end'], start))
             # remove Pre- and PostStimSilence as well
-            keepevents[(i-2):(i+1)] = False
+            keepevents[(i-1):(i+2)] = False
+
+        for i, d in exptevents.loc[fftrunc].iterrows():
+            print("Truncating event {0} early at {1}"
+                  .format(i, trialstoptime))
+            exptevents.loc[i, 'end'] = trialstoptime
+            # also trim post stim silence
+            exptevents.loc[i + 1, 'start'] = trialstoptime
+            exptevents.loc[i + 1, 'end'] = trialstoptime
 
     print("Keeping {0}/{1} events that precede responses"
           .format(np.sum(keepevents), len(keepevents)))
@@ -781,6 +793,7 @@ def baphy_load_dataset(parmfilepath, options={}):
         ff_tar_events = exptevents['name'].str.endswith('Target')
         ff_tar_pre = exptevents['name'].str.startswith('Pre') & ff_tar_events
         ff_tar_dur = exptevents['name'].str.startswith('Stim') & ff_tar_events
+        ff_lick_dur = (exptevents['name'] == 'LICK')
         ff_tar_post = exptevents['name'].str.startswith('Post') & ff_tar_events
 
         ff_pre_all = exptevents['name'] == ""
@@ -821,11 +834,12 @@ def baphy_load_dataset(parmfilepath, options={}):
             keepevents = np.ones(len(this_event_times)) == 1
             keeppostevents = np.ones(len(this_event_times)) == 1
             for i, d in this_event_times.iterrows():
-                fdur = (ff_tar_dur
-                     & (exptevents['start'] < d['end']-0.001)
-                     & (exptevents['end'] > d['start']+0.001))
+                fdur = ((ff_tar_dur | ff_lick_dur)
+                        & (exptevents['start'] < d['end'] - 0.001)
+                        & (exptevents['end'] > d['start'] + 0.001))
 
-                if np.sum(fdur) and (exptevents['start'][fdur].min()<d['start']+0.5):
+                if np.sum(fdur) and \
+                   (exptevents['start'][fdur].min() < d['start'] + 0.5):
                     # assume fully overlapping, delete automaticlly
                     # print("Stim (event {0}: {1:.2f}-{2:.2f} {3}"
                     #       .format(eventidx,d['start'], d['end'],d['name']))
@@ -841,7 +855,8 @@ def baphy_load_dataset(parmfilepath, options={}):
                     # print("adjusting {0}-{1}={2}".format(this_event_times['end'][i],
                     #        exptevents['start'][fdur].min(),
                     #        this_event_times['end'][i]-exptevents['start'][fdur].min()))
-                    this_event_times['end'][i] = exptevents['start'][fdur].min()
+                    this_event_times.loc[i, 'end'] = \
+                       exptevents['start'][fdur].min()
                     keeppostevents[i] = False
 
             if np.sum(keepevents == False):
@@ -855,9 +870,11 @@ def baphy_load_dataset(parmfilepath, options={}):
             tff, = np.where(ffstop)
             ffstop[tff[keeppostevents == False]] = False
 
-            event_times = event_times.append(this_event_times, ignore_index=True)
+            event_times = event_times.append(this_event_times,
+                                             ignore_index=True)
             this_event_times['name'] = "REFERENCE"
-            event_times = event_times.append(this_event_times, ignore_index=True)
+            event_times = event_times.append(this_event_times,
+                                             ignore_index=True)
             # event_times = pd.concat([event_times, this_event_times])
 
             ff_pre_all = ff_pre_all | ffstart
@@ -872,7 +889,7 @@ def baphy_load_dataset(parmfilepath, options={}):
         this_event_times2['name'] = 'PreStimSilence'
         this_event_times3 = pd.concat(
                 [exptevents.loc[ff_post_all, ['start']],
-                 exptevents.loc[ff_post_all,['end']]],
+                 exptevents.loc[ff_post_all, ['end']]],
                 axis=1
                 )
         this_event_times3['name'] = 'PostStimSilence'
