@@ -11,6 +11,7 @@ from nems_db.xform_wrappers import load_batch_modelpaths
 import nems_db.db as nd
 import nems.modelspec as ms
 from nems.uri import load_resource
+from nems_web.utilities.pruffix import find_common
 
 log = logging.getLogger(__name__)
 
@@ -229,3 +230,46 @@ def _fit_distribution(array, dist_type):
                          "Got: %s", dist_type)
 
     return dist_class.fit(array)
+
+
+def param_scatter_batch(batch, model1, model2, param, multi='mean',
+                        limit=None, mod_key='id'):
+    celldata = nd.get_batch_cells(batch=batch)
+    cellids = celldata['cellid'].tolist()
+    if limit is not None:
+        cellids = cellids[:limit]
+    param_scatter(cellids, batch, model1, model2, param, multi=multi,
+                  mod_key=mod_key)
+
+
+def param_scatter(cellids, batch, model1, model2, param, multi='mean',
+                  mod_key='id'):
+    df1 = fitted_params_per_cell(cellids, batch, model1, mod_key=mod_key,
+                                 multi=multi)
+    df2 = fitted_params_per_cell(cellids, batch, model2, mod_key=mod_key,
+                                 multi=multi)
+    vec1 = _get_param_values(df1, param)
+    vec2 = _get_param_values(df2, param)
+
+    fig, ax = plt.subplots(1, 1)
+    ax.scatter(vec1, vec2)
+    ax.axis('equal')
+    short, pre, suff = find_common([model1, model2])
+    title = "%s\nmodel prefix: %s, suffix: %s" % (param, pre, suff)
+    ax.set_title(title)
+    ax.set_xlabel(short[0])
+    ax.set_ylabel(short[1])
+    fig.show()
+
+
+def _get_param_values(df, key):
+    try:
+        vector = df.loc[key].values
+    except KeyError:
+        for k in df.index.values:
+            if key in k:
+                key = k
+                log.info("Updating parameter key from %s to %s", key, k)
+                break
+        vector = df.loc[key].values
+    return vector
