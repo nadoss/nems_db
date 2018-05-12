@@ -1,9 +1,11 @@
-from nems_db.params import fitted_params_per_batch, plot_all_params
+from nems_db.params import fitted_params_per_batch, plot_all_params, \
+                           param_scatter_batch
 
 
-batch = 271
+batch = 308
 limit = None
-modelname = 'ozgf100ch18_wcg18x2_fir2x15_lvl1_dexp1_fit01'
+modelname1 = 'ozgf100ch18_dlog_wcg18x2_fir2x15_lvl1_dexp1_basic'
+modelname2 = 'ozgf100ch18_dlog_wcg18x2_fir2x15_lvl1_dexp1_iter01-T3-T4-T5-T6-T7-ti100-fi15'
 
 #batch = 303
 #limit = None
@@ -12,14 +14,16 @@ modelname = 'ozgf100ch18_wcg18x2_fir2x15_lvl1_dexp1_fit01'
 # Can use mod_key='fn', mod_key='id', etc to display more info in index.
 # Formatted as: '<mspec_index--mod_key--parameter_name>'
 # So mod_key='id' gives something like: '0--wc15x1--coefficients'.
-df = fitted_params_per_batch(batch, modelname, include_stats=False, mod_key='',
-                             limit=limit)
+df = fitted_params_per_batch(batch, modelname1, mod_key='', #stats_keys=[],
+                             limit=limit, multi='mean')
 print(df)
 
+param_scatter_batch(batch, modelname1, modelname2, param='shift',
+                    multi='mean', limit=limit, mod_key='')
+
 # Not handling arrays yet, just scalar params
-scalar_df = df.iloc[[0,2,4,7]]
-plot_all_params(scalar_df, only_scalars=True)
-#print(df.loc['fir.basic---coefficients'].loc['std'])
+plot_all_params(df, only_scalars=True)
+
 
 # example output (truncated)
 """
