@@ -622,14 +622,16 @@ def baphy_load_data(parmfilepath, options={}):
     # test for special case where psuedo cellid suffix has been added to
     # cellid by stripping anything after a "_" underscore in the cellid (list)
     # provided
-    pcellids = options['cellid'] if (type(options['cellid']) is list) else [options['cellid']]
+    pcellids = options['cellid'] if (type(options['cellid']) is list) \
+       else [options['cellid']]
     cellids = []
-    pcellidmap={}
+    pcellidmap = {}
     for pcellid in pcellids:
         t = pcellid.split("_")
-        cellids.append(t[0].lower())
+        t[0] = t[0].lower()
+        cellids.append(t[0])
         pcellidmap[t[0]] = pcellid
-    # print(pcellidmap)
+    print(pcellidmap)
     # pull out a single cell if 'all' not specified
     spike_dict = {}
     for i, x in enumerate(unit_names):
