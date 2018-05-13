@@ -3,7 +3,7 @@ import pkgutil
 from flask import redirect, Response, url_for, render_template
 
 from nems_web.nems_analysis import app
-from nems_db.db import Session, gCellMaster
+from nems_db.db import Session, Tables
 
 
 @app.route('/cell_details/<cellid>')
@@ -12,6 +12,7 @@ def cell_details(cellid):
     # Keeping as separate function incase want to add extra stuff later
     # (as opposed to just putting link directly in javascript)
     session = Session()
+    gCellMaster = Tables()['gCellMaster']
 
     url_root = 'http://hyrax.ohsu.edu/celldb/peninfo.php?penid='
     i = cellid.find('-')
@@ -48,7 +49,6 @@ def cell_details(cellid):
 def model_details(modelname):
     return render_template('model_details.html',
                            docs=['function temporarily disabled'])
-    #return Response('Details for modelname: ' + modelname)
     # test code below this, won't run until response removed
     keyword_list = modelname.split('_')
     kw_funcs=[]
@@ -59,12 +59,6 @@ def model_details(modelname):
                 break
             except:
                 pass
-    #kw_funcs = [
-    #        getattr(nk, kw)
-    #        if hasattr(nk, kw)
-    #        else "Couldn't find keyword: {0}".format(kw)
-    #        for kw in keyword_list
-    #        ]
     kwdocs = [
             func.__doc__ + '              '
             if func.__doc__ and not isinstance(func, str)

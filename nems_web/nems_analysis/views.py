@@ -38,31 +38,17 @@ from sqlalchemy.orm import Query
 from sqlalchemy import desc, asc, or_
 
 from nems_web.nems_analysis import app, bokeh_version
-from nems_db.db import (
-        Session, NarfAnalysis, NarfBatches, NarfResults, sBatch, NarfUsers,
-        )
+from nems_db.db import Session, Tables
 from nems_web.nems_analysis.ModelFinder import ModelFinder
 from nems_db.plots import PLOT_TYPES
 from nems_web.account_management.views import get_current_user
 from nems_web.run_custom.script_utils import scan_for_scripts
-#from nems_config.defaults import UI_OPTIONS, DEMO_MODE
-from nems.uri import load_resource, save_resource
-#n_ui = UI_OPTIONS
+from nems.uri import load_resource
+
 log = logging.getLogger(__name__)
 
-# TODO: delete s3 stuff once new config
-#       system is set up.
-#try:
-#    import boto3
-#    import nems_config.Storage_Config as sc
-#    AWS = sc.USE_AWS
-#except:
-#    from nems_config.defaults import STORAGE_DEFAULTS
-#    sc = STORAGE_DEFAULTS
-#    AWS = False
 
-
-# TODO: figure out where to move this for easier config
+# TODO: Move these options to configs
 #       namedtuple is a temporary hack to force object-like attributes
 ui_opt = namedtuple('ui_opt', 'cols rowlimit sort measurelist required_cols detailcols iso snr snri')
 n_ui = ui_opt(
@@ -91,7 +77,6 @@ n_ui = ui_opt(
 ##################################################################
 
 
-
 @app.route('/')
 def main_view():
     """Initialize the nems_analysis landing page.
@@ -113,8 +98,12 @@ def main_view():
     #       maybe need to add sec_lvl column to analysis/batches/results?
     #       then can compare in query ex: if user.sec_lvl > analysis.sec_lvl
     user = get_current_user()
-
     session = Session()
+    db_tables = Tables()
+    NarfResults = db_tables['NarfResults']
+    NarfAnalysis = db_tables['NarfAnalysis']
+    NarfBatches = db_tables['NarfBatches']
+    sBatch = db_tables['sBatch']
 
     # .all() returns a list of tuples, so it's necessary to pull the
     # name elements out into a list by themselves.
@@ -218,9 +207,9 @@ def main_view():
             'main.html', analysislist=analysislist, analysis_ids=analysis_ids,
             batchlist=batchlist, collist=collist, defaultcols=defaultcols,
             measurelist=measurelist, defaultrowlimit=defaultrowlimit,
-            sortlist=sortlist, defaultsort=defaultsort,statuslist=statuslist,
+            sortlist=sortlist, defaultsort=defaultsort, statuslist=statuslist,
             taglist=taglist, plotTypeList=plotTypeList, username=user.username,
-            seclvl = int(user.sec_lvl), iso=n_ui.iso, snr=n_ui.snr,
+            seclvl=int(user.sec_lvl), iso=n_ui.iso, snr=n_ui.snr,
             snri=n_ui.snri, scripts=scriptList, bokeh_version=bokeh_version
             )
 
@@ -230,6 +219,7 @@ def update_batch():
     """Update current batch selection after an analysis is selected."""
 
     session = Session()
+    NarfAnalysis = Tables()['NarfAnalysis']
     blank = 0
 
     aSelected = request.args.get('aSelected', type=str)
@@ -258,6 +248,7 @@ def update_models():
     """
 
     session = Session()
+    NarfAnalysis = Tables()['NarfAnalysis']
 
     aSelected = request.args.get('aSelected', type=str)
 
@@ -289,6 +280,11 @@ def update_cells():
     """
 
     session = Session()
+    db_tables = Tables()
+    NarfBatches = db_tables['NarfBatches']
+    sBatch = db_tables['sBatch']
+    NarfAnalysis = db_tables['NarfAnalysis']
+
     # Only get the numerals for the selected batch, not the description.
     bSelected = request.args.get('bSelected')
     aSelected = request.args.get('aSelected')
@@ -333,6 +329,8 @@ def update_results():
 
     user = get_current_user()
     session = Session()
+    NarfResults = Tables()['NarfResults']
+
     nullselection = """
             MUST SELECT A BATCH AND ONE OR MORE CELLS AND
             ONE OR MORE MODELS BEFORE RESULTS WILL UPDATE
@@ -370,7 +368,7 @@ def update_results():
 
     # Package query results into a DataFrame
     results = psql.read_sql_query(
-            Query(cols,session)
+            Query(cols, session)
             .filter(NarfResults.batch == bSelected)
             .filter(NarfResults.cellid.in_(cSelected))
             .filter(NarfResults.modelname.in_(mSelected))
@@ -400,6 +398,7 @@ def update_analysis():
 
     user = get_current_user()
     session = Session()
+    NarfAnalysis = Tables()['NarfAnalysis']
 
     tagSelected = request.args.getlist('tagSelected[]')
     statSelected = request.args.getlist('statSelected[]')
@@ -452,6 +451,8 @@ def update_analysis_details():
     """
 
     session = Session()
+    NarfAnalysis = Tables()['NarfAnalysis']
+
     # TODO: Find a better/centralized place to store these options.
     # Columns to display in detail popup - add/subtract here if desired.
     detailcols = n_ui.detailcols
@@ -459,13 +460,13 @@ def update_analysis_details():
     aSelected = request.args.get('aSelected')
 
     cols = [
-            getattr(NarfAnalysis,c) for c in detailcols
-            if hasattr(NarfAnalysis,c)
+            getattr(NarfAnalysis, c) for c in detailcols
+            if hasattr(NarfAnalysis, c)
             ]
 
     # Package query results into a DataFrame
     results = psql.read_sql_query(
-            Query(cols,session)
+            Query(cols, session)
             .filter(NarfAnalysis.name == aSelected)
             .statement,
             session.bind
@@ -479,13 +480,13 @@ def update_analysis_details():
             if (col == 'id') or (col == 'status'):
                 detailsHTML += """
                     <p><strong>%s</strong>: %s</p>
-                    """%(col,results.get_value(0, col))
+                    """ % (col, results.get_value(0, col))
                     # Use a header + paragraph for everything else
             else:
                 detailsHTML += """
                     <h5><strong>%s</strong>:</h5>
                     <p>%s</p>
-                    """%(col,results.get_value(0, col))
+                    """%(col, results.get_value(0, col))
 
     session.close()
 
@@ -497,6 +498,7 @@ def update_status_options():
 
     user = get_current_user()
     session = Session()
+    NarfAnalysis = Tables()['NarfAnalysis']
 
     statuslist = [
         i[0] for i in
@@ -519,6 +521,7 @@ def update_tag_options():
 
     user = get_current_user()
     session = Session()
+    NarfAnalysis = Tables()['NarfAnalysis']
 
     tags = [
         i[0].split(",") for i in
@@ -550,13 +553,7 @@ def update_tag_options():
 ##############################################################################
 
 
-
-#TODO: Handle Analysis Editor functions with an AJAX call instead of a form
-#      submission so that the entire page doesn't have to be refreshed each
-#      time - really only need to update the analysis selector's options.
-
-
-@app.route('/edit_analysis', methods=['GET','POST'])
+@app.route('/edit_analysis', methods=['GET', 'POST'])
 @login_required
 def edit_analysis():
     """Take input from Analysis Editor modal and save it to the database.
@@ -567,6 +564,8 @@ def edit_analysis():
 
     user = get_current_user()
     session = Session()
+    NarfAnalysis = Tables()['NarfAnalysis']
+
     modTime = datetime.datetime.now().replace(microsecond=0)
 
     eName = request.args.get('name')
@@ -576,17 +575,6 @@ def edit_analysis():
     eQuestion = request.args.get('question')
     eAnswer = request.args.get('answer')
     eTree = request.args.get('tree')
-    #TODO: add checks to require input inside form fields
-    #      or allow blank so that people can erase stuff?
-
-    # Turned this off for now -- can re-enable when rule needs are more stable
-    # Make sure the keyword combination is valid using nems.keyword_rules
-    #try:
-    #    mf = ModelFinder(eTree)
-    #    for modelname in mf.modellist:
-    #        keyword_test_routine(modelname)
-    #except Exception as e:
-    #    return jsonify(success='Analysis not saved: \n' + str(e))
 
     if eId == '__none':
         checkExists = False
@@ -635,30 +623,19 @@ def edit_analysis():
             a = NarfAnalysis(
                     name=eName, status=eStatus, question=eQuestion,
                     answer=eAnswer, tags=eTags, batch='',
-                    lastmod=str(modTime), modeltree=eTree, username=user.username,
-                    labgroup=user.labgroup, public='0'
+                    lastmod=str(modTime), modeltree=eTree,
+                    username=user.username, labgroup=user.labgroup, public='0'
                     )
 
         session.add(a)
 
-    # For verifying correct logging - comment these out
-    # when not needed for testing.
-    #log.info("Added the following analysis to database:")
-    #log.info("------------------")
-    #log.info("name:"); log.info(a.name)
-    #log.info("question:"); log.info(a.question)
-    #log.info("answer:"); log.info(a.answer)
-    #log.info("status:"); log.info(a.status)
-    #log.info("tags:"); log.info(a.tags)
-    #log.info("model tree:"); log.info(a.modeltree)
-    #log.info("-----------------\n\n")
     addedName = a.name
     session.commit()
     session.close()
 
     # After handling submissions, return user to main page so that it
     # refreshes with new analysis included in list
-    return jsonify(success="Analysis %s saved successfully."%addedName)
+    return jsonify(success="Analysis %s saved successfully." % addedName)
 
 
 @app.route('/get_current_analysis')
@@ -669,6 +646,7 @@ def get_current_analysis():
     """
 
     session = Session()
+    NarfAnalysis = Tables()['NarfAnalysis']
 
     aSelected = request.args.get('aSelected')
     # If no analysis was selected, fill fields with blank text to
@@ -701,6 +679,7 @@ def check_analysis_exists():
     """
 
     session = Session()
+    NarfAnalysis = Tables()['NarfAnalysis']
 
     nameEntered = request.args.get('nameEntered')
     analysisId = request.args.get('analysisId')
@@ -732,6 +711,7 @@ def delete_analysis():
 
     user = get_current_user()
     session = Session()
+    NarfAnalysis = Tables()['NarfAnalysis']
 
     success = False
     aSelected = request.args.get('aSelected')
@@ -746,11 +726,9 @@ def delete_analysis():
     if result is None:
         return jsonify(success=success)
 
-    if (
-            result.public
+    if (result.public
             or (result.username == user.username)
-            or (user.labgroup in result.labgroup)
-        ):
+            or (user.labgroup in result.labgroup)):
         success = True
         session.delete(result)
         session.commit()
@@ -763,11 +741,9 @@ def delete_analysis():
     return jsonify(success=success)
 
 
-
 ####################################################################
 ###############     TABLE SELECTION FUNCTIONS     ##################
 ####################################################################
-
 
 
 @app.route('/get_preview')
@@ -778,6 +754,7 @@ def get_preview():
     """
 
     session = Session()
+    NarfResults = Tables()['NarfResults']
 
     # Only get the numerals for the selected batch, not the description.
     bSelected = request.args.get('bSelected', type=str)[:3]
@@ -822,10 +799,11 @@ def get_preview():
 ###############################################################################
 
 
-
 @app.route('/get_saved_selections')
 def get_saved_selections():
     session = Session()
+    NarfUsers = Tables()['NarfUsers']
+
     user = get_current_user()
     user_entry = (
             session.query(NarfUsers)
@@ -841,6 +819,7 @@ def get_saved_selections():
     session.close()
     return jsonify(selections=selections, null=null)
 
+
 @app.route('/set_saved_selections', methods=['GET', 'POST'])
 def set_saved_selections():
     user = get_current_user()
@@ -850,6 +829,8 @@ def set_saved_selections():
                 null=True,
                 )
     session = Session()
+    NarfUsers = Tables()['NarfUsers']
+
     saved_selections = request.args.get('stringed_selections')
     user_entry = (
             session.query(NarfUsers)
@@ -861,98 +842,3 @@ def set_saved_selections():
     session.close()
 
     return jsonify(response='selections saved', null=False)
-
-
-############ jerb test #################
-
-@app.route('/jerb_viewer')
-def jerb_viewer():
-    jerb_json = make_jerb_json()
-    return render_template('jerb_test.html', json=jerb_json)
-
-
-def make_jerb_json():
-
-    user = get_current_user()
-
-    session = Session()
-
-    # .all() returns a list of tuples, so it's necessary to pull the
-    # name elements out into a list by themselves.
-    analyses = (
-            session.query(NarfAnalysis)
-            .filter(or_(
-                    int(user.sec_lvl) == 9,
-                    NarfAnalysis.public == '1',
-                    NarfAnalysis.labgroup.ilike('%{0}%'.format(user.labgroup)),
-                    NarfAnalysis.username == user.username,
-                    ))
-            .order_by(asc(NarfAnalysis.id))
-            .all()
-            )
-    analysislist = [
-            a.name for a in analyses
-            ]
-
-    batchids = [
-            i[0] for i in
-            session.query(NarfBatches.batch)
-            .distinct()
-            #.filter(or_(
-            #        int(user.sec_lvl) == 9,
-            #        NarfBatches.public == '1',
-            #        NarfBatches.labgroup.ilike('%{0}%'.format(user.labgroup)),
-            #        NarfBatches.username == user.username,
-            #        ))
-            .all()
-            ]
-    batchnames = []
-    for i in batchids:
-        name = (
-                session.query(sBatch.name)
-                .filter(sBatch.id == i)
-                .first()
-                )
-        if not name:
-            batchnames.append('')
-        else:
-            batchnames.append(name.name)
-    batchlist = [
-            (batch + ': ' + batchnames[i])
-            for i, batch in enumerate(batchids)
-            ]
-    batchlist.sort()
-
-    session.close()
-
-    s3 = boto3.resource('s3')
-    bucket = s3.Bucket('nemsdata')
-
-    jerb_json = {'name':'Analysis',
-            'children':[],
-            }
-
-    for i, analysis in enumerate(analysislist):
-        jerb_json['children'].append({'name':analysis, 'children':[]})
-        jerb_json['children'][i]['children'].extend([
-                {'name':'batch', 'children':[
-                        {'name':batch, 'leaf':1}
-                        for batch in batchlist
-                        ]
-                }, {'name':'models', 'children':[
-                        {'name':model, 'leaf':1}
-                        for model in ['fake','model','list']
-                        ]
-                }, {'name':'data', 'children':[
-                        {'name':obj.key.strip('nems_in_cache/batch291/'), 'leaf':1}
-                        for i, obj in enumerate(bucket.objects.filter(
-                                Prefix='nems_in_cache/batch291/'
-                                ))
-                        if i < 20
-                        ]
-                }
-                ])
-
-    return jerb_json
-
-

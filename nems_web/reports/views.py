@@ -13,7 +13,7 @@ import pandas as pd
 from flask import request, render_template, jsonify
 
 from nems_web.nems_analysis import app, bokeh_version
-from nems_db.db import Session, NarfResults, tQueue
+from nems_db.db import Session, Tables
 from nems_web.reports.reports import Performance_Report, Fit_Report
 
 log = logging.getLogger(__name__)
@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 @app.route('/batch_performance', methods=['GET', 'POST'])
 def batch_performance():
     session = Session()
+    NarfResults = Tables()['NarfResults']
 
     cSelected = request.form['cSelected']
     bSelected = request.form['bSelected'][:3]
@@ -78,6 +79,9 @@ def batch_performance():
 @app.route('/fit_report')
 def fit_report():
     session = Session()
+    db_tables = Tables()
+    tQueue = db_tables['tQueue']
+    NarfResults = db_tables['NarfResults']
 
     cSelected = request.args.getlist('cSelected[]')
     bSelected = request.args.get('bSelected')[:3]

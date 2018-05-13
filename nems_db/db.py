@@ -13,67 +13,30 @@ import pandas.io.sql as psql
 
 log = logging.getLogger(__name__)
 
-# TODO: instead of doing all this connection HERE (which occurs during import),
-#       we should instead have a "connect()" function that returns a session.
-#       We should remove these global vars!
-#       - started below with Session and _get_db_uri functions
-#       - hard part is replacing calls in this module and all that depend
-#       - on it.    --jacob 3/25/2018
 
-creds = nems_db.util.ensure_env_vars(
-        ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASS', 'MYSQL_DB', 'MYSQL_PORT']
-        )
-db_uri = 'mysql+pymysql://{0}:{1}@{2}:{3}/{4}'.format(
-        creds['MYSQL_USER'], creds['MYSQL_PASS'], creds['MYSQL_HOST'],
-        creds['MYSQL_PORT'], creds['MYSQL_DB']
-        )
-
-# sets how often sql alchemy attempts to re-establish connection engine
-# TODO: query db for time-out variable; set this to some fraction of that
-POOL_RECYCLE = 7200
-
-# Create a database connection engine
-engine = create_engine(db_uri, pool_recycle=POOL_RECYCLE)
-
-# TODO: How to handle moving these inside a function?
-#       Could return them all in a dict each. Then any module that needs
-#       Tables can just import 'get_db_tables' function and use ala
-#       tables = get_db_tables()
-#       NarfResults = tables['NarfResults']
-# Create base class to mirror existing database schema
-Base = automap_base()
-Base.prepare(engine, reflect=True)
-
-NarfUsers = Base.classes.NarfUsers
-NarfAnalysis = Base.classes.NarfAnalysis
-NarfBatches = Base.classes.NarfBatches
-NarfResults = Base.classes.NarfResults
-tQueue = Base.classes.tQueue
-tComputer = Base.classes.tComputer
-sCellFile = Base.classes.sCellFile
-sBatch = Base.classes.sBatch
-gCellMaster = Base.classes.gCellMaster
-
-# import this when another module needs to use the database connection.
-# used like a class - ex: 'session = Session()'
-#Session = sessionmaker(bind=engine)
-
-
-# TODO: Come up with a better naming scheme for these? Goes against pep8
-#       but sort of makes sense with the sqlalchemy theme
-def Session():
-    uri = _get_db_uri()
-    #engine = create_engine(uri, pool_recyle=POOL_RECYCLE)
-    engine = create_engine(uri)
-    return sessionmaker(bind=engine)()
+###### Functions for establishing connectivity, starting a session, or
+###### referencing a database table
 
 
 def Engine():
+    '''Returns a mysql engine object.'''
     uri = _get_db_uri()
-    return create_engine(uri, pool_recyle=POOL_RECYCLE)
+    try:
+        return create_engine(uri, pool_recycle=7200)
+    except Exception as e:
+        log.exception("Error when attempting to establish a database "
+                      "connection.", e)
+        raise(e)
+
+
+def Session():
+    '''Returns a mysql session object.'''
+    engine = Engine()
+    return sessionmaker(bind=engine)()
 
 
 def Tables():
+    '''Returns a dictionary containing Narf database table objects.'''
     engine = Engine()
     Base = automap_base()
     Base.prepare(engine, reflect=True)
@@ -92,6 +55,7 @@ def Tables():
 
 
 def _get_db_uri():
+    '''Used by Engine() to establish a connection to the database.'''
     creds = nems_db.util.ensure_env_vars(
             ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASS',
              'MYSQL_DB', 'MYSQL_PORT']
@@ -101,6 +65,9 @@ def _get_db_uri():
             creds['MYSQL_PORT'], creds['MYSQL_DB']
             )
     return db_uri
+
+
+###### Functions that access / manipulate the database. #######
 
 
 def enqueue_models(celllist, batch, modellist, force_rerun=False,
@@ -188,6 +155,9 @@ def _enqueue_single_model(
     Narf_Analysis : enqueue_single_model
 
     """
+    db_tables = Tables()
+    NarfResults = db_tables['NarfResults']
+    tQueue = db_tables['tQueue']
 
     # TODO: anything else needed here? this is syntax for nems_fit_single
     #       command prompt wrapper in main nems folder.
@@ -288,6 +258,7 @@ def _add_model_to_queue(commandPrompt, note, user, codeHash, jerbQuery,
     #       will need to rewrite with for loop to to add this functionality in
     #       the future if needed.
 
+    tQueue = Tables()['tQueue']
     job = tQueue()
 
     if user:
@@ -319,6 +290,7 @@ def update_job_complete(queueid):
     mark job queueid complete in tQueue
     svd old-fashioned way of doing it
     """
+    engine = Engine()
     conn = engine.connect()
     sql = "UPDATE tQueue SET complete=1 WHERE id={}".format(queueid)
     r = conn.execute(sql)
@@ -350,6 +322,7 @@ def update_job_start(queueid):
     """
     in tQueue, mark job as active and progress set to 1
     """
+    engine = Engine()
     conn = engine.connect()
     sql = ("UPDATE tQueue SET complete=-1,progress=1 WHERE id={}"
            .format(queueid))
@@ -377,6 +350,7 @@ def update_job_tick(queueid=0):
         queueid = os.environ['QUEUEID']
 
     if queueid:
+        engine = Engine()
         conn = engine.connect()
         # tick off progress, job is live
         sql = ("UPDATE tQueue SET progress=progress+1 WHERE id={}"
@@ -389,7 +363,9 @@ def update_job_tick(queueid=0):
 
 def save_results(stack, preview_file, queueid=None):
     session = Session()
-
+    db_tables = Tables()
+    tQueue = db_tables['tQueue']
+    NarfUsers = db_tables['NarfUsers']
     # Can't retrieve user info without queueid, so if none was passed
     # use the default blank user info
     if queueid:
@@ -415,14 +391,14 @@ def save_results(stack, preview_file, queueid=None):
 
     return results_id
 
-"""
-Start new nems functions here
-"""
+
+#########    Start new nems functions here
 
 
 def update_results_table(modelspec, preview=None,
                          username="svd", labgroup="lbhb"):
-
+    db_tables = Tables()
+    NarfResults = db_tables['NarfResults']
     session = Session()
 
     cellid = modelspec[0]['meta']['cellid']
@@ -558,6 +534,7 @@ def _fetch_attr_value(modelspec, k, default=0.0):
 
 def get_batch(name=None, batchid=None):
     # eg, sql="SELECT * from NarfBatches WHERE batch=301"
+    engine = Engine()
     params = ()
     sql = "SELECT * FROM sBatch WHERE 1"
     if not batchid is None:
@@ -574,6 +551,7 @@ def get_batch(name=None, batchid=None):
 
 def get_batch_cells(batch=None, cellid=None, rawid=None):
     # eg, sql="SELECT * from NarfBatches WHERE batch=301"
+    engine = Engine()
     params = ()
     sql = "SELECT DISTINCT cellid,batch FROM NarfData WHERE 1"
     if batch is not None:
@@ -594,6 +572,7 @@ def get_batch_cells(batch=None, cellid=None, rawid=None):
 
 def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None
                         ):
+    engine = Engine()
     # eg, sql="SELECT * from NarfData WHERE batch=301 and cellid="
     params = ()
     sql = "SELECT * FROM NarfData WHERE 1"
@@ -623,6 +602,7 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None
 
 def get_batches(name=None):
     # eg, sql="SELECT * from NarfBatches WHERE batch=301"
+    engine = Engine()
     params = ()
     sql = "SELECT *,id as batch FROM sBatch WHERE 1"
     if not name is None:
@@ -635,6 +615,7 @@ def get_batches(name=None):
 
 def get_cell_files(cellid=None, runclass=None):
     # eg, sql="SELECT * from sCellFile WHERE cellid like "TAR010c-30-1"
+    engine = Engine()
     params = ()
     sql = ("SELECT sCellFile.*,gRunClass.name, gSingleRaw.isolation FROM sCellFile INNER JOIN "
            "gRunClass on sCellFile.runclassid=gRunClass.id "
@@ -655,6 +636,7 @@ def get_cell_files(cellid=None, runclass=None):
 # temporary function while we migrate databases
 # (don't have access to gRunClass right now, so need to use rawid)
 def get_cell_files2(cellid=None, runclass=None, rawid=None):
+    engine = Engine()
     params = ()
     sql = ("SELECT sCellFile.* FROM sCellFile WHERE 1")
 
@@ -675,7 +657,7 @@ def get_cell_files2(cellid=None, runclass=None, rawid=None):
 
 
 def get_isolation(cellid=None, batch=None):
-
+    engine = Engine()
     sql = ("SELECT min_isolation FROM NarfBatches WHERE cellid = {0}{1}{2} and batch = {3}".format("'",cellid,"'",batch))
 
     d = pd.read_sql(sql=sql, con=engine)
@@ -683,6 +665,7 @@ def get_isolation(cellid=None, batch=None):
 
 
 def get_cellids(rawid=None):
+    engine = Engine()
     sql = ("SELECT distinct(cellid) FROM sCellFile WHERE 1")
 
     if rawid is not None:
@@ -707,7 +690,7 @@ def list_batches(name=None):
 
 def get_data_parms(rawid=None, parmfile=None):
     # get parameters stored in gData associated with a rawfile
-
+    engine = Engine()
     if rawid is not None:
         sql = ("SELECT gData.* FROM gData INNER JOIN "
                "gDataRaw ON gData.rawid=gDataRaw.id WHERE gDataRaw.id={0}"
@@ -728,7 +711,7 @@ def get_data_parms(rawid=None, parmfile=None):
 
 
 def batch_comp(batch=301, modelnames=None, cellids=['%'], stat='r_test'):
-
+    NarfResults = Tables()['NarfResults']
     if modelnames is None:
         modelnames = ['parm100pt_wcg02_fir15_pupgainctl_fit01_nested5',
                       'parm100pt_wcg02_fir15_pupgain_fit01_nested5',
@@ -760,7 +743,7 @@ def batch_comp(batch=301, modelnames=None, cellids=['%'], stat='r_test'):
 
 
 def get_results_file(batch, modelnames=None, cellids=None):
-
+    NarfResults = Tables()['NarfResults']
     session = Session()
     query = (
         session.query(NarfResults)
@@ -798,6 +781,7 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
     rawids that match this batch and site (cellid)
     '''
     # eg, sql="SELECT * from NarfData WHERE batch=301 and cellid="
+    engine = Engine()
     params = ()
     sql = "SELECT cellid FROM NarfData WHERE 1"
     sql_rawids = "SELECT DISTINCT rawid FROM NarfData WHERE 1"  # for rawids

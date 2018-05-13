@@ -6,8 +6,8 @@ import pandas as pd
 import numpy as np
 import pandas.io.sql as psql
 
-from nems_db.db import NarfBatches, NarfResults
-#import nems_scripts as ns
+from nems_db.db import Session, Tables
+
 
 def scan_for_scripts():
     #package = ns
@@ -41,7 +41,9 @@ def filter_cells(session, batch, cells, min_snr=0, min_iso=0, min_snri=0):
 
     """
 
-    bad_cells=[]
+    bad_cells = []
+    session = Session()
+    NarfBatches = Tables()['NarfBatches']
 
     for cellid in cells:
         dbCriteria = (
@@ -109,6 +111,8 @@ def form_data_array(
     #       dataframe instead of making a new one then copying over.
     #       Should be able to just re-index then apply some
     #       lambda function over vectorized dataframe for filtering?
+    session = Session()
+    NarfResults = Tables()['NarfResults']
 
     data = psql.read_sql_query(
             session.query(NarfResults)

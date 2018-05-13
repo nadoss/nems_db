@@ -6,20 +6,21 @@ from wtforms.validators import (
         DataRequired, Length, EqualTo, Email, InputRequired, ValidationError
         )
 
-from nems_db.db import NarfUsers, Session
+from nems_db.db import Session, Tables
 
 
 class UsernameAvailable():
-    #http://wtforms.readthedocs.io/en/latest/validators.html
+    # http://wtforms.readthedocs.io/en/latest/validators.html
 
     def __init__(self, message=None):
         if message:
             self.message = message
         else:
             self.message = "Username already exists. Please choose another."
-            
+
     def __call__(self, form, field):
         session = Session()
+        NarfUsers = Tables()['NarfUsers']
         exists = (
                 session.query(NarfUsers)
                 .filter(NarfUsers.username == field.data)
@@ -32,15 +33,16 @@ class UsernameAvailable():
 
 
 class EmailAvailable():
-    
+
     def __init__(self, message=None):
         if message:
             self.message = message
         else:
             self.message = "An account with that email address already exists."
-            
+
     def __call__(self, form, field):
         session = Session()
+        NarfUsers = Tables()['NarfUsers']
         exists = (
                 session.query(NarfUsers)
                 .filter(NarfUsers.email == field.data)
@@ -50,7 +52,7 @@ class EmailAvailable():
             session.close()
             raise ValidationError(self.message)
         session.close()
-        
+
 
 class LoginForm(FlaskForm):
     email = StringField(
@@ -104,19 +106,17 @@ class RegistrationForm(FlaskForm):
     confirm = PasswordField(
             'Repeat password'
             )
-    
+
     firstname = StringField(
             'First name',
             validators=[
                     DataRequired(),
                     ],
             )
-    
+
     lastname = StringField(
             'Last name',
             validators=[
                     DataRequired(),
                     ],
             )
-
- 

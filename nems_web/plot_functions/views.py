@@ -14,20 +14,16 @@ the display area in the browser.
 import logging
 from base64 import b64encode
 
-import pandas.io.sql as psql
-
-from flask import render_template, jsonify, request, Response
+from flask import render_template, jsonify, request
 
 from nems_web.nems_analysis import app
-from nems_db.db import Session, NarfResults, NarfBatches
 import nems_db.plot_helpers as dbp
 
 log = logging.getLogger(__name__)
 
+
 @app.route('/generate_plot_html')
 def generate_plot_html():
-
-    session = Session()
 
     plot_type = request.args.get('plotType')
     batch = request.args.get('bSelected')[:3]
@@ -54,11 +50,9 @@ def generate_plot_html():
     log.debug("Plot successfully initialized")
     if plot.emptycheck:
         log.info('Plot checked empty after forming data array')
-        return jsonify(script='Empty',div='Plot')
+        return jsonify(script='Empty', div='Plot')
     else:
         plot.generate_plot()
-
-    session.close()
 
     if hasattr(plot, 'script') and hasattr(plot, 'div'):
         return jsonify(script=plot.script, div=plot.div)

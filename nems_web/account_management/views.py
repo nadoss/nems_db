@@ -8,14 +8,14 @@
 import logging
 from urllib.parse import urlparse, urljoin
 
-from flask import redirect, request, url_for, render_template, g, Response
+from flask import redirect, request, url_for, render_template, Response
 from flask_login import (
         LoginManager, login_required, login_user, logout_user, current_user
         )
 from flask_bcrypt import Bcrypt
 
 from nems_web.nems_analysis import app
-from nems_db.db import Session, NarfUsers
+from nems_db.db import Session, Tables
 from nems_web.account_management.forms import LoginForm, RegistrationForm
 
 log = logging.getLogger(__name__)
@@ -23,15 +23,19 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.session_protection = 'basic'
 
-# TODO: how to get this to show up on site through ajax?
+
 def login_required_callback():
     return Response('Login required')
+
+
 login_manager.unauthorized = login_required_callback
 bcrypt = Bcrypt(app)
+
 
 @login_manager.user_loader
 def load_user(user_id):
     session = Session()
+    NarfUsers = Tables()['NarfUsers']
     try:
         # get email match from user database
         # (needs to be stored as unicode per flask-login)
@@ -58,9 +62,6 @@ def load_user(user_id):
     finally:
         session.close()
 
-#@app.before_request
-#def before_request():
-#    g.user = current_user
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -89,6 +90,7 @@ def login():
             form=form, errors=errors,
             )
 
+
 @app.route('/logout')
 @login_required
 def logout():
@@ -98,6 +100,7 @@ def logout():
 
     return redirect(url_for('main_view'))
 
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     errors = ''
@@ -105,12 +108,13 @@ def register():
     if request.method == 'POST':
         if form.validate():
             session = Session()
+            NarfUsers = Tables()['NarfUsers']
             new_user = NarfUsers(
-                    username = form.username.data,
-                    password = bcrypt.generate_password_hash(form.password.data),
-                    email = (form.email.data).encode('utf-8'),
-                    firstname = form.firstname.data,
-                    lastname = form.lastname.data,
+                    username=form.username.data,
+                    password=bcrypt.generate_password_hash(form.password.data),
+                    email=(form.email.data).encode('utf-8'),
+                    firstname=form.firstname.data,
+                    lastname=form.lastname.data,
                     )
 
             session.add(new_user)
@@ -166,6 +170,7 @@ class User():
         # user_id should be the unicode rep of e-mail address
         # (should be stored in db table in that format)
         session = Session()
+        NarfUsers = Tables()['NarfUsers']
         user_id = (
                 session.query(NarfUsers.email)
                 .filter(NarfUsers.username == self.username)
@@ -213,8 +218,9 @@ def get_current_user():
 def is_safe_url(target):
     ref_url = urlparse(request.host_url)
     test_url = urlparse(urljoin(request.host_url, target))
-    return test_url.scheme in ('http', 'https') and \
-           ref_url.netloc == test_url.netloc
+    return ((test_url.scheme in ('http', 'https'))
+            and (ref_url.netloc == test_url.netloc))
+
 
 def get_redirect_target():
     for target in request.values.get('next'), request.referrer:
@@ -222,6 +228,7 @@ def get_redirect_target():
             continue
         if is_safe_url(target):
             return target
+
 
 def redirect_back(endpoint, **values):
     target = request.form['next']

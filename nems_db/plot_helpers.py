@@ -3,7 +3,7 @@ import logging
 import pandas.io.sql as psql
 
 import nems_db.plots as plots
-from nems_db.db import Session, NarfResults, NarfBatches, get_batch_cells
+from nems_db.db import Session, Tables, get_batch_cells
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +22,8 @@ def plot_filtered_batch(batch, models, measure, plot_type,
 def get_plot(cells, models, batch, measure, plot_type, only_fair=True,
              include_outliers=False, display=True):
     session = Session()
+    NarfResults = Tables()['NarfResults']
+
     results_df = psql.read_sql_query(
             session.query(NarfResults)
             .filter(NarfResults.batch == batch)
@@ -49,6 +51,8 @@ def get_plot(cells, models, batch, measure, plot_type, only_fair=True,
 def get_filtered_cells(cells, batch, snr=0.0, iso=0.0, snr_idx=0.0):
     """Removes cellids from list if they do not meet snr/iso criteria."""
     session = Session()
+    NarfBatches = Tables()['NarfBatches']
+
     snr = max(snr, 0)
     iso = max(iso, 0)
     snr_idx = max(snr_idx, 0)
