@@ -13,7 +13,7 @@ def load_config():
     from configs import web_defaults
 
     # leave off 'web_defaults.py' at end
-    configs_path = os.path.abspath(web_defaults.__file__)[:-15]
+    configs_path = os.path.dirname(os.path.abspath(web_defaults.__file__))
 
     # if web_settings.py exists, import it and grab its __dir__() entries
     # otherwise, use an empty dictionary and create a blank file

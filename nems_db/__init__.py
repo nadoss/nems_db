@@ -13,7 +13,7 @@ def load_config():
     from configs import db_defaults
 
     # leave off 'db_defaults.py' at end
-    configs_path = os.path.abspath(db_defaults.__file__)[:-14]
+    configs_path = os.path.dirname(os.path.abspath(db_defaults.__file__))
 
     # if db_settings.py exists, import it and grab its __dir__() entries
     # otherwise, use an empty dictionary and create a blank file
