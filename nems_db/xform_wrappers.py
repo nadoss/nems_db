@@ -69,33 +69,31 @@ def generate_recording_uri(cellid, batch, loader):
                    'stimfmt': 'ozgf', 'chancount': 18}
 
     elif loader in ["ozgf100ch18pup", "ozgf100ch18npup"]:
-        options = {'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf',
+        options = {'rasterfs': 100, 'stimfmt': 'ozgf',
                    'chancount': 18, 'pupil': True, 'stim': True,
-                   'pupil_deblink': True, 'pupil_median': 1}
+                   'pupil_deblink': True, 'pupil_median': 2}
 
     elif loader.startswith("nostim10pup") or loader.startswith("psth10pup"):
-        options = {'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
+        options = {'rasterfs': 10, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': True, 'stim': False,
-                   'pupil_deblink': True, 'pupil_median': 1}
+                   'pupil_deblink': True, 'pupil_median': 2}
 
-    elif loader.startswith("nostim20pup") or loader.startswith("psth20pup") \
-       or loader.startswith("psths20pup"):
-        options = {'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
+    elif (loader.startswith("nostim20pup") or loader.startswith("psth20pup")
+          or loader.startswith("psths20pup")):
+        options = {'rasterfs': 20, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': True, 'stim': False,
-                   'pupil_deblink': True, 'pupil_median': 1}
+                   'pupil_deblink': 1, 'pupil_median': 2}
 
-    elif loader.startswith("nostim20") or loader.startswith("psth20") \
-       or loader.startswith("psths20"):
-        options = {'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
+    elif (loader.startswith("nostim20") or loader.startswith("psth20")
+          or loader.startswith("psths20")):
+        options = {'rasterfs': 20, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': False, 'stim': False}
 
     elif loader.startswith("env100"):
-        options = {'rasterfs': 100, 'includeprestim': True,
-                   'stimfmt': 'envelope', 'chancount': 0}
+        options = {'rasterfs': 100, 'stimfmt': 'envelope', 'chancount': 0}
 
     elif loader.startswith("env200"):
-        options = {'rasterfs': 200, 'includeprestim': True,
-                   'stimfmt': 'envelope', 'chancount': 0}
+        options = {'rasterfs': 200, 'stimfmt': 'envelope', 'chancount': 0}
 
     else:
         raise ValueError('unknown loader string')

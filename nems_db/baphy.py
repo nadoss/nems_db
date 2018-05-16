@@ -763,6 +763,10 @@ def baphy_load_dataset(parmfilepath, options={}):
     file_stop_time = np.max(event_times['end'])
     te = pd.DataFrame(index=[0], columns=(event_times.columns))
 
+    b = os.path.splitext(os.path.basename(parmfilepath))[0]
+    te.loc[0] = [file_start_time, file_stop_time, 'FILE_'+b]
+    event_times = event_times.append(te)
+
     if any_behavior:
         # only concatenate newly labeled trials if events occured that reflect
         # behavior. There's probably a less kludgy way of checking for this
@@ -1121,7 +1125,7 @@ def baphy_load_recording(cellid, batch, options):
 
     options['pupil'] = int(options.get('pupil', False))
     options['pupil_deblink'] = int(options.get('pupil_deblink', 1))
-    options['pupil_median'] = int(options.get('pupil_deblink', 1))
+    options['pupil_median'] = int(options.get('pupil_median', 1))
     options['stim'] = int(options.get('stim', True))
     options['runclass'] = options.get('runclass', None)
     options['cellid'] = options.get('cellid', cellid)
@@ -1275,7 +1279,7 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
 
     options['pupil'] = int(options.get('pupil', False))
     options['pupil_deblink'] = int(options.get('pupil_deblink', 1))
-    options['pupil_median'] = int(options.get('pupil_deblink', 1))
+    options['pupil_median'] = int(options.get('pupil_median', 1))
     options['stim'] = int(options.get('stim', True))
     options['runclass'] = options.get('runclass', None)
     options['cellid'] = options.get('cellid', cellid)

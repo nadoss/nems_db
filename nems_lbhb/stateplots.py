@@ -12,12 +12,6 @@ import nems_db.xform_wrappers as nw
 import nems.plots.api as nplt
 import nems.xforms as xforms
 
-params = {'legend.fontsize': 'small',
-          'figure.figsize': (8, 6),
-         'axes.labelsize': 'small',
-         'axes.titlesize':'small',
-         'xtick.labelsize':'small',
-         'ytick.labelsize':'small'}
 params = {'legend.fontsize': 8,
           'figure.figsize': (8, 6),
          'axes.labelsize': 8,
@@ -36,7 +30,14 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     """
 
     # exclude cells without prepassive
+    outcells = ((beta1 > hist_range[1]) | (beta1 < hist_range[0]) |
+                (beta2 > hist_range[1]) | (beta2 < hist_range[0]))
     goodcells = (np.abs(beta1) > 0) | (np.abs(beta2) > 0)
+
+    beta1[beta1 > hist_range[1]] = hist_range[1]
+    beta1[beta1 < hist_range[0]] = hist_range[0]
+    beta2[beta2 > hist_range[1]] = hist_range[1]
+    beta2[beta2 < hist_range[0]] = hist_range[0]
 
     if highlight is None:
         set1 = goodcells
@@ -47,12 +48,13 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
 
     plt.figure(figsize=(6, 6))
 
-    plt.subplot(2, 2, 1)
+    plt.subplot(2, 2, 3)
     plt.plot(np.array(hist_range), np.array([0, 0]), 'k--')
     plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
     plt.plot(np.array(hist_range), np.array(hist_range), 'k--')
     plt.plot(beta1[set1], beta2[set1], 'k.')
-    plt.plot(beta1[set2], beta2[set2], '.', color='gray')
+    plt.plot(beta1[set2], beta2[set2], '.', color='lightgray')
+    plt.plot(beta1[outcells], beta2[outcells], '.', color='red')
     plt.axis('equal')
     plt.axis('tight')
 
@@ -60,21 +62,34 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     plt.ylabel(n2)
     plt.title(title)
 
-    plt.subplot(2, 2, 3)
-    plt.hist([beta1[set2], beta1[set1]], bins=hist_bins, range=hist_range,
-             histtype='bar', stacked=True)
+    plt.subplot(2, 2, 1)
+    plt.hist([beta1[set1], beta1[set2]], bins=hist_bins, range=hist_range,
+             histtype='bar', stacked=True,
+             color=['black','lightgray'])
     plt.title('mean={:.3f} abs={:.3f}'.
               format(np.mean(beta1[goodcells]),
                      np.mean(np.abs(beta1[goodcells]))))
     plt.xlabel(n1)
 
-    plt.subplot(2, 2, 2)
-    plt.hist([beta2[set2], beta2[set1]], bins=hist_bins, range=hist_range,
-             histtype='bar', stacked=True)
+    ax = plt.subplot(2, 2, 4)
+    plt.hist([beta2[set1], beta2[set2]], bins=hist_bins, range=hist_range,
+             histtype='bar', stacked=True, orientation="horizontal",
+             color=['black','lightgray'])
     plt.title('mean={:.3f} abs={:.3f}'.
               format(np.mean(beta2[goodcells]),
                      np.mean(np.abs(beta2[goodcells]))))
     plt.xlabel(n2)
+
+    ax = plt.subplot(2, 2, 2)
+    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1]),
+              beta2[set2]-beta1[set2] * np.sign(beta2[set2])],
+             bins=hist_bins-1, range=[hist_range[0]/2,hist_range[1]/2],
+             histtype='bar', stacked=True,
+             color=['black','lightgray'])
+    plt.title('mean={:.3f} abs={:.3f}'.
+              format(np.mean(beta2[goodcells]),
+                     np.mean(np.abs(beta2[goodcells]))))
+    plt.xlabel('difference')
 
     plt.tight_layout()
 
@@ -174,7 +189,7 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301):
     val['pred_p0b'] = ctx_p0b['val'][0]['pred'].copy()
     val['pred_pb0'] = ctx_pb0['val'][0]['pred'].copy()
 
-    plt.figure(figsize=(6,6))
+    plt.figure()
     ax = plt.subplot(4, 1, 1)
     nplt.state_vars_timeseries(val, ctx_pb['modelspecs'][0])
     ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
@@ -245,11 +260,12 @@ def pp_model_plot(cellid='TAR010c-06-1', batch=301):
     modelname_pb0 = pretype + "20puppre0beh_stategain4_" + fittype
     modelname_pb = pretype + "20pupprebeh_stategain4_" + fittype
 
+    factor0 = "Act"
     factor1 = "Act+Pre"
     factor2 = "Act+Pup"
 
-    # xf_p0b0, ctx_p0b0 = nw.load_model_baphy_xform(cellid, batch, modelname_p0b0,
-    #                                               eval_model=False)
+    xf_p0b0, ctx_p0b0 = nw.load_model_baphy_xform(cellid, batch, modelname_p0b0,
+                                                  eval_model=False)
     # ctx_p0b0, l = xforms.evaluate(xf_p0b0, ctx_p0b0, stop=-2)
 
     xf_p0b, ctx_p0b = nw.load_model_baphy_xform(cellid, batch, modelname_p0b,
@@ -270,10 +286,12 @@ def pp_model_plot(cellid='TAR010c-06-1', batch=301):
     val['pred_p0b'] = ctx_p0b['val'][0]['pred'].copy()
     val['pred_pb0'] = ctx_pb0['val'][0]['pred'].copy()
 
-    plt.figure(figsize=(8,6))
+    plt.figure()
     ax = plt.subplot(4, 1, 1)
     nplt.state_vars_timeseries(val, ctx_pb['modelspecs'][0])
     ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
+    ax.set_ylabel("{} r={:.3f}".format(factor0,
+                  ctx_p0b0['modelspecs'][0][0]['meta']['r_test']))
 
     state_var_list = val['state'].chans
     L = len(state_var_list)
