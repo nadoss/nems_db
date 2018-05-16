@@ -114,7 +114,7 @@ def _get_modelspecs(cellids, batch, modelname, multi='mean'):
                 for p in phis:
                     for k in p:
                         for s in stats:
-                            if k in s:
+                            if s.endswith('--'+k):
                                 p[k] = stats[s]['mean']
                 for m, p in zip(temp_spec, phis):
                     m['phi'] = p

@@ -570,42 +570,43 @@ def get_batch_cells(batch=None, cellid=None, rawid=None):
 
     return d
 
-def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None
-                        ):
+
+def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
+
     engine = Engine()
     # eg, sql="SELECT * from NarfData WHERE batch=301 and cellid="
     params = ()
     sql = "SELECT * FROM NarfData WHERE 1"
-    if not batch is None:
+    if batch is not None:
         sql += " AND batch=%s"
         params = params+(batch,)
 
-    if not cellid is None:
-       sql += " AND cellid like %s"
-       params = params+(cellid+"%",)
+    if cellid is not None:
+        sql += " AND cellid like %s"
+        params = params+(cellid+"%",)
 
-    if not rawid is None:
-       sql += " AND rawid IN %s"
-       rawid = tuple([str(i) for i in list(rawid)])
-       params = params+(rawid,)
+    if rawid is not None:
+        sql += " AND rawid IN %s"
+        rawid = tuple([str(i) for i in list(rawid)])
+        params = params+(rawid,)
 
-    if not label is None:
-       sql += " AND label like %s"
-       params = params+(label,)
-
-
+    if label is not None:
+        sql += " AND label like %s"
+        params = params + (label,)
+    print(sql)
     d = pd.read_sql(sql=sql, con=engine, params=params)
     d.set_index(['cellid', 'groupid', 'label', 'rawid'], inplace=True)
-    d=d['filepath'].unstack('label')
+    d = d['filepath'].unstack('label')
 
     return d
+
 
 def get_batches(name=None):
     # eg, sql="SELECT * from NarfBatches WHERE batch=301"
     engine = Engine()
     params = ()
     sql = "SELECT *,id as batch FROM sBatch WHERE 1"
-    if not name is None:
+    if name is not None:
         sql += " AND name like %s"
         params = params+("%"+name+"%",)
     d = pd.read_sql(sql=sql, con=engine, params=params)

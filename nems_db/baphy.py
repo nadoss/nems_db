@@ -1283,8 +1283,11 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
     options['rawid'] = options.get('rawid', None)
 
     # query database to find all baphy files that belong to this cell/batch
-    d = db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm', rawid=options['rawid'])
+    d = db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm',
+                               rawid=options['rawid'])
     files = list(d['parm'])
+    if len(files) == 0:
+       raise ValueError('NarfData not found for cell {0}/batch {1}'.format(cellid,batch))
 
     for i, parmfilepath in enumerate(files):
         # load the file and do a bunch of preprocessing:
@@ -1389,20 +1392,40 @@ def baphy_load_recording_nonrasterized(cellid, batch, options):
     return rec
 
 
-def baphy_data_path(options):
+def baphy_data_path(options={}, cellid=None, batch=None):
     """
+    cellid and batch can be fields in options or provided explicitly
+
     TODO: include options['site'] for multichannel recordings
     """
+    if cellid is not None:
+        options['cellid'] = cellid
+
+    if batch is not None:
+        options['batch'] = batch
+
     options['recache'] = options.get('recache', 0)
-    if (type(options['cellid'])==list) & (len(options["cellid"])>1):
-        cellid=options['cellid'][0]
-        siteid=cellid.split("-")[0]
-    elif (type(options['cellid'])==list):
-        cellid=options['cellid'][0]
-        siteid=cellid
+    if (type(options['cellid']) == list) & (len(options["cellid"]) > 1):
+        cellid = options['cellid'][0]
+        siteid = cellid.split("-")[0]
+    elif (type(options['cellid']) == list):
+        cellid = options['cellid'][0]
+        siteid = cellid
     else:
-        cellid=options['cellid']
-        siteid=cellid
+        cellid = options['cellid']
+        siteid = cellid
+
+    if options['stimfmt'] in ['envelope', 'parm']:
+        log.info("Setting chancount=0 for stimfmt=%s", options['stimfmt'])
+        options['chancount'] = 0
+
+    if (options.get('cellid') is None) or \
+       (options.get('batch') is None) or \
+       (options.get('rasterfs') is None) or \
+       (options.get('stimfmt') is None) or \
+       (options.get('chancount') is None):
+        raise ValueError(
+                   "cellid,batch,rasterfs,stimfmt,chancount options required")
 
     data_path = ("/auto/data/nems_db/recordings/{0}/{1}{2}_fs{3}/"
                  .format(options["batch"], options['stimfmt'],
