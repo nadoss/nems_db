@@ -82,7 +82,7 @@ def generate_recording_uri(cellid, batch, loader):
           or loader.startswith("psths20pup")):
         options = {'rasterfs': 20, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': True, 'stim': False,
-                   'pupil_deblink': 1, 'pupil_median': 2}
+                   'pupil_deblink': 1, 'pupil_median': 0.5}
 
     elif (loader.startswith("nostim20") or loader.startswith("psth20")
           or loader.startswith("psths20")):
