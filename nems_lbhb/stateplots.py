@@ -167,8 +167,12 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301):
     modelname_pb0 = pretype + "20pupbeh0_stategain3_" + fittype
     modelname_pb = pretype + "20pupbeh_stategain3_" + fittype
 
-    # xf_p0b0, ctx_p0b0 = nw.load_model_baphy_xform(cellid, batch, modelname_p0b0,
-    #                                               eval_model=False)
+    factor0 = "None"
+    factor1 = "Act"
+    factor2 = "Pup"
+
+    xf_p0b0, ctx_p0b0 = nw.load_model_baphy_xform(cellid, batch, modelname_p0b0,
+                                                  eval_model=False)
     # ctx_p0b0, l = xforms.evaluate(xf_p0b0, ctx_p0b0, stop=-2)
 
     xf_p0b, ctx_p0b = nw.load_model_baphy_xform(cellid, batch, modelname_p0b,
@@ -193,6 +197,8 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301):
     ax = plt.subplot(4, 1, 1)
     nplt.state_vars_timeseries(val, ctx_pb['modelspecs'][0])
     ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
+    ax.set_ylabel("{} r={:.3f}".format(factor0,
+                  ctx_p0b0['modelspecs'][0][0]['meta']['r_test']))
 
     state_var_list = val['state'].chans
     for i, var in enumerate(state_var_list):
@@ -205,7 +211,9 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301):
             ax.legend_.remove()
         ax.xaxis.label.set_visible(False)
         if i == 0:
-            ax.set_ylabel('Behavior-only', fontsize=10)
+            # ax.set_ylabel('Behavior-only', fontsize=10)
+            ax.set_ylabel("{} r={:.3f}".format(factor1,
+                          ctx_p0b['modelspecs'][0][0]['meta']['r_test']))
         else:
             ax.yaxis.label.set_visible(False)
         ax.set_title("{} g={:.3f} b={:.3f}".format(var.lower(),
@@ -222,7 +230,8 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301):
             ax.legend_.remove()
         ax.xaxis.label.set_visible(False)
         if i == 0:
-            ax.set_ylabel('Pupil-only', fontsize=10)
+            ax.set_ylabel("{} r={:.3f}".format(factor2,
+                          ctx_pb0['modelspecs'][0][0]['meta']['r_test']))
         else:
             ax.yaxis.label.set_visible(False)
         ax.set_title("{} g={:.3f} b={:.3f}".format(var.lower(),
@@ -236,7 +245,8 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301):
                                        psth_name2="pred",
                                        state_sig=var, ax=ax)
         if i == 0:
-            ax.set_ylabel('Full', fontsize=10)
+            ax.set_ylabel("{} r={:.3f}".format('Full',
+                          ctx_pb['modelspecs'][0][0]['meta']['r_test']))
         else:
             ax.yaxis.label.set_visible(False)
         if var == 'active':

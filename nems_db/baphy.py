@@ -763,10 +763,6 @@ def baphy_load_dataset(parmfilepath, options={}):
     file_stop_time = np.max(event_times['end'])
     te = pd.DataFrame(index=[0], columns=(event_times.columns))
 
-    b = os.path.splitext(os.path.basename(parmfilepath))[0]
-    te.loc[0] = [file_start_time, file_stop_time, 'FILE_'+b]
-    event_times = event_times.append(te)
-
     if any_behavior:
         # only concatenate newly labeled trials if events occured that reflect
         # behavior. There's probably a less kludgy way of checking for this
@@ -777,7 +773,12 @@ def baphy_load_dataset(parmfilepath, options={}):
         te.loc[0] = [file_start_time, file_stop_time, 'PASSIVE_EXPERIMENT']
     event_times = event_times.append(te)
 
-    # ff = (exptevents['Trial'] == 3)
+    # ADD epoch for FILENAME
+    b = os.path.splitext(os.path.basename(parmfilepath))[0]
+    te.loc[0] = [file_start_time, file_stop_time, 'FILE_'+b]
+    event_times = event_times.append(te)
+
+    # ff = (exptevents['Trial'] == 3){}
     # exptevents.loc[ff]
 
     stim_dict = {}
