@@ -208,7 +208,7 @@ Session.vim
 tags
 
 # configurations
-configs/*
-!configs/db_defaults.py
-!configs/web_defaults.py
-!configs/__init__.py
+nems_db_configs/*
+nems_db_configs/db_defaults.py
+nems_db_configs/web_defaults.py
+nems_db_configs/__init__.py
