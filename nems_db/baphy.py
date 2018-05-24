@@ -402,7 +402,7 @@ def baphy_load_pupil_trace(pupilfilepath, exptevents, options={}):
     if pupil_deblink:
         dp = np.abs(np.diff(pupil_diameter, axis=0))
         blink = np.zeros(dp.shape)
-        blink[dp > np.mean(dp) + 6*np.std(dp)] = 1
+        blink[dp > np.nanmean(dp) + 6*np.nanstd(dp)] = 1
         box = np.ones([fs_approximate]) / (fs_approximate)
         # print(blink.shape)
         blink = np.convolve(blink[:, 0], box, mode='same')
