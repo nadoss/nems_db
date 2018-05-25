@@ -4,6 +4,25 @@ from nems.fitters.api import coordinate_descent, scipy_minimize
 
 log = logging.getLogger(__name__)
 
+"""
+template:
+
+user creates file with this function:
+
+def mykeyword(loaderkey, recording_uri):
+    xfspec=[]
+    return xfspec
+
+
+user adds this to nems configuration:
+
+nems.config.settings.loader_plugin = ['mylib']
+
+
+then xform_helper finds out where loader plug-ins are and runs this:
+
+xform_helper.loader_lib['mykeyword'] = mylib.mykeyword
+"""
 
 def generate_loader_xfspec(loader, recording_uri):
 
