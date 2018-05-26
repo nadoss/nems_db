@@ -288,112 +288,14 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
         xfspec.append(['nems.xforms.fit_basic', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitkey == "fitsubs":
-        '''fit_subsets with scipy_minimize'''
-        kw_list = ['module_sets', 'tolerance', 'fitter']
-        defaults = [None, 1e-4, coordinate_descent]
-        module_sets, tolerance, my_fitter = \
-            _get_my_kwargs(fitkey_kwargs, kw_list, defaults)
-        xfspec.append([
-                'nems.xforms.fit_module_sets',
-                {'module_sets': module_sets, 'fitter': scipy_minimize,
-                 'tolerance': tolerance}
-                ])
-        xfspec.append(['nems.xforms.predict', {}])
-
     elif fitkey.startswith("fitsubs"):
         xfspec.append(_parse_fitsubs(fitkey))
-        xfspec.append(['nems.xforms.predict', {}])
-
-    elif fitkey == "fititer":
-        kw_list = ['module_sets', 'tolerances', 'tol_iter', 'fit_iter',
-                   'fitter']
-        defaults = [None, None, 100, 20, coordinate_descent]
-        module_sets, tolerances, tol_iter, fit_iter, my_fitter = \
-            _get_my_kwargs(fitkey_kwargs, kw_list, defaults)
-        xfspec.append([
-                'nems.xforms.fit_iteratively',
-                {'module_sets': module_sets, 'fitter': my_fitter,
-                 'tolerances': tolerances, 'tol_iter': tol_iter,
-                 'fit_iter': fit_iter}
-                ])
-        xfspec.append(['nems.xforms.predict', {}])
-
-    elif fitkey.startswith("fititer") or fitkey.startswith("iter"):
-        xfspec.append(['nems.xforms.fit_iter_init', {}])
-        xfspec.append(_parse_fititer(fitkey))
         xfspec.append(['nems.xforms.predict', {}])
 
     else:
         raise ValueError('unknown fitter string ' + fitkey)
 
     return xfspec
-
-
-def _get_my_kwargs(kwargs, kw_list, defaults):
-    '''Fetch value of kwarg if given, otherwise corresponding default'''
-    my_kwargs = []
-    for kw, default in zip(kw_list, defaults):
-        if kwargs is None:
-            a = default
-        else:
-            a = kwargs.pop(kw, default)
-        my_kwargs.append(a)
-    return my_kwargs
-
-
-def _parse_fititer(fit_keyword):
-    # ex: fititer01-T4-T6-S0x1-S0x1x2x3-ti50-fi20
-    # fitter: scipy_minimize; tolerances: [1e-4, 1e-6]; s
-    # subsets: [[0,1], [0,1,2,3]]; tol_iter: 50; fit_iter: 20;
-    # Note that order does not matter except for starting with
-    # 'fititer<some number>' to specify the analysis and fit algorithm
-    chunks = fit_keyword.split('-')
-
-    fit = chunks[0]
-    if fit.endswith('01'):
-        fitter = 'scipy_minimize'
-    elif fit.endswith('02'):
-        fitter = 'coordinate_descent'
-    else:
-        fitter = 'coordinate_descent'
-        log.warn("Unrecognized or unspecified fit algorithm for fititer: %s\n"
-                 "Using default instead: %s", fit, fitter)
-
-    tolerances = []
-    module_sets = []
-    fit_iter = None
-    tol_iter = None
-
-    for c in chunks[1:]:
-        if c.startswith('ti'):
-            tol_iter = int(c[2:])
-        elif c.startswith('fi'):
-            fit_iter = int(c[2:])
-        elif c.startswith('T'):
-            power = int(c[1:])*-1
-            tol = 10**(power)
-            tolerances.append(tol)
-        elif c.startswith('S'):
-            indices = [int(i) for i in c[1:].split('x')]
-            module_sets.append(indices)
-        else:
-            log.warning(
-                    "Unrecognized segment in fititer keyword: %s\n"
-                    "Correct syntax is:\n"
-                    "fititer<fitter>-S<i>x<j>...-T<tolpower>...ti<tol_iter>"
-                    "-fi<fit_iter>", c
-                    )
-
-    if not tolerances:
-        tolerances = None
-    if not module_sets:
-        module_sets = None
-
-    return ['nems.xforms.fit_iteratively',
-            {'module_sets': module_sets, 'fitter': fitter,
-             'tolerances': tolerances, 'tol_iter': tol_iter,
-             'fit_iter': fit_iter}]
 
 
 def _parse_fitsubs(fit_keyword):
