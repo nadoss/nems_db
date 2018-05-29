@@ -91,11 +91,11 @@ def generate_recording_uri(cellid, batch, loader):
                    'pupil_deblink': 1, 'pupil_median': 0.5}
 
     elif (loader.startswith("nostim20") or loader.startswith("psth20")
-          or loader.startswith("psths20")):
+          or loader.startswith("psthm20") or loader.startswith("psths20")):
         options = {'rasterfs': 20, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': False, 'stim': False}
 
-    elif loader.startswith("env100"):
+    elif (loader.startswith("env100") or loader.startswith("envm100")):
         options = {'rasterfs': 100, 'stimfmt': 'envelope', 'chancount': 0}
 
     elif loader.startswith("env200"):
