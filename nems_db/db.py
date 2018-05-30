@@ -315,7 +315,8 @@ def update_job_complete(queueid=None):
         if 'QUEUEID' in os.environ:
             queueid = os.environ['QUEUEID']
         else:
-            raise ValueError("queueid not specified or found in os.environ")
+            log.warning("queueid not specified or found in os.environ")
+            return 0
 
     engine = Engine()
     conn = engine.connect()
@@ -353,7 +354,8 @@ def update_job_start(queueid=None):
         if 'QUEUEID' in os.environ:
             queueid = os.environ['QUEUEID']
         else:
-            raise ValueError("queueid not specified or found in os.environ")
+            log.warning("queueid not specified or found in os.environ")
+            return 0
 
     engine = Engine()
     conn = engine.connect()
@@ -373,7 +375,8 @@ def update_job_tick(queueid=None):
         if 'QUEUEID' in os.environ:
             queueid = os.environ['QUEUEID']
         else:
-            raise ValueError("queueid not specified or found in os.environ")
+            log.warning("queueid not specified or found in os.environ")
+            return 0
 
     path = nems_db.util.__file__
     i = path.find('nems_db/util')
