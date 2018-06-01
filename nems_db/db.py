@@ -153,6 +153,7 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
 
 def _enqueue_single_model(
         cellid, batch, modelname, user=None,
+        session=None,
         force_rerun=False, codeHash="master", jerbQuery='',
         executable_path=None, script_path=None):
     """Adds a particular model to the queue to be fitted.
@@ -170,7 +171,8 @@ def _enqueue_single_model(
     Narf_Analysis : enqueue_single_model
 
     """
-    session = Session()
+    if session is None:
+       session = Session()
 
     db_tables = Tables()
     NarfResults = db_tables['NarfResults']
