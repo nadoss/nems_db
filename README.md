@@ -31,3 +31,33 @@ In a new terminal on that same machine, you should be able to test that the API 
 curl TODO
 ```
 
+## Setting up your own personal Python environment
+
+On one of the workstations connected to the NFS server, CD to your personal
+home folder on /auto (e.g., `/auto/users/bburan`). Create a `bin` folder.
+Download the miniconda installer. When prompted, point to ththe folder you just
+created (e.g., you want it installed in `/auto/users/bburan/bin/miniconda3`). 
+
+Now, open your shell configuration file and create some aliases to the key
+commands you will need. I use zsh, so you will need to figure out how to set up
+similar aliases for your preferred shell:
+
+```
+alias cconda="/auto/users/bburan/bin/miniconda3/bin/conda"
+alias cactivate="source /auto/users/bburan/bin/miniconda3/bin/activate"
+```
+
+These aliases will allow you to keep your own local copy of Miniconda on the
+computer while being able to quickly access and configure the copy of Miniconda
+that you inted to use for cluster jobs.
+
+Now, open a new shell (or source the configuration file). The aliases should
+now be active. To install your new environment:
+
+	cconda create -n nems-intel -c intel python=3
+
+To activate the environment:
+
+	cactivate nems-intel
+
+Note that once you've activated the environment, your path has been updated so that you no longer need to use the cconda and ccactivate aliases. Once the environment is deactivated, you will have to use the cconda and ccactivate aliases again.
