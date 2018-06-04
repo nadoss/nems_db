@@ -151,12 +151,40 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
     return
 
 
+def enqueue_single_model(cellid, batch, modelname, user=None,
+                         session=None, force_rerun=False, codeHash="master",
+                         jerbQuery='',
+                         executable_path=None, script_path=None):
+    """
+    Adds one model to the queue to be fitted for a single cell/batch
+
+    Returns:
+    --------
+    queueid : int
+        id (primary key) that was assigned to the new tQueue entry, or -1.
+    message : str
+        description of the action taken, to be reported to the console by
+        the calling enqueue_models function.
+
+    currently just a wrapper for internal function _enqueue_single_model
+    TODO delete internal function and just use this one.
+    """
+    _enqueue_single_model(cellid, batch, modelname, user,
+                          session, force_rerun, codeHash, jerbQuery,
+                          executable_path, script_path)
+
+
 def _enqueue_single_model(
         cellid, batch, modelname, user=None,
         session=None,
         force_rerun=False, codeHash="master", jerbQuery='',
         executable_path=None, script_path=None):
-    """Adds a particular model to the queue to be fitted.
+    """
+    Adds a particular model to the queue to be fitted. Or run whatever job
+    you want by specifying a non-defaul script_path
+
+    if executable_path is None: executable_path = "/home/nems/anaconda3/bin/python"
+    if script_path is None: script_path = "/home/nems/nems_db/nems_fit_single.py"
 
     Returns:
     --------
@@ -172,14 +200,12 @@ def _enqueue_single_model(
 
     """
     if session is None:
-       session = Session()
+        session = Session()
 
     db_tables = Tables()
     NarfResults = db_tables['NarfResults']
     tQueue = db_tables['tQueue']
 
-    # TODO: anything else needed here? this is syntax for nems_fit_single
-    #       command prompt wrapper in main nems folder.
     if executable_path is None:
         executable_path = "/home/nems/anaconda3/bin/python"
 
@@ -194,11 +220,11 @@ def _enqueue_single_model(
     note = "%s/%s/%s" % (cellid, batch, modelname)
 
     result = (session.query(NarfResults)
-        .filter(NarfResults.cellid == cellid)
-        .filter(NarfResults.batch == batch)
-        .filter(NarfResults.modelname == modelname)
-        .first()
-        )
+              .filter(NarfResults.cellid == cellid)
+              .filter(NarfResults.batch == batch)
+              .filter(NarfResults.modelname == modelname)
+              .first()
+              )
     if result and not force_rerun:
         log.info(
             "Entry in NarfResults already exists for: %s, skipping.\n" %

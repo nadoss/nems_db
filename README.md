@@ -1,6 +1,6 @@
 # NEMS DB API
 
-This repository contains code for saving modelspecs, logfiles, images, and recordings to a database accessible via HTTP. 
+This repository contains code for saving modelspecs, logfiles, images, and recordings to a database accessible via HTTP.
 
 ## Installation
 
@@ -30,3 +30,4 @@ In a new terminal on that same machine, you should be able to test that the API 
 ```
 curl TODO
 ```
+
