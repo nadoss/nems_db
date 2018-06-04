@@ -914,6 +914,27 @@ def baphy_load_dataset(parmfilepath, options={}):
         this_event_times['name'] = "TARGET"
         event_times = event_times.append(this_event_times, ignore_index=True)
 
+        for i,e in exptevents[ff_tar_events | ff_lick_dur].iterrows():
+            name = e['name']
+            elements = name.split(" , ")
+
+            if elements[0] == "PreStimSilence":
+                name="PreStimSilence"
+            elif elements[0] == "Stim":
+                name="TAR_" + elements[1]
+                e['start'] = exptevents.loc[i-1]['start']
+                e['end'] = exptevents.loc[i+1]['end']
+            elif elements[0] == "PostStimSilence":
+                name="PostStimSilence"
+            else:
+                name = "LICK"
+                licklen = 0.1
+                e['end']=e['start'] + licklen
+            print('adding {} {}-{}'.format(name,e['start'], e['end']))
+            te = pd.DataFrame(index=[0], columns=(event_times.columns),
+                              data=[[e['start'], e['end'], name]])
+            event_times = event_times.append(te, ignore_index=True)
+
         # event_times = pd.concat(
         #         [event_times, this_event_times2, this_event_times3]
         #         )
