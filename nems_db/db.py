@@ -67,7 +67,7 @@ def _get_db_uri():
     return db_uri
 
 
-###### Functions that access / manipulate the database. #######
+###### Functions that access / manipulate the job queue. #######
 
 def enqueue_models(celllist, batch, modellist, force_rerun=False,
                    user="nems", codeHash="master", jerbQuery='',
@@ -127,7 +127,7 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
     pass_fail = []
     for model in modellist:
         for cell in celllist:
-            queueid, message = _enqueue_single_model(
+            queueid, message = enqueue_single_model(
                 cell, batch, model, force_rerun=force_rerun, user=user,
                 session=session, codeHash=codeHash, jerbQuery=jerbQuery,
                 executable_path=executable_path, script_path=script_path
@@ -151,40 +151,34 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
     return
 
 
-def enqueue_single_model(cellid, batch, modelname, user=None,
+def _enqueue_single_model(cellid, batch, modelname, user=None,
                          session=None, force_rerun=False, codeHash="master",
                          jerbQuery='',
                          executable_path=None, script_path=None):
     """
-    Adds one model to the queue to be fitted for a single cell/batch
 
-    Returns:
-    --------
-    queueid : int
-        id (primary key) that was assigned to the new tQueue entry, or -1.
-    message : str
-        description of the action taken, to be reported to the console by
-        the calling enqueue_models function.
-
-    currently just a wrapper for internal function _enqueue_single_model
-    TODO delete internal function and just use this one.
+    currently just a wrapper for internal function enqueue_single_model
+    TODO delete this and just use public function.
     """
-    _enqueue_single_model(cellid, batch, modelname, user,
+    enqueue_single_model(cellid, batch, modelname, user,
                           session, force_rerun, codeHash, jerbQuery,
                           executable_path, script_path)
 
 
-def _enqueue_single_model(
+def enqueue_single_model(
         cellid, batch, modelname, user=None,
         session=None,
         force_rerun=False, codeHash="master", jerbQuery='',
         executable_path=None, script_path=None):
     """
-    Adds a particular model to the queue to be fitted. Or run whatever job
-    you want by specifying a non-defaul script_path
+    Adds one model to the queue to be fitted for a single cell/batch
 
-    if executable_path is None: executable_path = "/home/nems/anaconda3/bin/python"
-    if script_path is None: script_path = "/home/nems/nems_db/nems_fit_single.py"
+    Inputs:
+    -------
+    if executable_path is None:
+        executable_path = "/home/nems/anaconda3/bin/python"
+    if script_path is None:
+        script_path = "/home/nems/nems_db/nems_fit_single.py"
 
     Returns:
     --------
@@ -193,11 +187,6 @@ def _enqueue_single_model(
     message : str
         description of the action taken, to be reported to the console by
         the calling enqueue_models function.
-
-    See Also:
-    ---------
-    Narf_Analysis : enqueue_single_model
-
     """
     if session is None:
         session = Session()

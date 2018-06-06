@@ -30,9 +30,9 @@ log = logging.getLogger(__name__)
 
 def get_recording_file(cellid, batch, options={}):
 
-    options["batch"] = batch
-    options["cellid"] = cellid
-    uri = nb.baphy_data_path(options)
+    #options["batch"] = batch
+    #options["cellid"] = cellid
+    uri = nb.baphy_data_path(cellid, batch, options)
 
     return uri
 
@@ -85,7 +85,7 @@ def generate_recording_uri(cellid, batch, loader):
                    'pupil_deblink': True, 'pupil_median': 2}
 
     elif (loader.startswith("nostim20pup") or loader.startswith("psth20pup")
-          or loader.startswith("psths20pup") 
+          or loader.startswith("psths20pup")
           or loader.startswith("evt20pup")):
         options = {'rasterfs': 20, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': True, 'stim': False,
