@@ -345,7 +345,7 @@ else:
 if not options['stim']:
     options['stimfmt']='none'
 options["batch"]=batch
-data_path=nems_db.baphy.baphy_data_path(options=options)
+data_path=nems_db.baphy.baphy_data_path(cellid=None, batch=batch, options=options)
 
 # regenerate or reload recordings as needed
 REGEN=False

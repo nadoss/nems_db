@@ -354,7 +354,6 @@ def baphy_load_pupil_trace(pupilfilepath, exptevents, **options):
     trial. need to make sure the big_rs vector aligns with the other signals
     """
 
-    options = options.copy()
     rasterfs = options.get('rasterfs', 1000)
     pupil_offset = options.get('pupil_offset', 0.75)
     pupil_deblink = options.get('pupil_deblink', True)
@@ -556,7 +555,7 @@ def baphy_load_data(parmfilepath, **options):
 
     # figure out stimulus cachefile to load
     if 'stim' in options.keys() and options['stim']:
-        stimfilepath = baphy_stim_cachefile(exptparams, parmfilepath, options)
+        stimfilepath = baphy_stim_cachefile(exptparams, parmfilepath, **options)
         print("Cached stim: {0}".format(stimfilepath))
         # load stimulus spectrogram
         stim, tags, stimparam = baphy_load_specgram(stimfilepath)
@@ -648,7 +647,7 @@ def baphy_load_data(parmfilepath, **options):
         try:
             pupilfilepath = re.sub(r"\.m$", ".pup.mat", parmfilepath)
             pupiltrace, ptrialidx = baphy_load_pupil_trace(
-                    pupilfilepath, exptevents, options
+                    pupilfilepath, exptevents, **options
                     )
             state_dict['pupiltrace'] = pupiltrace
 
@@ -684,7 +683,7 @@ def baphy_load_dataset(parmfilepath, **options):
     """
     # get the relatively un-pre-processed data
     exptevents, stim, spike_dict, state_dict, tags, stimparam, exptparams = \
-        baphy_load_data(parmfilepath, options)
+        baphy_load_data(parmfilepath, **options)
 
     # pre-process event list (event_times) to only contain useful events
     # extract each trial
@@ -1006,7 +1005,7 @@ def baphy_load_dataset_RDT(parmfilepath, **options):
 
     # get the relatively un-pre-processed data
     exptevents, stim, spike_dict, state_dict, tags, stimparam, exptparams = \
-        baphy_load_data(parmfilepath, options)
+        baphy_load_data(parmfilepath, **options)
 
     # pre-process event list (event_times) to only contain useful events
 
@@ -1168,10 +1167,10 @@ def baphy_load_recording(cellid, batch, **options):
         if options["runclass"] == "RDT":
             event_times, spike_dict, stim_dict, \
                 state_dict, stim1_dict, stim2_dict = \
-                baphy_load_dataset_RDT(parmfilepath, options)
+                baphy_load_dataset_RDT(parmfilepath, **options)
         else:
             event_times, spike_dict, stim_dict, state_dict = \
-                baphy_load_dataset(parmfilepath, options)
+                baphy_load_dataset(parmfilepath, **options)
 
             d2 = event_times.loc[0].copy()
             if (i == 0) and (d2['name'] == 'PASSIVE_EXPERIMENT'):
@@ -1320,10 +1319,10 @@ def baphy_load_recording_nonrasterized(cellid, batch, **options):
         if options["runclass"] == "RDT":
             event_times, spike_dict, stim_dict, \
                 state_dict, stim1_dict, stim2_dict = \
-                baphy_load_dataset_RDT(parmfilepath, options)
+                baphy_load_dataset_RDT(parmfilepath, **options)
         else:
             event_times, spike_dict, stim_dict, state_dict = \
-                baphy_load_dataset(parmfilepath, options)
+                baphy_load_dataset(parmfilepath, **options)
 
             d2 = event_times.loc[0].copy()
             if (i == 0) and (d2['name'] == 'PASSIVE_EXPERIMENT'):
@@ -1467,8 +1466,7 @@ def baphy_data_path(cellid=None, batch=None, **options):
         #          options['cellid'], options['batch'], options
         #          )
         rec = baphy_load_recording_nonrasterized(
-                cellid, options['batch'], options
-                )
+                cellid, options['batch'], **options)
         rec.save(data_file)
 
     return data_file
