@@ -929,7 +929,9 @@ $(document).ready(function(){
             return false;        
         }
     })
-    
+
+
+/*
     $("#fitSingle").on('click',function(){   
         var bSelected = $("#batchSelector").val();
         var cSelected = $("#cellSelector").val();
@@ -986,6 +988,7 @@ $(document).ready(function(){
             },
         });
     });
+*/
         
                 
     $("#enqueue").on('click',function(){  
@@ -993,7 +996,8 @@ $(document).ready(function(){
         var cSelected = $("#cellSelector").val();
         var mSelected = $("#modelSelector").val();
         var codeHash = $("#codeHash").val();
-        var jerbQuery = $("#jerbQuery").val();
+        var execPath = $("#execPath").val();
+        var scriptPath = $("#scriptPath").val();
         var forceRerun = 0;
         
         if (document.getElementById('forceRerun').checked){
@@ -1023,7 +1027,7 @@ $(document).ready(function(){
             url: $SCRIPT_ROOT + '/enqueue_models',
             data: { bSelected:bSelected, cSelected:cSelected,
                    mSelected:mSelected, forceRerun, codeHash:codeHash,
-                   jerbQuery },
+                   execPath:execPath, scriptPath:scriptPath },
             // TODO: should POST be used in this case?
             type: 'GET',
             success: function(result){

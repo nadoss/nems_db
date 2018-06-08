@@ -29,57 +29,6 @@ from nems_web.account_management.views import get_current_user
 log = logging.getLogger(__name__)
 
 
-@app.route('/fit_single_model')
-def fit_single_model_view():
-    """Call lib.nems_main.fit_single_model with user selections as args."""
-
-    return jsonify(r_est='This function no longer supported.',
-                   r_val='Awaiting removal from interface.')
-
-    # Deprecated
-    '''
-    user = get_current_user()
-
-    cSelected = request.args.getlist('cSelected[]')
-    bSelected = request.args.get('bSelected')[:3]
-    mSelected = request.args.getlist('mSelected[]')
-
-    # Disallow multiple cell/model selections for a single fit.
-    if (len(cSelected) > 1) or (len(mSelected) > 1):
-        return jsonify(r_est='error', r_val='more than 1 cell and/or model')
-
-
-    log.info(
-            "Beginning model fit -- this may take several minutes."
-            "Please wait for a success/failure response."
-            )
-    try:
-        stack = nems.fit_single_model(
-                        cellid=cSelected[0],
-                        batch=bSelected,
-                        modelname=mSelected[0],
-                        autoplot=False,
-                        )
-    except Exception as e:
-        web_log.info("Error when calling nems_main.fit_single_model")
-        log.info(e)
-        web_log.info("Fit failed.")
-        raise e
-
-    preview = stack.quick_plot_save(mode="png")
-    r_id = update_results_table(stack, preview, user.username, user.labgroup)
-    web_log.info("Results saved with id: {0}".format(r_id))
-
-    r_est = stack.meta['r_est'][0]
-    r_val = stack.meta['r_val'][0]
-
-    # Manually release stack for garbage collection -- having memory issues?
-    stack = None
-
-    return jsonify(r_est=r_est, r_val=r_val)
-    '''
-
-
 @app.route('/enqueue_models')
 @login_required
 def enqueue_models_view():
@@ -92,23 +41,27 @@ def enqueue_models_view():
     cSelected = request.args.getlist('cSelected[]')
     mSelected = request.args.getlist('mSelected[]')
     codeHash = request.args.get('codeHash')
-    jerbQuery = request.args.get('jerbQuery')
+    execPath = request.args.get('execPath')
+    scriptPath = request.args.get('scriptPath')
 
     log.info('codeHash retrieved properly?: {0}'.format(codeHash))
 
     if not codeHash:
         codeHash = 'master'
-
-    if not jerbQuery:
-        jerbQuery = ''
+    if not execPath:
+        execPath = None
+    if not scriptPath:
+        scriptPath = None
 
     force_rerun = request.args.get('forceRerun', type=int)
 
     enqueue_models(
             cSelected, bSelected, mSelected,
             force_rerun=bool(force_rerun), user=user.username,
-            codeHash=codeHash, jerbQuery=jerbQuery,
+            codeHash=codeHash, executable_path=execPath,
+            script_path=scriptPath,
             )
+
     return jsonify(data=True)
 
 
