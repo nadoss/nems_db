@@ -10,27 +10,27 @@ log = logging.getLogger(__name__)
 
 def load_config():
     import os
-    from configs import web_defaults
+    from nems_web.configs import defaults
 
-    # leave off 'web_defaults.py' at end
-    configs_path = os.path.dirname(os.path.abspath(web_defaults.__file__))
+    # leave off 'defaults.py' at end
+    configs_path = os.path.dirname(os.path.abspath(defaults.__file__))
 
     # if web_settings.py exists, import it and grab its __dir__() entries
     # otherwise, use an empty dictionary and create a blank file
     # to point user to the right place.
     try:
-        from configs import web_settings
+        from nems_web.configs import settings
     except ImportError:
-        web_path = os.path.join(configs_path, 'web_settings.py')
+        web_path = os.path.join(configs_path, 'settings.py')
         # this should be equivalent to `touch path/to/configs/db_settings.py`
         with open(web_path, 'a'):
             os.utime(web_path, None)
         log.info("No web_settings.py found in configs directory,"
                  " generating blank file ... ")
-        from configs import web_settings
+        from nems_web.configs import settings
 
     cached_config = {}
-    _init_settings(os.environ, web_defaults, web_settings, cached_config)
+    _init_settings(os.environ, defaults, settings, cached_config)
 
     return cached_config
 
