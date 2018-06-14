@@ -23,6 +23,14 @@ params = {'legend.fontsize': 8,
 plt.rcParams.update(params)
 
 
+def get_model_preds(cellid, batch, modelname):
+    xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname,
+                                        eval_model=False)
+    ctx, l = xforms.evaluate(xf, ctx, stop=-1)
+
+    return xf, ctx
+
+
 def compare_model_preds(cellid, batch, modelname1, modelname2):
     """
     compare prediction accuracy of two models on validation stimuli
@@ -30,12 +38,8 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
     borrows a lot of functionality from nplt.quickplot()
 
     """
-    xf1, ctx1 = nw.load_model_baphy_xform(cellid, batch, modelname1,
-                                          eval_model=False)
-    ctx1, l = xforms.evaluate(xf1, ctx1, stop=-1)
-    xf2, ctx2 = nw.load_model_baphy_xform(cellid, batch, modelname2,
-                                          eval_model=False)
-    ctx2, l = xforms.evaluate(xf2, ctx2, stop=-1)
+    xf1, ctx1 = get_model_preds(cellid, batch, modelname1)
+    xf2, ctx2 = get_model_preds(cellid, batch, modelname2)
 
     rec = ctx1['rec']
     val1 = ctx1['val'][0]
@@ -75,13 +79,13 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
     r_test1 = ms1[0]['meta']['r_test']
     r_test2 = ms2[0]['meta']['r_test']
 
-    plt.figure(figsize=(16, 6))
+    fh = plt.figure(figsize=(16, 6))
     ax = plt.subplot(5, 2, 1)
-    nplt.strf_heatmap(ms1, ax=ax, clim=None, show_factorized=True,
-                      title="{}/{} rtest={:.3f}".format(cellid,modelname1,r_test1),
-                      fs=resp.fs)
+    nplt.strf_timeseries(ms1, ax=ax, clim=None, show_factorized=True,
+                         title="{}/{} rtest={:.3f}".format(cellid,modelname1,r_test1),
+                         fs=resp.fs)
     ax = plt.subplot(5, 2, 2)
-    nplt.strf_heatmap(ms2, ax=ax, clim=None, show_factorized=True,
+    nplt.strf_timeseries(ms2, ax=ax, clim=None, show_factorized=True,
                       title="{}/{} rtest={:.3f}".format(cellid,modelname2,r_test2),
                       fs=resp.fs)
 
@@ -109,8 +113,8 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
             nplt.plot_spectrogram(
                     s[stim_i, 0, :, :],
                     fs=stim.fs, time_offset=PreStimSilence, ax=ax,
-                    title="{}/{} rfit={:.3f}/{:.3f}".format(cellid,
-                           stim_epochs[stim_i], r_test1, r_test2))
+                    title="{}/{} rfit={:.3f}/{:.3f}".format(
+                            cellid, stim_epochs[stim_i], r_test1, r_test2))
         ax.get_xaxis().set_visible(False)
 
         ax = plt.subplot(5, 2, 7+i)
@@ -126,6 +130,7 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
                 fs=resp.fs, time_offset=PreStimSilence, ax=ax)
 
     # plt.tight_layout()
+    return fh, ctx2
 
 
 def scatter_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,

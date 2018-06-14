@@ -21,8 +21,8 @@ def load_config():
     try:
         from nems_db.configs import settings
     except ImportError:
-        db_path = os.path.join(configs_path, 'db_settings.py')
-        # this should be equivalent to `touch path/to/configs/db_settings.py`
+        db_path = os.path.join(configs_path, 'settings.py')
+        # this should be equivalent to `touch path/to/configs/settings.py`
         with open(db_path, 'a'):
             os.utime(db_path, None)
         log.info("No db_settings.py found in configs directory,"

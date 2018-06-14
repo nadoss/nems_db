@@ -22,7 +22,7 @@ def load_config():
         from nems_web.configs import settings
     except ImportError:
         web_path = os.path.join(configs_path, 'settings.py')
-        # this should be equivalent to `touch path/to/configs/db_settings.py`
+        # this should be equivalent to `touch path/to/configs/settings.py`
         with open(web_path, 'a'):
             os.utime(web_path, None)
         log.info("No web_settings.py found in configs directory,"
