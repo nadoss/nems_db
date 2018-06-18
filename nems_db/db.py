@@ -13,6 +13,7 @@ import pandas.io.sql as psql
 
 log = logging.getLogger(__name__)
 
+local_engine = None
 
 ###### Functions for establishing connectivity, starting a session, or
 ###### referencing a database table
@@ -21,8 +22,13 @@ log = logging.getLogger(__name__)
 def Engine():
     '''Returns a mysql engine object.'''
     uri = _get_db_uri()
+    if local_engine is not None:
+        return local_engine
+
     try:
-        return create_engine(uri, pool_recycle=7200)
+        local_engine = create_engine(uri, pool_recycle=7200)
+        return local_engine
+
     except Exception as e:
         log.exception("Error when attempting to establish a database "
                       "connection.", e)
