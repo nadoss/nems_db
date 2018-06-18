@@ -460,7 +460,7 @@ def baphy_load_pupil_trace(pupilfilepath, exptevents, **options):
 
     # align pupil with other events, probably by
     # removing extra bins from between trials
-    ff = (exptevents['name'] == 'TRIALSTART')
+    ff = exptevents['name'].str.startswith('TRIALSTART')
     start_events = exptevents.loc[ff, ['start']].reset_index()
     start_events['StartBin'] = (
             np.round(start_events['start'] * options['rasterfs'])
@@ -652,7 +652,7 @@ def baphy_load_data(parmfilepath, **options):
             state_dict['pupiltrace'] = pupiltrace
 
         except:
-            print("No pupil data: " + pupilfilepath)
+            raise ValueError("Error loading pupil data: " + pupilfilepath)
 
     return (exptevents, stim, spike_dict, state_dict,
             tags, stimparam, exptparams)
@@ -690,7 +690,7 @@ def baphy_load_dataset(parmfilepath, **options):
     print('Creating trial events')
     tag_mask_start = "TRIALSTART"
     tag_mask_stop = "TRIALSTOP"
-    ffstart = (exptevents['name'] == tag_mask_start)
+    ffstart = exptevents['name'].str.startswith(tag_mask_start)
     ffstop = (exptevents['name'] == tag_mask_stop)
     TrialCount = np.max(exptevents.loc[ffstart, 'Trial'])
     event_times = pd.concat([exptevents.loc[ffstart, ['start']].reset_index(),
@@ -1012,7 +1012,7 @@ def baphy_load_dataset_RDT(parmfilepath, **options):
     # extract each trial
     tag_mask_start = "TRIALSTART"
     tag_mask_stop = "TRIALSTOP"
-    ffstart = (exptevents['name'] == tag_mask_start)
+    ffstart = exptevents['name'].str.startswith(tag_mask_start)
     ffstop = (exptevents['name'] == tag_mask_stop)
     TrialCount = np.max(exptevents.loc[ffstart, 'Trial'])
     event_times = pd.concat(

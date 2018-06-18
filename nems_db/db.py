@@ -215,10 +215,8 @@ def enqueue_single_model(
               .first()
               )
     if result and not force_rerun:
-        log.info(
-            "Entry in NarfResults already exists for: %s, skipping.\n" %
-            note)
-        session.close()
+        log.info("Entry in NarfResults already exists for: %s, skipping.\n",
+                 note)
         return -1, 'skip'
 
     # query tQueue to check if entry with same cell/batch/model already exists
