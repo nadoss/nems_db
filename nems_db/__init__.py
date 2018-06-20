@@ -11,27 +11,27 @@ log = logging.getLogger(__name__)
 
 def load_config():
     import os
-    from nems_db.configs import db_defaults
+    from nems_db.configs import defaults
 
     # leave off 'db_defaults.py' at end
-    configs_path = os.path.dirname(os.path.abspath(db_defaults.__file__))
+    configs_path = os.path.dirname(os.path.abspath(defaults.__file__))
 
     # if db_settings.py exists, import it and grab its __dir__() entries
     # otherwise, use an empty dictionary and create a blank file
     # to point user to the right place.
     try:
-        from nems_db.configs import db_settings
+        from nems_db.configs import settings
     except ImportError:
-        db_path = os.path.join(configs_path, 'db_settings.py')
-        # this should be equivalent to `touch path/to/configs/db_settings.py`
+        db_path = os.path.join(configs_path, 'settings.py')
+        # this should be equivalent to `touch path/to/configs/settings.py`
         with open(db_path, 'a'):
             os.utime(db_path, None)
         log.info("No db_settings.py found in configs directory,"
                  " generating blank file ... ")
-        from nems_db.configs import db_settings
+        from nems_db.configs import settings
 
     cached_config = {}
-    _init_settings(os.environ, db_defaults, db_settings, cached_config)
+    _init_settings(os.environ, defaults, settings, cached_config)
 
     return cached_config
 

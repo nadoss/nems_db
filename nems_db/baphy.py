@@ -1289,9 +1289,11 @@ def baphy_load_recording(cellid, batch, **options):
     return rec
 
 
-def baphy_load_recording_nonrasterized(cellid, batch, **options):
+def baphy_load_recording_nonrasterized(cellid=None, batch=None, **options):
     # print(options)
     # set default options if missing
+    if cellid is None or batch is None:
+        raise ValueError("must provide cellid and batch")
     options['rasterfs'] = int(options.get('rasterfs', 100))
     options['stimfmt'] = options.get('stimfmt', 'ozgf')
     options['chancount'] = int(options.get('chancount', 18))
@@ -1424,6 +1426,7 @@ def baphy_data_path(cellid=None, batch=None, **options):
 
     TODO: include options['site'] for multichannel recordings
     """
+
     if cellid is not None:
         options['cellid'] = cellid
 
@@ -1465,8 +1468,7 @@ def baphy_data_path(cellid=None, batch=None, **options):
         #  rec = baphy_load_recording(
         #          options['cellid'], options['batch'], options
         #          )
-        rec = baphy_load_recording_nonrasterized(
-                cellid, options['batch'], **options)
+        rec = baphy_load_recording_nonrasterized(**options)
         rec.save(data_file)
 
     return data_file
