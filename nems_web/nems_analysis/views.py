@@ -25,6 +25,7 @@ import logging
 import copy
 import datetime
 import json
+import itertools
 from base64 import b64encode
 from urllib.parse import urlparse
 from collections import namedtuple
@@ -263,11 +264,17 @@ def update_models():
     # to a list of model names.
     if modeltree:
         load, mod, fit = _get_trees(modeltree[0])
-        loader = ModelFinder(load)
-        model = ModelFinder(mod)
-        fitter = ModelFinder(fit)
-        model_list = '_'.join(loader, model, fitter)
-        # mf = ModelFinder(modeltree[0])
+        if load and mod and fit:
+            loader = ModelFinder(load).modellist
+            model = ModelFinder(mod).modellist
+            fitter = ModelFinder(fit).modellist
+            combined = itertools.product(loader, model, fitter)
+            model_list = ['_'.join(m) for m in combined]
+        else:
+            # Probably an old modeltree that doesn't have a separate
+            # specification of loaders/preprocessors and fitters/postprocessors
+            model_list = ModelFinder(mod, sep='_').modellist
+
     else:
         return jsonify(modellist="Model tree not found.")
 

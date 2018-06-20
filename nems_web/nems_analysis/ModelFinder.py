@@ -34,8 +34,9 @@ class ModelFinder():
 
     """
 
-    def __init__(self, modelstring=''):
+    def __init__(self, modelstring='', sep='-'):
         self.modelstring = modelstring
+        self.sep = sep
         # As soon as modelstring is passed, go ahead and
         # parse the string into an array then to a list so that
         # self.modellist attribute can be retrieved by nemsweb.py
@@ -135,6 +136,6 @@ class ModelFinder():
 
         """
         # Ignore blank strings when joining underscores
-        models = ['-'.join(filter(None, c)) for c in self.comboArray]
+        models = [self.sep.join(filter(None, c)) for c in self.comboArray]
 
         return models
