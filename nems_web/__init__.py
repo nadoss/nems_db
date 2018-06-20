@@ -74,6 +74,13 @@ _cached_config = load_config()
 
 def get_setting(s):
     s = _cached_config.get(s, None)
+
+    # Check for true/false in non-python format to keep literal_eval happy
+    if isinstance(s, str) and s.lower() == 'false':
+        s = "False"
+    if isinstance(s, str) and s.lower() == 'true':
+        s = "True"
+
     # Necessary since environment variables can only hold strings,
     # but config settings some times need to be other types.
     # NOTE: Will not work for dictionaries, but tested fine so far
@@ -81,7 +88,7 @@ def get_setting(s):
     try:
         # s is something other than a string
         s = ast.literal_eval(s)
-    except SyntaxError or ValueError:
+    except (SyntaxError, ValueError):
         # setting is just a string
         pass
     return s

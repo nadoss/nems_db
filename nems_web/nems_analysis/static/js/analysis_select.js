@@ -676,7 +676,9 @@ $(document).ready(function(){
         $("[name='editTags']").val('');
         $("[name='editQuestion']").html('');
         $("[name='editAnswer']").html('');
-        $("[name='editTree']").val('');
+        $("[name='editLoadTree']").val('');
+        $("[name='editModTree']").val('');
+        $("[name='editFitTree']").val('');
     }
     
     $("#editAnalysis").on('click',editAnalysis);
@@ -699,7 +701,9 @@ $(document).ready(function(){
                 $("[name='editTags']").val(data.tags);
                 $("[name='editQuestion']").html(data.question);
                 $("[name='editAnswer']").html(data.answer);
-                $("[name='editTree']").val(data.tree);
+                $("[name='editLoadTree']").val(data.load);
+                $("[name='editModTree']").val(data.mod);
+                $("[name='editFitTree']").val(data.fit);
             },
             error: function(error){
                 console.log(error);        
@@ -751,12 +755,15 @@ $(document).ready(function(){
         var tags = $("[name='editTags']").val();
         var question = $("[name='editQuestion']").val();
         var answer = $("[name='editAnswer']").val();
-        var tree = $("[name='editTree']").val();
+        var load = $("[name='editLoadTree']").val();
+        var mod = $("[name='editModTree']").val();
+        var fit = $("[name='editFitTree']").val();
         
         $.ajax({
            url: $SCRIPT_ROOT + '/edit_analysis',
            data: { name:name, id:id, status:status, tags:tags,
-                  question:question, answer:answer, tree:tree },
+                  question:question, answer:answer, load:load,
+                  mod:mod, fit:fit },
            type: 'GET',
            success: function(data){
                $("#analysisEditorModal").modal('hide')

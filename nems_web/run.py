@@ -32,9 +32,8 @@ from gevent.wsgi import WSGIServer
 #       according to Flask docs. Need to replace with better server.
 #       flask.pocoo.org/docs/0.12/deploying/wsgi-standalone/
 port = int(nems_web.get_setting('PORT'))
-debug = (nems_web.get_setting('DEBUG').lower() in ("yes", "true", "1"))
+debug = (str(nems_web.get_setting('DEBUG')).lower() in ("yes", "true", "1", True))
 print('Starting nems_web server on port {}, debug={}'.format(port,debug))
 app.run(host="0.0.0.0", port=port, debug=debug, use_reloader=False)
 #http_server = WSGIServer(('', 8000), app)
 #http_server.serve_forever()
-
