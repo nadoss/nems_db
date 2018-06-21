@@ -257,7 +257,7 @@ def plot_weights_64D(h, cellids, cbar=True):
    
     # Now, color appropriately
     electrodes = np.zeros(len(cellids))
-    c_id = np.zeros(len(cellids))
+    
     for i in range(0, len(cellids)):
         electrodes[i] = int(cellids[i][-4:-2])
         
@@ -270,14 +270,15 @@ def plot_weights_64D(h, cellids, cbar=True):
     num_of_dupes = [electrodes.count(x) for x in electrodes]
     num_of_dupes = list(set([x for x in num_of_dupes if x>1]))
     #max_duplicates = np.max(np.array(num_of_dupes))
-    dup_locations=np.empty((2,2*np.sum(num_of_dupes)))
+    dup_locations=np.empty((2,np.sum(num_of_dupes)*len(dupes)))
     max_=0
+    count = 0
+    x_shifts = dict.fromkeys([str(i) for i in dupes])
     for i in np.arange(0,len(dupes)):
         loc_x = locations[0,dupes[i]]
-        loc_y = locations[1,dupes[i]]
-         
-        dup_locations[0,i]= loc_x
-        dup_locations[1,i]= loc_y
+        
+        x_shifts[str(dupes[i])]=[]
+        x_shifts[str(dupes[i])].append(loc_x)
         
         n_dupes = electrodes.count(dupes[i])-1
         shift = 0
@@ -288,27 +289,39 @@ def plot_weights_64D(h, cellids, cbar=True):
                 shift += 0.4
             elif loc_x > 0:
                 shift += 0.2
-            m = shift
             
+            m = shift
             if m > max_:
                 max_=m
-                
-            dup_locations[0,i+1+d]= loc_x+shift
-            dup_locations[1,i+1+d]= loc_y
-    
+            
+            x_shifts[str(dupes[i])].append(loc_x+shift)
+      
+            count += 1
+    count+=len(dupes)
+    dup_locations = np.empty((2, count))
+    c=0
+    h_dupes = []
+    for k in x_shifts.keys():
+        index = np.argwhere(np.array(electrodes) == int(k))
+        for i in range(0, len(x_shifts[k])):
+            dup_locations[0,c] = x_shifts[k][i]
+            dup_locations[1,c] = locations[1,int(k)]
+            h_dupes.append(h[index[i][0]])
+            c+=1
+        
     plt.scatter(dup_locations[0,:],dup_locations[1,:],facecolor='none',edgecolor='k',s=50)
 
     plt.axis('scaled')
-    plt.xlim(-max_-.1,max_+.1)
+    plt.xlim(-max_-.3,max_+.3)
 
     c_id = np.sort([int(x) for x in electrodes if electrodes.count(x)==1])
     electrodes = [int(x) for x in electrodes]
 
     # find the indexes of the unique cellids
-    indexes=[]
-    for c in c_id:
-        indexes.append(np.argwhere(electrodes==c))
-    indexes=[x[0][0] for x in list(indexes)]
+    indexes = np.argwhere(np.array([electrodes.count(x) for x in electrodes])==1)
+    indexes2 = np.argwhere(np.array([electrodes.count(x) for x in electrodes])!=1)
+    indexes=[x[0] for x in indexes]
+    indexes2=[x[0] for x in indexes2]
     
     # make an inverse mask of the unique indexes
     mask = np.ones(len(h),np.bool)
@@ -331,7 +344,8 @@ def plot_weights_64D(h, cellids, cbar=True):
     mappable = matplotlib.cm.ScalarMappable(norm=norm,cmap=cmap)
     mappable.set_array(h[mask])
     #mappable.set_cmap('jet')
-    colors = mappable.to_rgba(h[mask])
+    #colors = mappable.to_rgba(h[mask])
+    colors = mappable.to_rgba(h_dupes)
     plt.scatter(dup_locations[0,:],dup_locations[1,:],
                           c=colors,vmin=vmin,vmax=vmax,s=50,edgecolor='none')
     if cbar is True:
