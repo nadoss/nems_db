@@ -31,10 +31,17 @@ def _aliased_loader(fn, loadkey):
         return fn(loadkey, recording_uri)
     return ignorant_loader
 
+# TODO: Add aliases for backwards compatibility
+
+# TODO: Some of the loader patterns should really be refactored for the new
+#       system, but holding off for now since we might be separating
+#       the lbhb loading side from preprocessing functions.
+#       ex: ozgf.100ch18 should become ozgf.fs100.ch18
+
 
 def ozgf(loadkey, recording_uri):
     recordings = [recording_uri]
-    pattern = re.compile(r'^ozgf.?(\d{1,})ch(\d{1,})(\w*)?')
+    pattern = re.compile(r'^ozgf\.?(\d{1,})ch(\d{1,})(\w*)?')
     parsed = re.match(pattern, loadkey)
     # TODO: fs and chans useful for anything for the loader? They don't
     #       seem to be used here, only in the baphy-specific stuff.
@@ -69,7 +76,7 @@ def ozgf(loadkey, recording_uri):
 
 
 def env(loadkey, recording_uri):
-    pattern = re.compile(r'^env.(\d{0,})(\w{0,})$')
+    pattern = re.compile(r'^env\.?(\d{0,})\.?(\w{0,})$')
     parsed = re.match(pattern, loadkey)
     fs = parsed[1]
     options = parsed[2]
@@ -103,7 +110,7 @@ def env(loadkey, recording_uri):
 
 
 def psth(loadkey, recording_uri):
-    pattern = re.compile(r'^psth.([s,m]{0,})(\d{0,})(\w{0,})$')
+    pattern = re.compile(r'^psth\.?([s,m]{0,})(\d{0,})(\w{0,})$')
     parsed = re.match(pattern, loadkey)
     pre_options = parsed[1]
     n = parsed[2]  # TODO: what is this?
@@ -150,7 +157,7 @@ def nostim(loadkey, recording_uri):
 
 
 def evt(loadkey, recording_uri):
-    pattern = re.compile(r'^evt.(\d{0,})(\w{0,})$')
+    pattern = re.compile(r'^evt\.?(\d{0,})\.?(\w{0,})$')
     parsed = re.match(pattern, loadkey)
     n = parsed[1]  # what is this?
     state = parsed[2]  # handled by _state_model_loadkey_helper right now.
@@ -177,7 +184,8 @@ def evt(loadkey, recording_uri):
 
 
 def _state_model_loadkey_helper(loader):
-
+    state_signals = []
+    permute_signals = []
     epoch2_shuffle = False
     if (loader.startswith("evt")):
 
