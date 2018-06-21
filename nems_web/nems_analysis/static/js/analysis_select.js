@@ -113,7 +113,7 @@ $(document).ready(function(){
             this.status = '__any';
             this.analysis = 'nems testing';
             this.plot_measure = 'r_test';
-            this.plot_type = 'Scatter_Plot';
+            this.plot_type = 'Scatter';
             this.script = 'demo_script';
             this.onlyFair = 1;
             this.includeOutliers = 0;
@@ -137,7 +137,7 @@ $(document).ready(function(){
             data: {},
             type: 'GET',
             success: function(data){
-                // will be false if user is not logged in
+                // data.null will be true if user is not logged in
                 // or if other issue happens in flask route function
                 if (data.null === false){
                     console.log("retrieved selections");
@@ -532,7 +532,7 @@ $(document).ready(function(){
                 });
                 
                 if (data.analysislist.includes(saved_selections.analysis)){
-                    $("#analysisSelector").val(saved_selections.analysis);
+                    $("#analysisSelector").val(saved_selections.analysis).change();
                 } else {
                     $("#analysisSelector").val($("#analysisSelector option:first").val()).change();
                 }
@@ -768,6 +768,7 @@ $(document).ready(function(){
            success: function(data){
                $("#analysisEditorModal").modal('hide')
                py_console_log(data.success);
+               saved_selections.analysis = name;
                updateAnalysis();
            },
            error: function(error){
