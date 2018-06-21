@@ -217,14 +217,6 @@
                         <button tabindex="-1"
                                 class="btn btn-default btn-xs"
                                 type="button"
-                                id="fitSingle">
-                                    Fit Single Now
-                        </button>
-                    </div>
-                    <div class="input-group-btn">
-                        <button tabindex="-1"
-                                class="btn btn-default btn-xs"
-                                type="button"
                                 id="enqueue">
                                     Enqueue Models
                         </button>
@@ -878,36 +870,17 @@
                                        placeholder="ex: 038c713">
                         </div>
                         <div class='input-group' style="margin-bottom: 5px;">
-                                Jerb Query
+                                Executable Path
                                 <input type="text"
-                                       id="jerbQuery"
-                                       placeholder="ex: {'batch':['271','291','294']}">
-                                <button type="button"
-                                        class="btn btn-default btn-xs"
-                                        id="clearQuery">
-                                        <span class="glyphicon glyphicon-remove">
-                                        </span>
-                                </button>
-                                <span style="opacity: 0.5;">
-                                    (Takes precedence over codeHash)
-                                </span>
+                                       id="execPath"
+                                       placeholder="ex: /anaconda3/bin/python">
                         </div>
                         <div class="input-group form-inline"
                              style="width: 100%;">
-                                Jerb Key
+                                Script Path
                                 <input type="text"
-                                       id="jerbKey"
-                                       placeholder="ex: batch">
-                                Jerb Values
-                                <input type="text"
-                                       id="jerbVal"
-                                       placeholder="ex: 271,291,294">
-                                <button type="button"
-                                        class="btn btn-default btn-xs"
-                                        id="addJerbKV">
-                                    <span class="glyphicon glyphicon-plus">
-                                    </span>
-                                </button>
+                                       id="scriptPath"
+                                       placeholder="ex: /home/my_scripts/custom_nems_fit.py">
                         </div>
                         <br>
                         <span style="font-weight: bold; margin-bottom: 5px;">

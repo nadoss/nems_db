@@ -10,8 +10,11 @@ from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.automap import automap_base
 import pandas.io.sql as psql
+import json
 
 log = logging.getLogger(__name__)
+
+__ENGINE__ = None
 
 
 ###### Functions for establishing connectivity, starting a session, or
@@ -19,14 +22,20 @@ log = logging.getLogger(__name__)
 
 
 def Engine():
-    '''Returns a mysql engine object.'''
+    '''Returns a mysql engine object. Creates the engine if necessary.
+    Otherwise returns the existing one.'''
+    global __ENGINE__
+
     uri = _get_db_uri()
-    try:
-        return create_engine(uri, pool_recycle=7200)
-    except Exception as e:
-        log.exception("Error when attempting to establish a database "
-                      "connection.", e)
-        raise(e)
+    if not __ENGINE__:
+        __ENGINE__ = create_engine(uri, pool_recycle=7200)
+
+    return __ENGINE__
+
+    #except Exception as e:
+    #    log.exception("Error when attempting to establish a database "
+    #                  "connection.", e)
+    #    raise(e)
 
 
 def Session():
@@ -67,13 +76,22 @@ def _get_db_uri():
     return db_uri
 
 
-###### Functions that access / manipulate the database. #######
-
+###### Functions that access / manipulate the job queue. #######
 
 def enqueue_models(celllist, batch, modellist, force_rerun=False,
-                   user=None, codeHash="master", jerbQuery='', ):
+                   user="nems", codeHash="master", jerbQuery='',
+                   executable_path=None, script_path=None):
     """Call enqueue_single_model for every combination of cellid and modelname
     contained in the user's selections.
+
+    for each cellid in celllist and modelname in modellist, will create jobs
+    that execute this command on a cluster machine:
+
+    <executable_path> <script_path> <cellid> <batch> <modelname>
+
+    e.g.:
+    /home/nems/anaconda3/bin/python /home/nems/nems/fit_single_model.py \
+       TAR010c-18-1 271 ozgf100ch18_dlog_wcg18x1_stp1_fir1x15_lvl1_dexp1_basic
 
     Arguments:
     ----------
@@ -83,16 +101,21 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
         batch number selected by user.
     modellist : list
         List of modelname selections made by user.
-    force_rerun : boolean
+    force_rerun : boolean (default=False)
         If true, models will be fit even if a result already exists.
         If false, models with existing results will be skipped.
-    user : TODO
-    codeHash : string
+    user : string (default="nems")
+        Typically the login name of the user who owns the job
+    codeHash : string (default="master")
         Git hash string identifying a commit for the specific version of the
         code repository that should be used to run the model fit.
         Can also accept the name of a branch.
     jerbQuery : dict
         Dict that will be used by 'jerb find' to locate matching jerbs
+    executable_path : string (defaults to nems' python3 executable)
+        Path to executable python (or other command line program)
+    script_path : string (defaults to nems' copy of nems/nems_fit_single.py)
+        First parameter to pass to executable
 
     Returns:
     --------
@@ -113,9 +136,10 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
     pass_fail = []
     for model in modellist:
         for cell in celllist:
-            queueid, message = _enqueue_single_model(
-                cell, batch, model, force_rerun, user,
-                session, codeHash, jerbQuery,
+            queueid, message = enqueue_single_model(
+                cell, batch, model, force_rerun=force_rerun, user=user,
+                session=session, codeHash=codeHash, jerbQuery=jerbQuery,
+                executable_path=executable_path, script_path=script_path
             )
             if queueid:
                 pass_fail.append(
@@ -136,11 +160,34 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
     return
 
 
-def _enqueue_single_model(
-        cellid, batch, modelname, force_rerun, user,
-        session, codeHash, jerbQuery
-):
-    """Adds a particular model to the queue to be fitted.
+def _enqueue_single_model(cellid, batch, modelname, user=None,
+                         session=None, force_rerun=False, codeHash="master",
+                         jerbQuery='',
+                         executable_path=None, script_path=None):
+    """
+
+    currently just a wrapper for internal function enqueue_single_model
+    TODO delete this and just use public function.
+    """
+    enqueue_single_model(cellid, batch, modelname, user,
+                          session, force_rerun, codeHash, jerbQuery,
+                          executable_path, script_path)
+
+
+def enqueue_single_model(
+        cellid, batch, modelname, user=None,
+        session=None,
+        force_rerun=False, codeHash="master", jerbQuery='',
+        executable_path=None, script_path=None):
+    """
+    Adds one model to the queue to be fitted for a single cell/batch
+
+    Inputs:
+    -------
+    if executable_path is None:
+        executable_path = "/home/nems/anaconda3/bin/python"
+    if script_path is None:
+        script_path = "/home/nems/nems_db/nems_fit_single.py"
 
     Returns:
     --------
@@ -149,38 +196,36 @@ def _enqueue_single_model(
     message : str
         description of the action taken, to be reported to the console by
         the calling enqueue_models function.
-
-    See Also:
-    ---------
-    Narf_Analysis : enqueue_single_model
-
     """
+    if session is None:
+        session = Session()
+
     db_tables = Tables()
     NarfResults = db_tables['NarfResults']
     tQueue = db_tables['tQueue']
 
-    # TODO: anything else needed here? this is syntax for nems_fit_single
-    #       command prompt wrapper in main nems folder.
-    commandPrompt = (
-	" /home/nems/anaconda3/bin/python"
-        " /home/nems/nems_db/nems_fit_single.py {0} {1} {2}"
-        .format(cellid, batch, modelname)
-    )
+    if executable_path is None:
+        executable_path = "/home/nems/anaconda3/bin/python"
+
+    if script_path is None:
+        script_path = "/home/nems/nems_db/nems_fit_single.py"
+
+    commandPrompt = ("{0} {1} {2} {3} {4}"
+                     .format(executable_path, script_path,
+                             cellid, batch, modelname)
+                     )
 
     note = "%s/%s/%s" % (cellid, batch, modelname)
 
-    result = (
-        session.query(NarfResults)
-        .filter(NarfResults.cellid == cellid)
-        .filter(NarfResults.batch == batch)
-        .filter(NarfResults.modelname == modelname)
-        .first()
-    )
+    result = (session.query(NarfResults)
+              .filter(NarfResults.cellid == cellid)
+              .filter(NarfResults.batch == batch)
+              .filter(NarfResults.modelname == modelname)
+              .first()
+              )
     if result and not force_rerun:
-        log.info(
-            "Entry in NarfResults already exists for: %s, skipping.\n" %
-            note)
-        session.close()
+        log.info("Entry in NarfResults already exists for: %s, skipping.\n",
+                 note)
         return -1, 'skip'
 
     # query tQueue to check if entry with same cell/batch/model already exists
@@ -198,7 +243,7 @@ def _enqueue_single_model(
         # incomplete entry for note already exists, skipping
         # update entry with same note? what does this accomplish?
         # moves it back into queue maybe?
-        message = "Incomplete entry for: %s already exists, skipping.\n" % note
+        message = "Incomplete entry for: %s exists, skipping.\n" % note
         job = qdata
     elif qdata and (int(qdata.complete) == 2):
         # TODO:
@@ -206,7 +251,7 @@ def _enqueue_single_model(
         # update complete and progress status each to 0
         # what does this do? doesn't look like the sql is sent right away,
         # instead gets assigned to [res,r]
-        message = "Dead queue entry for: %s already exists, resetting.\n" % note
+        message = "Dead queue entry for: %s exists, resetting.\n" % note
         qdata.complete = 0
         qdata.progress = 0
         job = qdata
@@ -285,11 +330,18 @@ def _add_model_to_queue(commandPrompt, note, user, codeHash, jerbQuery,
     return job
 
 
-def update_job_complete(queueid):
+def update_job_complete(queueid=None):
     """
     mark job queueid complete in tQueue
     svd old-fashioned way of doing it
     """
+    if queueid is None:
+        if 'QUEUEID' in os.environ:
+            queueid = os.environ['QUEUEID']
+        else:
+            log.warning("queueid not specified or found in os.environ")
+            return 0
+
     engine = Engine()
     conn = engine.connect()
     sql = "UPDATE tQueue SET complete=1 WHERE id={}".format(queueid)
@@ -318,10 +370,17 @@ def update_job_complete(queueid):
     """
 
 
-def update_job_start(queueid):
+def update_job_start(queueid=None):
     """
     in tQueue, mark job as active and progress set to 1
     """
+    if queueid is None:
+        if 'QUEUEID' in os.environ:
+            queueid = os.environ['QUEUEID']
+        else:
+            log.warning("queueid not specified or found in os.environ")
+            return 0
+
     engine = Engine()
     conn = engine.connect()
     sql = ("UPDATE tQueue SET complete=-1,progress=1 WHERE id={}"
@@ -331,11 +390,18 @@ def update_job_start(queueid):
     return r
 
 
-def update_job_tick(queueid=0):
+def update_job_tick(queueid=None):
     """
     update current machine's load in the cluster db and tick off a step
     of progress in the fit in tQueue
     """
+    if queueid is None:
+        if 'QUEUEID' in os.environ:
+            queueid = os.environ['QUEUEID']
+        else:
+            log.warning("queueid not specified or found in os.environ")
+            return 0
+
     path = nems_db.util.__file__
     i = path.find('nems_db/util')
     qsetload_path = (path[:i] + 'bin/qsetload')
@@ -346,17 +412,13 @@ def update_job_tick(queueid=0):
         log.warning('Error executing qsetload')
         log.warning(result.stdout.decode('utf-8'))
 
-    if (queueid == 0) & ('QUEUEID' in os.environ):
-        queueid = os.environ['QUEUEID']
-
-    if queueid:
-        engine = Engine()
-        conn = engine.connect()
-        # tick off progress, job is live
-        sql = ("UPDATE tQueue SET progress=progress+1 WHERE id={}"
-               .format(queueid))
-        r = conn.execute(sql)
-        conn.close()
+    engine = Engine()
+    conn = engine.connect()
+    # tick off progress, job is live
+    sql = ("UPDATE tQueue SET progress=progress+1 WHERE id={}"
+           .format(queueid))
+    r = conn.execute(sql)
+    conn.close()
 
     return r
 
@@ -821,3 +883,20 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
     cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
 
     return cellids
+
+
+def get_wft(cellid=None):
+    engine = Engine()
+    params = ()
+    sql = "SELECT meta_data FROM gSingleCell WHERE 1"
+
+    sql += " and cellid =%s"
+    params = params+(cellid,)
+    
+    d = pd.read_sql(sql=sql, con=engine, params=params)
+    
+    wft = json.loads(d.values[0][0])
+    ## 1 is fast spiking, 0 is regular spiking
+    celltype = wft['wft_celltype']
+    
+    return celltype

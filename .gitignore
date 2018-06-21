@@ -99,14 +99,11 @@ ENV/
 # mypy
 .mypy_cache/
 
-# nems-specific
-<<<<<<< HEAD
+## nems-specific ##
 saved_analysis/
 saved_images/
 saved_models/
-=======
->>>>>>> 922c6e093ca7f0e67dc7d7118e2fc399304fa1c9
-#signals/
+
 *~
 .DS_Store
 @eaDir
@@ -115,10 +112,7 @@ saved_models/
 **/database_info.txt
 **/nems_path.txt
 
-**/nems_config/*
-!**/nems_config/__init__.py
-!**/nems_config/defaults.py
-!**/nems_config/default_db.db
+**/configs/*
 
 **/nems_analysis/static/gen/*
 **/nems_sample*
@@ -208,7 +202,9 @@ Session.vim
 tags
 
 # configurations
-configs/*
-!configs/db_defaults.py
-!configs/web_defaults.py
-!configs/__init__.py
+nems_db/configs/*
+nems_web/configs/*
+!nems_db/configs/defaults.py
+!nems_web/configs/defaults.py
+!nems_db/configs/__init__.py
+!nems_web/configs/__init__.py
