@@ -45,9 +45,9 @@ def ozgf(loadkey, recording_uri):
     parsed = re.match(pattern, loadkey)
     # TODO: fs and chans useful for anything for the loader? They don't
     #       seem to be used here, only in the baphy-specific stuff.
-    fs = parsed[1]
-    chans = parsed[2]
-    options = parsed[3]
+    fs = parsed.group(1)
+    chans = parsed.group(2)
+    options = parsed.group(3)
 
     # NOTE: These are dumb/greedy searches, so if many more options need
     #       to be added later will need something more sofisticated.

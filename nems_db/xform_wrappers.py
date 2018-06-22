@@ -88,9 +88,9 @@ def generate_recording_uri(cellid, batch, loader):
         parsed = re.match(pattern, loader)
         # TODO: fs and chans useful for anything for the loader? They don't
         #       seem to be used here, only in the baphy-specific stuff.
-        fs = parsed[1]
-        chans = parsed[2]
-        ops = parsed[3]
+        fs = parsed.group(1)
+        chans = parsed.group(2)
+        ops = parsed.group(3)
         pupil = ('pup' in ops)
 
         options = {'rasterfs': fs, 'includeprestim': True,
