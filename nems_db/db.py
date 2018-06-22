@@ -10,6 +10,7 @@ from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.automap import automap_base
 import pandas.io.sql as psql
+import json
 
 log = logging.getLogger(__name__)
 
@@ -882,3 +883,20 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
     cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
 
     return cellids
+
+
+def get_wft(cellid=None):
+    engine = Engine()
+    params = ()
+    sql = "SELECT meta_data FROM gSingleCell WHERE 1"
+
+    sql += " and cellid =%s"
+    params = params+(cellid,)
+    
+    d = pd.read_sql(sql=sql, con=engine, params=params)
+    
+    wft = json.loads(d.values[0][0])
+    ## 1 is fast spiking, 0 is regular spiking
+    celltype = wft['wft_celltype']
+    
+    return celltype

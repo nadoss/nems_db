@@ -1309,8 +1309,13 @@ def baphy_load_recording_nonrasterized(cellid=None, batch=None, **options):
     options['batch'] = int(batch)
     options['rawid'] = options.get('rawid', None)
 
+    if type(cellid) is list:
+        site = cellid[0]
+    else:
+        site = cellid
+
     # query database to find all baphy files that belong to this cell/batch
-    d = db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm',
+    d = db.get_batch_cell_data(batch=batch, cellid=site, label='parm',
                                rawid=options['rawid'])
     files = list(d['parm'])
     if len(files) == 0:
@@ -1342,7 +1347,7 @@ def baphy_load_recording_nonrasterized(cellid=None, batch=None, **options):
         # generate response signal
         t_resp = nems.signal.PointProcess(
                 fs=options['rasterfs'], data=spike_dict,
-                name='resp', recording=cellid, chans=list(spike_dict.keys()),
+                name='resp', recording=site, chans=list(spike_dict.keys()),
                 epochs=event_times
                 )
 
@@ -1370,7 +1375,7 @@ def baphy_load_recording_nonrasterized(cellid=None, batch=None, **options):
             # generate pupil signals
             t_pupil = nems.signal.RasterizedSignal(
                     fs=options['rasterfs'], data=state_dict['pupiltrace'],
-                    name='pupil', recording=cellid, chans=['pupil'],
+                    name='pupil', recording=site, chans=['pupil'],
                     epochs=event_times)
 
             if i == 0:

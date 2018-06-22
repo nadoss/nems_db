@@ -553,4 +553,44 @@ def pp_model_plot(cellid='TAR010c-06-1', batch=301,
 
     fh, stats = _model_step_plot(cellid, batch, modelnames, factors)
 
+    plt.tight_layout()
+    
     return fh, stats
+
+
+def psth_per_file(rec):
+    
+    raise NotImplementedError
+    
+    resp = rec['resp'].rasterize()
+    
+    file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
+        
+    epoch_regex = "^STIM_"
+    stim_epochs = ep.epoch_names_matching(resp.epochs, epoch_regex)
+    
+    r = []
+    max_rep_id = np.zeros(len(file_epochs))
+    for f in file_epochs:
+        
+        r.append(resp.as_matrix(stim_epochs, overlapping_epoch=f) * resp.fs)
+        
+    repcount = np.sum(np.isfinite(r[:, :, 0, 0]), axis=1)
+    max_rep_id, = np.where(repcount == np.max(repcount))
+    
+    t = np.arange(r.shape[-1]) / resp.fs
+    
+    plt.figure()
+    
+    ax = plt.subplot(3, 1, 1)
+    nplt.plot_spectrogram(s[max_rep_id[-1],0,:,:], fs=stim.fs, ax=ax, 
+                          title="cell {} - stim".format(cellid))
+    
+    ax = plt.subplot(3, 1, 2)
+    nplt.raster(t,r[max_rep_id[-1],:,0,:], ax=ax, title='raster')
+    
+    ax = plt.subplot(3, 1, 3);
+    nplt.psth_from_raster(t,r[max_rep_id[-1],:,0,:], ax=ax, title='raster',
+                          ylabel='spk/s')
+    
+    plt.tight_layout()
