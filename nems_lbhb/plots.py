@@ -212,7 +212,7 @@ def scatter_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     return fh
 
 
-def plot_weights_64D(h, cellids, cbar=True):
+def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True):
     
     '''
     given a weight vector, h, plot the weights on the appropriate electrode channel
@@ -228,11 +228,16 @@ def plot_weights_64D(h, cellids, cbar=True):
     
     if type(h) is not np.ndarray:
         h = np.array(h)
-        vmin = np.min(h)
-        vmax = np.max(h)
+        if vmin is None:
+            vmin = np.min(h)
+        if vmax is None:
+            vmax = np.max(h)
     else:
-        vmin = np.min(h)
-        vmax = np.max(h)
+        if vmin is None:
+            vmin = np.min(h)
+        if vmax is None:
+            vmax = np.max(h)
+  
      # Make a vector for each column of electrodes
     
     # left column + right column are identical
@@ -250,7 +255,7 @@ def plot_weights_64D(h, cellids, cbar=True):
     r_col = np.vstack((np.ones(21)*0.2,lr_col))
     c_col = np.vstack((np.zeros(22),center_col))
     locations = np.hstack((l_col,c_col,r_col))[:,sort_inds]
-    plt.figure()
+    #plt.figure()
     plt.scatter(locations[0,:],locations[1,:],facecolor='none',edgecolor='k',s=50)
     
     
@@ -335,7 +340,7 @@ def plot_weights_64D(h, cellids, cbar=True):
     mappable = matplotlib.cm.ScalarMappable(norm=norm,cmap=cmap)
     mappable.set_array(h[indexes])
     #mappable.set_cmap('jet')
-    colors = mappable.to_rgba(h[indexes])
+    colors = mappable.to_rgba(list(h[indexes]))
     plt.scatter(locations[:,c_id][0,:],locations[:,c_id][1,:],
                           c=colors,vmin=vmin,vmax=vmax,s=50,edgecolor='none')
     # plot the duplicates
