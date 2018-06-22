@@ -3,6 +3,7 @@
 
 import os
 import random
+import re
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
@@ -63,44 +64,77 @@ def generate_recording_uri(cellid, batch, loader):
     in nems.xform_helper
     """
 
+    # TODO: A lot of the parsing is copy-pasted from nems_lbhb/loaders/,
+    #       need to figure out which role goes where and delete the
+    #       repeated code.
+
     options = {}
-    if loader in ["ozgf100ch18", "ozgf100ch18n"]:
-        options = {'rasterfs': 100, 'includeprestim': True,
-                   'stimfmt': 'ozgf', 'chancount': 18}
 
-    elif loader in ["ozgf100ch18pup", "ozgf100ch18npup"]:
-        options = {'rasterfs': 100, 'stimfmt': 'ozgf',
-                   'chancount': 18, 'pupil': True, 'stim': True,
-                   'pupil_deblink': True, 'pupil_median': 2}
+    def _parm_helper(fs, pupil):
+        options = {'rasterfs': fs, 'stimfmt': 'parm',
+                   'chancount': 0, 'stim': False}
 
-    elif (loader.startswith("nostim200pup") or loader.startswith("psth200pup")
-          or loader.startswith("psths200pup")):
-        options = {'rasterfs': 200, 'stimfmt': 'parm',
-                   'chancount': 0, 'pupil': True, 'stim': False,
-                   'pupil_deblink': 1, 'pupil_median': 0.5}
+        if pupil:
+            pup_med = 2.0 if fs == 10 else 0.5
+            options.update({'pupil': True, 'pupil_deblink': True,
+                            'pupil_median': pup_med})
+        else:
+            options['pupil'] = False
 
-    elif loader.startswith("nostim10pup") or loader.startswith("psth10pup"):
-        options = {'rasterfs': 10, 'stimfmt': 'parm',
-                   'chancount': 0, 'pupil': True, 'stim': False,
-                   'pupil_deblink': True, 'pupil_median': 2}
+        return options
 
-    elif (loader.startswith("nostim20pup") or loader.startswith("psth20pup")
-          or loader.startswith("psths20pup")
-          or loader.startswith("evt20pup")):
-        options = {'rasterfs': 20, 'stimfmt': 'parm',
-                   'chancount': 0, 'pupil': True, 'stim': False,
-                   'pupil_deblink': 1, 'pupil_median': 0.5}
+    if loader.startswith('ozgf'):
+        pattern = re.compile(r'^ozgf\.(\d{1,})ch(\d{1,})(\w*)?$')
+        parsed = re.match(pattern, loader)
+        # TODO: fs and chans useful for anything for the loader? They don't
+        #       seem to be used here, only in the baphy-specific stuff.
+        fs = parsed[1]
+        chans = parsed[2]
+        ops = parsed[3]
+        pupil = ('pup' in ops)
 
-    elif (loader.startswith("nostim20") or loader.startswith("psth20")
-          or loader.startswith("psthm20") or loader.startswith("psths20")):
-        options = {'rasterfs': 20, 'stimfmt': 'parm',
-                   'chancount': 0, 'pupil': False, 'stim': False}
+        options = {'rasterfs': fs, 'includeprestim': True,
+                   'stimfmt': 'ozgf', 'chancount': chans}
 
-    elif (loader.startswith("env100") or loader.startswith("envm100")):
-        options = {'rasterfs': 100, 'stimfmt': 'envelope', 'chancount': 0}
+        if pupil:
+            options.update({'pupil': True, 'stim': True, 'pupil_deblink': True,
+                            'pupil_median': 2})
 
-    elif loader.startswith("env200"):
-        options = {'rasterfs': 200, 'stimfmt': 'envelope', 'chancount': 0}
+    elif loader.startswith('nostim'):
+        pattern = re.compile(r'^nostim\.(\d{1,})(\w*)?$')
+        parsed = re.match(pattern, loader)
+        fs = parsed[1]
+        ops = parsed[2]
+        pupil = ('pup' in ops)
+
+        options.update(_parm_helper(fs, pupil))
+
+    elif loader.startswith('psth'):
+        pattern = re.compile(r'^psth(s?)\.(\d{1,})(\w*)?$')
+        parsed = re.match(pattern, loader)
+        state = parsed[1]  # not relevant here?
+        fs = parsed[2]
+        ops = parsed[3]
+        pupil = ('pup' in ops)
+
+        options.update(_parm_helper(fs, pupil))
+
+    elif loader.startswith('evt'):
+        pattern = re.compile(r'^evt\.(\d{1,})(\w*)?$')
+        parsed = re.match(pattern, loader)
+        fs = parsed[1]
+        ops = parsed[2]
+        pupil = ('pup' in ops)
+
+        options.update(_parm_helper(fs, pupil))
+
+    elif loader.startswith('env'):
+        pattern = re.compile(r'^env(m?)\.(\d{1,})$')
+        parsed = re.match(pattern, loader)
+        mask = parsed[1]  # not relevant here?
+        fs = parsed[2]
+
+        options.update({'rasterfs': fs, 'stimfmt': 'envelope', 'chancount': 0})
 
     else:
         raise ValueError('unknown loader string')
