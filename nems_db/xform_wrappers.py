@@ -174,9 +174,9 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     log.info('Initializing modelspec(s) for cell/batch %s/%d...',
              cellid, int(batch))
 
-    # parse modelname
+    # Segment modelname for meta information
     kws = modelname.split("_")
-    loader = kws[0]
+    loader = kws[0].split('-')[0]
     modelspecname = "_".join(kws[1:-1])
     fitkey = kws[-1]
 
@@ -190,24 +190,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
 
     # generate xfspec, which defines sequence of events to load data,
     # generate modelspec, fit data, plot results and save
-    xfspec = xhelp.generate_loader_xfspec(loader, recording_uri)
-
-    xfspec.append(['nems.xforms.init_from_keywords',
-                   {'keywordstring': modelspecname, 'meta': meta}])
-    # xfspec.append(['nems.initializers.from_keywords_as_list',
-    #                {'keyword_string': modelspecname, 'meta': meta},
-    #                [],['modelspecs']])
-
-    xfspec += xhelp.generate_fitter_xfspec(fitkey)
-
-    # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
-    xfspec.append(['nems.analysis.api.standard_correlation', {},
-                   ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
-
-    if autoPlot:
-        # GENERATE PLOTS
-        log.info('Generating summary plot...')
-        xfspec.append(['nems.xforms.plot_summary',    {}])
+    xfspec = xhelp.generate_xforms_spec(recording_uri, modelname)
 
     # actually do the fit
     ctx, log_xf = xforms.evaluate(xfspec)

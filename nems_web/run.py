@@ -14,7 +14,7 @@ the server, potentially causing harm.
 
 import nems_web
 from nems_web.nems_analysis import app #socketio
-from gevent.wsgi import WSGIServer
+# from gevent.wsgi import WSGIServer
 
 #from OpenSSL import SSL
 #context = SSL.Context(SSL.PROTOCOL_TLSv1_2)
