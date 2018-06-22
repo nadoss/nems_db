@@ -96,6 +96,9 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
 
     plt.tight_layout()
 
+    old_title=fh.canvas.get_window_title()
+    fh.canvas.set_window_title(old_title+': '+title)
+
     return fh
 
 def beta_comp_cols(g, b, n1='A', n2='B', hist_bins=20,
@@ -198,7 +201,7 @@ def _state_var_psth_from_epoch_difference(
     return mod1, mod2
 
 
-def _model_step_plot(cellid, batch, modelnames, factors):
+def _model_step_plot_old(cellid, batch, modelnames, factors):
 
     modelname_p0b0, modelname_p0b, modelname_pb0, modelname_pb = \
        modelnames
@@ -357,6 +360,145 @@ def _model_step_plot(cellid, batch, modelnames, factors):
     return fh, stats
 
 
+def _model_step_plot(cellid, batch, modelnames, factors):
+
+    modelname_p0b0, modelname_p0b, modelname_pb0, modelname_pb = \
+       modelnames
+    factor0, factor1, factor2 = factors
+
+    xf_p0b0, ctx_p0b0 = nw.load_model_baphy_xform(cellid, batch, modelname_p0b0,
+                                                  eval_model=False)
+    # ctx_p0b0, l = xforms.evaluate(xf_p0b0, ctx_p0b0, stop=-2)
+
+    ctx_p0b0, l = xforms.evaluate(xf_p0b0, ctx_p0b0, start=0, stop=-2)
+
+    xf_p0b, ctx_p0b = nw.load_model_baphy_xform(cellid, batch, modelname_p0b,
+                                                eval_model=False)
+    ctx_p0b, l = xforms.evaluate(xf_p0b, ctx_p0b, start=0, stop=-2)
+
+    xf_pb0, ctx_pb0 = nw.load_model_baphy_xform(cellid, batch, modelname_pb0,
+                                                eval_model=False)
+    #ctx_pb0['rec'] = ctx_p0b0['rec'].copy()
+    ctx_pb0, l = xforms.evaluate(xf_pb0, ctx_pb0, start=0, stop=-2)
+
+    xf_pb, ctx_pb = nw.load_model_baphy_xform(cellid, batch, modelname_pb,
+                                              eval_model=False)
+    #ctx_pb['rec'] = ctx_p0b0['rec'].copy()
+    ctx_pb, l = xforms.evaluate(xf_pb, ctx_pb, start=0, stop=-2)
+
+    val = ctx_pb['val'][0].copy()
+
+    # val['pred_p0b0'] = ctx_p0b0['val'][0]['pred'].copy()
+    val['pred_p0b'] = ctx_p0b['val'][0]['pred'].copy()
+    val['pred_pb0'] = ctx_pb0['val'][0]['pred'].copy()
+
+    state_var_list = val['state'].chans
+
+    resp_mod = np.zeros([len(state_var_list), 2])
+    pred_mod = np.zeros([len(state_var_list), 2])
+    pred_mod_full = np.zeros([len(state_var_list), 2])
+    for i, var in enumerate(state_var_list):
+        mod1_p0b, mod2_p0b = _state_var_psth_from_epoch_difference(
+                val, epoch="REFERENCE", psth_name="resp",
+                psth_name2="pred_p0b", state_sig=var)
+        mod1_pb0, mod2_pb0 = _state_var_psth_from_epoch_difference(
+                val, epoch="REFERENCE", psth_name="resp",
+                psth_name2="pred_pb0", state_sig=var)
+        mod1_pb, mod2_pb = _state_var_psth_from_epoch_difference(
+                val, epoch="REFERENCE", psth_name="resp",
+                psth_name2="pred", state_sig=var)
+
+        resp_mod[i] = np.array([mod1_pb-mod1_p0b, mod1_pb-mod1_pb0])
+        pred_mod[i] = np.array([mod2_pb-mod2_p0b, mod2_pb-mod2_pb0])
+        pred_mod_full[i] = np.array([mod2_pb0, mod2_p0b])
+
+    fh = plt.figure()
+    ax = plt.subplot(3, 1, 1)
+    nplt.state_vars_timeseries(val, ctx_pb['modelspecs'][0])
+    ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
+    ax.set_ylabel("{} r={:.3f}".format(factor0,
+                  ctx_p0b0['modelspecs'][0][0]['meta']['r_test']))
+
+    col_count = len(factors) - 1
+    psth_names_ctl = ["pred_p0b", "pred_pb0"]
+
+    for i, var in enumerate(factors[1:]):
+        ax = plt.subplot(3, col_count, col_count+i+1)
+
+        nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
+                                       psth_name="resp",
+                                       psth_name2=psth_names_ctl[i],
+                                       state_sig=var, ax=ax)
+        if i == 0:
+            ax.set_ylabel("Control model")
+            if ax.legend_:
+                ax.legend_.remove()
+            ax.set_title("{} pred by other vars r={:.3f}"
+                         .format(var.lower(),
+                                 ctx_p0b['modelspecs'][0][0]['meta']['r_test']))
+        else:
+            ax.yaxis.label.set_visible(False)
+            ax.set_title("{} pred by other vars r={:.3f}"
+                         .format(var.lower(),
+                                 ctx_pb0['modelspecs'][0][0]['meta']['r_test']))
+        ax.xaxis.label.set_visible(False)
+
+        ax = plt.subplot(3, col_count, col_count*2+i+1)
+        nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
+                                       psth_name="resp",
+                                       psth_name2="pred",
+                                       state_sig=var, ax=ax)
+        if i == 0:
+            ax.set_ylabel("Full Model")
+            if ax.legend_:
+                ax.legend_.remove()
+        else:
+            ax.yaxis.label.set_visible(False)
+
+        ax.set_title("{} r={:.3f} rawmod={:.3f} unqmod={:.3f}"
+                     .format(var.lower(),
+                             ctx_pb['modelspecs'][0][0]['meta']['r_test'],
+                             pred_mod_full[i+1][i], pred_mod[i+1][i]))
+
+        if var == 'active':
+            ax.legend(('pas', 'act'))
+
+    plt.tight_layout()
+
+    stats = {'cellid': cellid,
+             'batch': batch,
+             'modelnames': modelnames,
+             'state_vars': state_var_list,
+             'factors': factors,
+             'r_test': np.array([
+                     ctx_p0b0['modelspecs'][0][0]['meta']['r_test'],
+                     ctx_p0b['modelspecs'][0][0]['meta']['r_test'],
+                     ctx_pb0['modelspecs'][0][0]['meta']['r_test'],
+                     ctx_pb['modelspecs'][0][0]['meta']['r_test']
+                     ]),
+             'r_floor': np.array([
+                     ctx_p0b0['modelspecs'][0][0]['meta']['r_floor'],
+                     ctx_p0b['modelspecs'][0][0]['meta']['r_floor'],
+                     ctx_pb0['modelspecs'][0][0]['meta']['r_floor'],
+                     ctx_pb['modelspecs'][0][0]['meta']['r_floor']
+                     ]),
+             'pred_mod': pred_mod.T,
+             'pred_mod_full': pred_mod_full.T,
+             'g': np.array([
+                     ctx_p0b0['modelspecs'][0][0]['phi']['g'],
+                     ctx_p0b['modelspecs'][0][0]['phi']['g'],
+                     ctx_pb0['modelspecs'][0][0]['phi']['g'],
+                     ctx_pb['modelspecs'][0][0]['phi']['g']]),
+             'b': np.array([
+                     ctx_p0b0['modelspecs'][0][0]['phi']['d'],
+                     ctx_p0b['modelspecs'][0][0]['phi']['d'],
+                     ctx_pb0['modelspecs'][0][0]['phi']['d'],
+                     ctx_pb['modelspecs'][0][0]['phi']['d']])
+        }
+
+    return fh, stats
+
+
 def pb_model_plot(cellid='TAR010c-06-1', batch=301,
                   loader="psth", fitter="basic-nf"):
     """
@@ -373,9 +515,9 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301,
     modelname_pb0 = loader + "20pupbeh0_stategain3_" + fitter
     modelname_pb = loader + "20pupbeh_stategain3_" + fitter
 
-    factor0 = "None"
-    factor1 = "Act"
-    factor2 = "Pup"
+    factor0 = "baseline"
+    factor1 = "pupil"
+    factor2 = "active"
 
     modelnames = [modelname_p0b0, modelname_p0b, modelname_pb0,
                   modelname_pb]
@@ -401,9 +543,9 @@ def pp_model_plot(cellid='TAR010c-06-1', batch=301,
     modelname_pb0 = loader + "20puppre0beh_stategain4_" + fitter
     modelname_pb = loader + "20pupprebeh_stategain4_" + fitter
 
-    factor0 = "Act"
-    factor1 = "Act+Pre"
-    factor2 = "Act+Pup"
+    factor0 = "basline"
+    factor1 = "pupil"
+    factor2 = "PRE_PASSIVE"
 
     modelnames = [modelname_p0b0, modelname_p0b, modelname_pb0,
                   modelname_pb]
