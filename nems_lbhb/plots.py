@@ -355,3 +355,223 @@ def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True):
                           c=colors,vmin=vmin,vmax=vmax,s=50,edgecolor='none')
     if cbar is True:
         plt.colorbar(mappable)
+
+
+def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, title=None):
+    
+    # for case where given single array
+    
+    if type(h) is not list:
+        h = [h]
+        
+    if type(cellids) is not list:
+        cellids = [cellids]
+        
+    if type(l4) is not list:    
+        l4 = [l4] 
+      
+    
+    # create average h-vector, after applying appropriate shift and filling in missing
+    # electrodes with nans
+    
+    l4_zero = 52 - 1 # align center of l4 with 52
+    shift = np.subtract(l4,l4_zero)
+    max_shift = shift[np.argmax(abs(shift))]
+    h_mat_full = np.full((len(h), 64+abs(max_shift)), np.nan)
+    
+    for i in range(0, h_mat_full.shape[0]):
+        
+        if type(cellids[i]) is not np.ndarray:
+            cellids[i] = np.array(cellids[i])
+        
+        s = shift[i]
+        electrodes = np.zeros(len(cellids[i]))
+        for j in range(0, len(cellids[i])):
+            electrodes[j] = int(cellids[i][j][-4:-2])   
+        
+        chans = (np.sort([int(x) for x in electrodes])-1) + abs(max_shift)
+    
+        chans = np.add(chans,s)
+        
+        h_mat_full[i,chans] = h[i]
+    
+    # remove outliers
+    one_sd = np.nanstd(h_mat_full.flatten())
+    print(one_sd)
+    print('adjusted {0} outliers'.format(np.sum(abs(h_mat_full)>3*one_sd)))
+    out_inds = np.argwhere(abs(h_mat_full)>3*one_sd)
+    print(h_mat_full[out_inds[:,0], out_inds[:,1]])
+    h_mat_full[abs(h_mat_full)>3*one_sd] = 2*one_sd*np.sign(h_mat_full[abs(h_mat_full)>3*one_sd])
+    print(h_mat_full[out_inds[:,0], out_inds[:,1]])
+    # Compute a sliding window averge of the weights
+    h_means = np.nanmean(h_mat_full,0)
+    h_mat = np.zeros(h_means.shape)
+    h_mat_error = np.zeros(h_means.shape)
+    for i in range(0, len(h_mat)):
+        if i < 4:
+            h_mat[i] = np.nanmean(h_means[0:i])
+            h_mat_error[i] = np.nanstd(h_means[0:i])/np.sqrt(i)
+        elif i > h_mat.shape[0]-4:
+            h_mat[i] = np.nanmean(h_means[i:])
+            h_mat_error[i] = np.nanstd(h_means[i:])/np.sqrt(len(h_means)-i)
+        else:
+            h_mat[i] = np.nanmean(h_means[(i-2):(i+2)]) 
+            h_mat_error[i] = np.nanstd(h_means[(i-2):(i+2)])/np.sqrt(4)
+            
+    if vmin is None:
+        vmin = np.nanmin(h_mat)
+    if vmax is None:
+        vmax = np.nanmax(h_mat)
+
+    
+    # Now plot locations for each site
+    
+    # left column + right column are identical
+    el_shift = int(abs(max_shift)/3)
+    tf=0
+    while tf is 0:
+        if el_shift%3 != 0:
+            el_shift += 1
+        else:
+            tf=1
+    while max_shift%3 != 0:
+        if max_shift<0:
+            max_shift-=1
+        elif max_shift>=0:
+            max_shift+=1
+        
+    lr_col = np.arange(0,(21+el_shift)*0.25,0.25)  # 25 micron vertical spacing
+    left_ch_nums = np.arange(3,64+abs(max_shift),3)
+    right_ch_nums = np.arange(4,65+abs(max_shift),3)
+    center_ch_nums = np.insert(np.arange(5, 63+abs(max_shift), 3),obj=slice(0,1),values =[1,2],axis=0)
+    center_col = np.arange(-0.25,(20.25+el_shift)*.25,0.25)-0.125
+    ch_nums = np.hstack((left_ch_nums, center_ch_nums, right_ch_nums))
+    sort_inds = np.argsort(ch_nums)
+    
+    l_col = np.vstack((np.ones(21+el_shift)*-0.2,lr_col))
+    r_col = np.vstack((np.ones(21+el_shift)*0.2,lr_col))
+    c_col = np.vstack((np.zeros(22+el_shift),center_col))
+    
+    if l_col.shape[1]!=len(left_ch_nums):
+        left_ch_nums = np.concatenate((left_ch_nums,[left_ch_nums[-1]+3]))
+    if r_col.shape[1]!=len(right_ch_nums):
+        right_ch_nums = np.concatenate((right_ch_nums,[left_ch_nums[-1]+3]))
+    if c_col.shape[1]!=len(center_ch_nums):
+        center_ch_nums = np.concatenate((center_ch_nums,[left_ch_nums[-1]+3]))   
+    
+    ch_nums = np.hstack((left_ch_nums, center_ch_nums, right_ch_nums))    
+    sort_inds = np.argsort(ch_nums)
+    
+    l_col = np.vstack((np.ones(21+el_shift)*-0.2,lr_col))
+    r_col = np.vstack((np.ones(21+el_shift)*0.2,lr_col))
+    c_col = np.vstack((np.zeros(22+el_shift),center_col))
+        
+    locations = np.hstack((l_col,c_col,r_col))[:,sort_inds]
+    
+    
+    locations[1,:] = 100*(locations[1,:]) #-(l4_zero/3*0.25))
+    locations[0,:] = 3000*(locations[0,:]*0.2)
+    
+    if h_mat.shape[0] != locations.shape[1]:
+        diff = locations.shape[1] - h_mat.shape[0]
+        h_mat = np.concatenate((h_mat, np.full(diff,np.nan)))
+        h_mat_error = np.concatenate((h_mat_error, np.full(diff,np.nan)))
+    
+    if title is not None:
+        plt.figure(title)
+    else:
+        plt.figure()
+    plt.subplot(142)
+    plt.title('mean weights per channel')
+    plt.scatter(locations[0,:],locations[1,:],facecolor='none',edgecolor='k',s=50)
+    
+    indexes = [x[0] for x in np.argwhere(~np.isnan(h_mat))]
+    # plot the colors
+    import matplotlib
+    norm =matplotlib.colors.Normalize(vmin=vmin,vmax=vmax)
+    cmap = matplotlib.cm.jet
+    mappable = matplotlib.cm.ScalarMappable(norm=norm,cmap=cmap)
+    mappable.set_array(h_mat[indexes])
+    colors = mappable.to_rgba(list(h_mat[indexes]))
+    plt.scatter(locations[:,indexes][0,:],locations[:,indexes][1,:],
+                          c=colors,vmin=vmin,vmax=vmax,s=50,edgecolor='none')
+    plt.colorbar(mappable) #,orientation='vertical',fraction=0.04, pad=0.0)
+    #plt.axis('scaled')
+    plt.xlim(-500,500)  
+    plt.axis('off')
+    
+    # Add dashed line at "layer IV"
+    plt.plot([-250, 250], [locations[1][l4_zero]+75, locations[1][l4_zero]+75],
+             linestyle='-', color='k', lw=4,alpha=0.3)
+    plt.plot([-250, 250], [locations[1][l4_zero]-75, locations[1][l4_zero]-75],
+             linestyle='-', color='k', lw=4,alpha=0.3)
+    
+    # plot conditional density
+    import scipy.ndimage.filters as sf
+    h_kde = h_mat.copy()
+    sigma = 3
+    h_kde[np.isnan(h_mat)]=0
+    h_kde = sf.gaussian_filter1d(h_kde,sigma)
+    h_kde_error = h_mat_error.copy()
+    h_kde_error[np.isnan(h_mat)]=0
+    h_kde_error = sf.gaussian_filter1d(h_kde_error,sigma)
+    plt.subplot(141)
+    plt.title('smoothed mean weights')
+    plt.plot(-h_kde, locations[1,:],lw=3,color='k')
+    plt.fill_betweenx(locations[1,:], -(h_kde+h_kde_error), -(h_kde-h_kde_error), alpha=0.3, facecolor='k')
+    plt.axhline(locations[1][l4_zero]+75,color='k',lw=3,alpha=0.3)
+    plt.axhline(locations[1][l4_zero]-75,color='k',lw=3,alpha=0.3)
+    plt.axvline(0, color='k',linestyle='--',alpha=0.5)
+    plt.ylabel('um (layer IV center at {0} um)'.format(int(locations[1][l4_zero])))
+    plt.xlim(-vmax, -vmin)
+    #plt.axis('off')
+    
+    # plot binned histogram for each layer
+    plt.subplot(222)
+    l4_shift = locations[1][l4_zero]
+    plt.title('center of layer IV: {0} um'.format(l4_shift))
+    # 24 electrodes spans roughly 200um
+    # shift by 18 (150um) each window
+    width_string = '200um'
+    width = 24
+    step = 18
+    sets = int(h_mat_full.shape[1]/step)+1
+    print('number of {1} bins: {0}'.format(sets, width_string))
+    
+    si = 0
+    legend_strings = []
+    w = []    
+    for i in range(0, sets):
+        if si+width > h_mat_full.shape[1]:
+            w.append(h_mat_full[:,si:][~np.isnan(h_mat_full[:,si:])])
+            plt.hist(w[i],alpha=0.5)
+            legend_strings.append(str(int(100*si/3*0.25))+', '+str(int(100*h_mat_full.shape[1]/3*0.25))+'um')
+            si+=step
+        else:
+            w.append(h_mat_full[:,si:(si+width)][~np.isnan(h_mat_full[:,si:(si+width)])])
+            plt.hist(w[i],alpha=0.5)
+            legend_strings.append(str(int(100*si/3*0.25))+', '+str(int(100*(si+width)/3*0.25))+'um')
+            si+=step
+                      
+    plt.legend(legend_strings[::-1])
+    plt.xlabel('weight')
+    plt.ylabel('counts per {0} bin'.format(width_string))
+    
+    plt.subplot(224)
+    mw = []
+    mw_error = []
+    for i in range(0, sets):
+        mw.append(np.nanmean(w[i]))
+        mw_error.append(np.nanstd(w[i])/np.sqrt(len(w[i])))
+    
+    plt.bar(np.arange(0,sets), mw, yerr=mw_error, facecolor='k',alpha=0.5)
+    plt.xticks(np.arange(0,sets), legend_strings, rotation=45)    
+    plt.xlabel('Window')
+    plt.ylabel('Mean weight')
+    
+    plt.tight_layout()
+    
+    
+    
+    
+    
