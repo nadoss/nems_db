@@ -1,4 +1,4 @@
-from nems.plugins.fitters.default_fitters import basic
+from nems.plugins.default_fitters import basic
 
 
 def _aliased_fitter(fn, loadkey):

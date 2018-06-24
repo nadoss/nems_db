@@ -1,5 +1,5 @@
 $(document).ready(function(){
-        
+
     // TODO: Split this up into multile .js files? getting a bit crowded in here,
     // could group by functionality at this point.
 
@@ -9,7 +9,7 @@ $(document).ready(function(){
 
     var socket = io.connect(
             location.protocol + '//'
-            + document.domain + ':' 
+            + document.domain + ':'
             + location.port + namespace,
             {'timeout':0}
             );
@@ -23,7 +23,7 @@ $(document).ready(function(){
     socket.on('connect', function() {
        console.log('socket connected');
     });
-    
+
     socket.on('console_update', function(msg){
         var color = '';
         // TODO: add special color markers here for other messages?
@@ -34,7 +34,7 @@ $(document).ready(function(){
                 "<p class='py_con_msg'" + color + ">" + msg.data + "</p>"
                 );
     });
-    
+
     */
     // use this in place of console.log to send to py_console
     function py_console_log(message){
@@ -47,12 +47,12 @@ $(document).ready(function(){
                 "<p class='py_con_msg'" + color + ">" + message + "</p>"
                 );
     }
-    
+
     //initializes bootstrap popover elements
     $('[data-toggle="popover"]').popover({
         trigger: 'click',
     });
-     
+
     $("#displayRow").resizable({
         handles: "w, e"
     });
@@ -62,17 +62,17 @@ $(document).ready(function(){
     })
 
     //$("#selectionsRow").resizable({
-    //    handles: "n, w, e, s"        
+    //    handles: "n, w, e, s"
     //});
 
     //$("#pyConRow").resizable({
-    //    handles: "n, s"        
+    //    handles: "n, s"
     //});
 
     /*
     //drags start out disabld until alt is pressed
     $(".dragToggle").draggable('disable');
-    
+
     $("#enableDraggable").on('click', function(){
         $(".dragToggle").draggable('enable');
         return false;
@@ -82,8 +82,8 @@ $(document).ready(function(){
         return false;
     });
     */
-      
-    /*           
+
+    /*
     function initTable(table){
         // Called any time results is updated -- set table options here
         table.DataTable({
@@ -124,6 +124,8 @@ $(document).ready(function(){
             this.sort = 'cellid';
             this.row_limit = 500;
             this.code_hash = '';
+            this.exec_path = '';
+            this.script_path = '';
         }
     }
 
@@ -214,6 +216,9 @@ $(document).ready(function(){
         // be longer in some cases.
         //setTimeout(function(){ wait_on_analysis = false; }, 3000);
         $("#analysisSelector").val(saved_selections.analysis).change();
+
+        $("#scriptPath").val(saved_selections.script_path).change();
+        $("#execPath").val(saved_selections.exec_path).change();
     }
 
 
@@ -257,6 +262,15 @@ $(document).ready(function(){
     $("#measureSelector").change(function(){
         saved_selections.plot_measure = $(this).val();
     });
+
+    $("#scriptPath").change(function(){
+        saved_selections.script_path = $(this).val();
+    });
+
+    $("#execPath").change(function(){
+        saved_selections.exec_path = $(this).val();
+    });
+
     // snri, snr and iso handled in their own section since they aren't DOM elements
 
     // save user selections on refresh, window close or navigate away
@@ -288,8 +302,8 @@ $(document).ready(function(){
         updateAnalysisDetails();
     }
     */
-    
-    
+
+
     $("#selectAllCells").on('click', selectCellsCheck);
     function selectCellsCheck(){
         var cellOptions = document.getElementsByName("cellOption[]");
@@ -300,7 +314,7 @@ $(document).ready(function(){
                 cellOptions[i].selected = false;
             }
         }
-        updateResults();                           
+        updateResults();
     }
 
     $("#selectAllModels").on('click', selectModelsCheck);
@@ -315,8 +329,8 @@ $(document).ready(function(){
         }
         updateResults();
     }
-    
-    
+
+
     $("#analysisSelector").change(updateBatchModel);
 
     function updateBatchModel(){
@@ -327,7 +341,7 @@ $(document).ready(function(){
         // get back associated batchnum and change batch selector to match
         $.ajax({
             url: $SCRIPT_ROOT + '/update_batch',
-            data: { aSelected:aSelected }, 
+            data: { aSelected:aSelected },
             type: 'GET',
             success: function(data) {
                 if ((data.blank === 1) || (data.blank === "1")){
@@ -344,7 +358,7 @@ $(document).ready(function(){
         // also pass analysis value to 'update_models' in nemsweb.py
         $.ajax({
             url: $SCRIPT_ROOT + '/update_models',
-            data: { aSelected:aSelected }, 
+            data: { aSelected:aSelected },
             type: 'GET',
             success: function(data){
                 if (data.modellist.length === 0){
@@ -354,19 +368,19 @@ $(document).ready(function(){
                 }
                 var models = $("#modelSelector");
                 models.empty();
-                             
+
                 $.each(data.modellist, function(i, modelname){
                     models.append($("<option></option>")
                         .attr("value", modelname)
                         .attr("name","modelOption[]")
                         .text(modelname));
                 });
-                    
+
                 selectModelsCheck();
             },
             error: function(error){
                 console.log(error);
-            }     
+            }
         });
     };
 
@@ -386,19 +400,19 @@ $(document).ready(function(){
             success: function(data) {
                 cells = $("#cellSelector");
                 cells.empty();
-                
+
                 $.each(data.celllist, function(cell) {
                     cells.append($("<option></option>")
                         .attr("value", data.celllist[cell])
                         .attr("name","cellOption[]")
-                        .text(data.celllist[cell]));                    
+                        .text(data.celllist[cell]));
                 });
-                    
+
                 selectCellsCheck();
             },
             error: function(error) {
                 console.log(error);
-            }    
+            }
         });
     };
 
@@ -440,10 +454,10 @@ $(document).ready(function(){
             var ordSelected = "asc";
         }
         var rowLimit = $("#rowLimit").val();
-                         
+
         $.ajax({
             url: $SCRIPT_ROOT + '/update_results',
-            data: { bSelected:bSelected, cSelected:cSelected, 
+            data: { bSelected:bSelected, cSelected:cSelected,
                    mSelected:mSelected, colSelected:colSelected,
                    rowLimit:rowLimit, ordSelected:ordSelected,
                    sortSelected:sortSelected },
@@ -466,12 +480,12 @@ $(document).ready(function(){
             }
         });
     }
-    
+
     updateColText();
     $("#tableColSelector").change(updateColText);
     function updateColText(){
         button = $("#colsModalButton");
-        text = $("#tableColSelector").val();  
+        text = $("#tableColSelector").val();
         button.html("");
         for (i=0; i < text.length; i++){
             button.append(text[i] + ', ');
@@ -491,10 +505,10 @@ $(document).ready(function(){
 
 
     $("#analysisSelector").change(updateAnalysisDetails);
-            
+
     function updateAnalysisDetails(){
         var aSelected = $("#analysisSelector").val();
-        
+
         $.ajax({
             url: $SCRIPT_ROOT + '/update_analysis_details',
             data: { aSelected:aSelected },
@@ -511,7 +525,7 @@ $(document).ready(function(){
 
     updateAnalysis();
     $("#tagFilters, #statusFilters").change(updateAnalysis);
-    
+
     function updateAnalysis(){
         analysis_still_updating = true;
         var tagSelected = $("#tagFilters").val();
@@ -523,14 +537,14 @@ $(document).ready(function(){
            success: function(data){
                 analyses = $("#analysisSelector");
                 analyses.empty();
-                
+
                 $.each(data.analysislist, function(analysis) {
                     analyses.append($("<option></option>")
                         .attr("value", data.analysislist[analysis])
                         .attr("name", data.analysis_ids[analysis])
                         .text(data.analysislist[analysis]));
                 });
-                
+
                 if (data.analysislist.includes(saved_selections.analysis)){
                     $("#analysisSelector").val(saved_selections.analysis).change();
                 } else {
@@ -542,7 +556,7 @@ $(document).ready(function(){
            }
         });
     }
-    
+
 
     updateStatusText();
     updateTagText();
@@ -552,7 +566,7 @@ $(document).ready(function(){
 
     function updateStatusText(){
         button = $("#statusModalButton");
-        text = $("#statusFilters").val();  
+        text = $("#statusFilters").val();
         button.html("");
         for (i=0; i<text.length; i++){
             if (!(text[i] === '__any')) {
@@ -602,14 +616,14 @@ $(document).ready(function(){
                         + "<span class='lbl'> Any </span>"
                         + "</li>"
                         )
-               
+
                $.each(data.taglist, function(tag){
                    if (tag%12 == 0){
                        tags.append(
                                 "</ul><ul class='list-unstyled col-sm-6'>"
-                                )        
+                                )
                    }
-                   
+
                    tags.append(
                            "<li>"
                             + "<input class='tagOption'"
@@ -619,15 +633,15 @@ $(document).ready(function(){
                             + "</li>"
                             )
                });
-               tags.append("</ul>");    
-            
+               tags.append("</ul>");
+
            },
            error: function(error){
                console.log(error);
-           }        
+           }
         });
     }
-    
+
     function updateStatusOptions(){
         $.ajax({
            url: $SCRIPT_ROOT + '/update_status_options',
@@ -642,12 +656,12 @@ $(document).ready(function(){
                         + "<span class='lbl'> Any </span>"
                         + "</li>"
                         )
-               
+
                $.each(data.statuslist, function(status){
                    if (status == 0){
                        var checked = 'checked'
                    } else{
-                       var checked = '' 
+                       var checked = ''
                    }
                    statuses.append(
                             "<li>"
@@ -662,13 +676,13 @@ $(document).ready(function(){
            },
            error: function(error){
                console.log(error);
-           }        
+           }
         });
     }
     */
-    
+
     $("#newAnalysis").on('click',newAnalysis);
-    
+
     function newAnalysis(){
         $("[name='editName']").val('');
         $("[name='editId']").val('__none');
@@ -680,16 +694,16 @@ $(document).ready(function(){
         $("[name='editModTree']").val('');
         $("[name='editFitTree']").val('');
     }
-    
+
     $("#editAnalysis").on('click',editAnalysis);
-    
+
     function editAnalysis(){
         // get current analysis selection
         // ajax call to get back name, tags, question, etc
         // fill in content of editor modal with response
-        
+
         var aSelected = $("#analysisSelector option:selected").attr('name');
-        
+
         $.ajax({
             url: $SCRIPT_ROOT + '/get_current_analysis',
             data: { aSelected:aSelected },
@@ -706,22 +720,22 @@ $(document).ready(function(){
                 $("[name='editFitTree']").val(data.fit);
             },
             error: function(error){
-                console.log(error);        
-            }                
+                console.log(error);
+            }
         });
     }
-    
+
     $("#submitEditForm").on('click',verifySubmit);
-    
-    
+
+
     // TODO: change this to run nested ajax call instead of .submit()
     // so that entire page doesn't have to refresh afterward. should only have
     // to call updateAnalysis() to refresh the list for analysis selector.
-    
+
     function verifySubmit(){
         var nameEntered = $("[name='editName']").val();
         var analysisId = $("[name='editId']").val();
-        
+
         $.ajax({
            url: $SCRIPT_ROOT + '/check_analysis_exists',
            data: { nameEntered:nameEntered, analysisId:analysisId },
@@ -732,22 +746,22 @@ $(document).ready(function(){
                           "Please choose a different name.");
                     return false;
                 }
-                
+
                 if(confirm("ATTENTION: This will save the entered information to the\n" +
                             "database, potentially overwriting previous settings.\n" +
                             "Are you sure you want to continue?")){
                     submitAnalysis();
-                                  
+
                 } else{
                     return false;
                 }
             },
            error: function(error){
-                   
+
             }
         });
     }
-                
+
     function submitAnalysis(){
         var name = $("[name='editName']").val();
         var id = $("[name='editId']").val();
@@ -758,7 +772,7 @@ $(document).ready(function(){
         var load = $("[name='editLoadTree']").val();
         var mod = $("[name='editModTree']").val();
         var fit = $("[name='editFitTree']").val();
-        
+
         $.ajax({
            url: $SCRIPT_ROOT + '/edit_analysis',
            data: { name:name, id:id, status:status, tags:tags,
@@ -778,23 +792,23 @@ $(document).ready(function(){
     }
 
     $("#deleteAnalysis").on('click',deleteAnalysis);
-    
+
     function deleteAnalysis(){
-            
+
         var aSelected = $("#analysisSelector option:selected").attr('name');
         var aName = $("#analysisSelector").val();
         reply = confirm("WARNING: This will delete the database entry for the selected " +
                 "analysis. \n\n!!   THIS CANNOT BE UNDONE   !!\n\n" +
                 "Are you sure you wish to delete this analysis:\n" +
                 aName);
-        
+
         if (reply){
             $.ajax({
                 url: $SCRIPT_ROOT + '/delete_analysis',
                 data: { aSelected:aSelected },
-                
+
                 // TODO: should use POST here? but was causing issues
-                
+
                 type: 'GET',
                 success: function(data){
                     if (data.success){
@@ -810,25 +824,25 @@ $(document).ready(function(){
                 }
             });
         } else{
-            return false;        
+            return false;
         }
     }
-    
-    
-    
+
+
+
     ///////////////////////////////////////////////////////////////////////
     //     table selection, preview, strf, inspect                       //
     ///////////////////////////////////////////////////////////////////////
-    
-    
+
+
     CTRL = false;
     // TODO: implement shift select
     SHIFT = false;
     UPPER = -1;
-    
+
     $(document).keydown(function(event){
         if (event.ctrlKey){
-            CTRL = true;        
+            CTRL = true;
         }
         if (event.shiftKey){
             SHIFT = true;
@@ -838,7 +852,7 @@ $(document).ready(function(){
         CTRL = false;
         SHIFT = false;
     });
-    
+
     $(document).on('click','.dataframe tbody tr',function(){
         if ($(this).hasClass('selectedRow')){
             $(this).removeClass('selectedRow');
@@ -861,7 +875,7 @@ $(document).ready(function(){
         var cSelected = [];
         var mSelected = [];
         var bSelected = $("#batchSelector").val();
-        
+
         // have to change .children('p')  back to 'a' if table links put back in
         $(".dataframe tr.selectedRow").each(function(){
             cSelected.push($(this).children().eq(0).children('p').attr('cellid'));
@@ -875,7 +889,7 @@ $(document).ready(function(){
             py_console_log('Must select at least one result from table')
             return false;
         }
-        
+
         $.ajax({
             url: $SCRIPT_ROOT + '/get_preview',
             data: { cSelected:cSelected, mSelected:mSelected,
@@ -891,61 +905,61 @@ $(document).ready(function(){
                 //sizeDragDisplay();
             },
             error: function(error){
-                console.log(error);        
+                console.log(error);
             }
         });
     };
-                
+
     $("#clearSelected").on('click',function(){
         $(".dataframe tr.selectedRow").each(function(){
             $(this).removeClass('selectedRow');
         });
     });
-                
+
     $("#strf").on('click',function(){
         py_console_log("STRF Function not yet implemented");
         //return strf plots ala narf_analysis
         //low priority
     });
-                
-                
-                
-                
-    //////////////////////////////////////////////////////////////////////            
+
+
+
+
+    //////////////////////////////////////////////////////////////////////
     //               Model fitting, inspect                             //
     //////////////////////////////////////////////////////////////////////
-    
-    
-    
+
+
+
     function addLoad(){
         $('#loadingPopup').css('display', 'block');
     }
     function removeLoad(){
         $('#loadingPopup').css('display', 'none');
     }
-    
+
     $("#toggleFitOp").on('click',function(){
         var fod = $('#fitOpDiv');
-        
+
         if (fod.css('display') === 'block'){
             fod.css('display', 'none');
-            
+
         } else if (fod.css('display') === 'none'){
             fod.css('display', 'block');
-            
+
         } else{
-            return false;        
+            return false;
         }
     })
 
 
 /*
-    $("#fitSingle").on('click',function(){   
+    $("#fitSingle").on('click',function(){
         var bSelected = $("#batchSelector").val();
         var cSelected = $("#cellSelector").val();
         var mSelected = $("#modelSelector").val();
-        
-        if ((bSelected === null) || (bSelected === undefined) || 
+
+        if ((bSelected === null) || (bSelected === undefined) ||
                 (bSelected.length == 0)){
             py_console_log('Must select a batch')
             return false;
@@ -955,7 +969,7 @@ $(document).ready(function(){
             py_console_log('Must select one model and one cell')
             return false;
         }
-        
+
         if (!(confirm(
                 "Preparing to fit selection -- this may take several minutes."
               + "Web interface will be disabled until fit is complete."
@@ -964,12 +978,12 @@ $(document).ready(function(){
         }
         // TODO: insert confirmation box here, with warning about waiting for
         //          fit job to finish
-        
+
         addLoad();
-                
+
         py_console_log("Sending fit request to server. Success or failure will be"
                     + "reported here when job is finished.")
-        
+
         $.ajax({
             url: $SCRIPT_ROOT + '/fit_single_model',
             data: { bSelected:bSelected, cSelected:cSelected,
@@ -982,7 +996,7 @@ $(document).ready(function(){
                       + "r_test: " + data.r_est + "\n"
                       + "r_val: " + data.r_val + "\n"
                       + "Click 'inspect' to browse model");
-                
+
                 updateResults();
                 removeLoad();
                 //open preview in new window like the preview button?
@@ -997,9 +1011,9 @@ $(document).ready(function(){
         });
     });
 */
-        
-                
-    $("#enqueue").on('click',function(){  
+
+
+    $("#enqueue").on('click',function(){
         var bSelected = $("#batchSelector").val();
         var cSelected = $("#cellSelector").val();
         var mSelected = $("#modelSelector").val();
@@ -1007,12 +1021,12 @@ $(document).ready(function(){
         var execPath = $("#execPath").val();
         var scriptPath = $("#scriptPath").val();
         var forceRerun = 0;
-        
+
         if (document.getElementById('forceRerun').checked){
             forceRerun = 1;
         }
-        
-        if ((bSelected === null) || (bSelected === undefined) || 
+
+        if ((bSelected === null) || (bSelected === undefined) ||
                 (bSelected.length == 0)){
             py_console_log('Must select a batch')
             return false;
@@ -1021,16 +1035,16 @@ $(document).ready(function(){
             py_console_log('Must select at least one model and at least one cell')
             return false;
         }
-        
+
         var total = cSelected.length * mSelected.length;
         if (!(confirm('This will add ' + total + ' models to the queue.'
                       + '\n\nAre you sure you wish to continue?'))){
             return false;
         }
-        
+
         addLoad();
         py_console_log("Sending fit request for each combination - please wait...");
-                      
+
         $.ajax({
             url: $SCRIPT_ROOT + '/enqueue_models',
             data: { bSelected:bSelected, cSelected:cSelected,
@@ -1043,23 +1057,23 @@ $(document).ready(function(){
                 removeLoad();
             },
             error: function(error){
-                console.log(error)   
+                console.log(error)
                 removeLoad();
             }
         });
         //communicates with daemon to queue model fitting for each selection on cluster,
         //using similar process as above but for multiple models and no
         //dialogue displayed afterward
-        
+
         //open separate window/tab for additional specifications like priority?
     });
-        
+
     $("#inspect").on('click',function(){
         //pull from results table
         var cSelected = [];
         var mSelected = [];
         var bSelected = $("#batchSelector").val();
-        
+
         $(".dataframe tr.selectedRow").each(function(){
             cSelected.push($(this).children().eq(0).children('a').attr('id'));
             if (cSelected.length > 0){
@@ -1072,44 +1086,44 @@ $(document).ready(function(){
                 return false;
             }
         });
- 
+
         if ((cSelected.length === 0) || (mSelected.length === 0)){
             py_console_log("Must choose one cell and one model from the table.");
             return false;
         }
-        
+
         var form = document.getElementById("modelpane");
         var batch = document.getElementById("p_batch");
         var cellid = document.getElementById("p_cellid");
         var modelname = document.getElementById("p_modelname");
-        
+
         batch.value = bSelected;
         cellid.value = cSelected;
         modelname.value = mSelected;
-        
+
         form.submit();
     });
-        
-    
+
+
     ////////////////////////////////////////////////////////////////////
     //////////////////////  PLOTS //////////////////////////////////////
     ////////////////////////////////////////////////////////////////////
-    
-    
+
+
     $("#togglePlotOp").on('click',function(){
         var pow = $('#plotOpRow');
-        
+
         if (pow.css('display') === 'block'){
             pow.css('display', 'none');
-            
+
         } else if (pow.css('display') === 'none'){
             pow.css('display', 'block');
-            
+
         } else{
-            return false;        
+            return false;
         }
     })
-    
+
     // Default values -- based on 'good' from NarfAnalysis > filter_cells
     if (saved_selections.snr !== null){
         var snr = saved_selections.snr;
@@ -1125,7 +1139,7 @@ $(document).ready(function(){
         var snri = saved_selections['snri'];
     } else{
         var snri = $("#default_snri").val();
-    }     
+    }
 
     /*
     var snr = $("#default_snr").val();
@@ -1134,22 +1148,22 @@ $(document).ready(function(){
     */
 
     $("#plotOpSelect").val('snri');
-    $("#plotOpVal").val(snri); 
-    
+    $("#plotOpVal").val(snri);
+
     $("#plotOpSelect").change(updatePlotOpVal);
     function updatePlotOpVal(){
         var select = $("#plotOpSelect");
         var opVal = $("#plotOpVal");
         var getVal = 0.0;
-        
+
         if (select.val() === 'snr'){
-            getVal = snr;        
+            getVal = snr;
         }
         if (select.val() === 'iso'){
-            getVal = iso;                
+            getVal = iso;
         }
         if (select.val() === 'snri'){
-            getVal = snri;        
+            getVal = snri;
         }
         opVal.val(getVal);
     }
@@ -1159,26 +1173,26 @@ $(document).ready(function(){
         var select = $("#plotOpSelect");
         var opVal = $("#plotOpVal");
         var setVal = opVal.val();
-        
+
         if (select.val() === 'snr'){
             snr = setVal;
             saved_selections.snr = setVal;
         }
         if (select.val() === 'iso'){
             iso = setVal;
-            saved_selections.iso = setVal;                
+            saved_selections.iso = setVal;
         }
         if (select.val() === 'snri'){
             snri = setVal;
             saved_selections.snri = setVal;
         }
     }
-     
-        
+
+
     $("#submitPlot").on('click', getNewPlot);
     function getNewPlot(){
         var plotDiv = $("#displayWrapper");
-        
+
         var plotType = $("#plotTypeSelector").val();
         var bSelected = $("#batchSelector").val();
         var cSelected = $("#cellSelector").val();
@@ -1193,13 +1207,13 @@ $(document).ready(function(){
             includeOutliers = 1;
         }
         var plotNewWindow = 0;
-        
+
         addLoad();
         $.ajax({
             url: $SCRIPT_ROOT + '/generate_plot_html',
             data: { plotType:plotType, bSelected:bSelected, cSelected:cSelected,
                     mSelected:mSelected, measure:measure, onlyFair:onlyFair,
-                    includeOutliers:includeOutliers, iso:iso, snr:snr, 
+                    includeOutliers:includeOutliers, iso:iso, snr:snr,
                     snri:snri, plotNewWindow:plotNewWindow },
             type: 'GET',
             success: function(data){
@@ -1215,7 +1229,7 @@ $(document).ready(function(){
                         });
                     } else{
                         $("#statusReportWrapper").html('');
-                        plotDiv.html(data.script + data.div);  
+                        plotDiv.html(data.script + data.div);
                     }
                 }
                 if (data.hasOwnProperty('html')){
@@ -1223,7 +1237,7 @@ $(document).ready(function(){
                         var w = window.open(
                                 $SCRIPT_ROOT + '/plot_window',
                                 //"_blank",
-                                //"width=600, height=600" 
+                                //"width=600, height=600"
                                 )
                         $(w.document).ready(function(){
                             w.$(w.document.body).append(data.html);
@@ -1260,7 +1274,7 @@ $(document).ready(function(){
             }
         });
     }
-           
+
     $("#submitCustom").on('click', getCustomScript);
     function getCustomScript(){
         var scriptName = $("#customSelector").val();
@@ -1291,7 +1305,7 @@ $(document).ready(function(){
                     var w = window.open(
                         $SCRIPT_ROOT + '/plot_window',
                         //"_blank",
-                        //"width=600, height=600" 
+                        //"width=600, height=600"
                         )
                     $(w.document).ready(function(){
                         w.$(w.document.body).append(data.html);
@@ -1335,7 +1349,7 @@ $(document).ready(function(){
         })
             var models = $("#modelSelector");
                 models.empty();
-                             
+
                 $.each(data.modellist, function(modelname) {
                     models.append($("<option></option>")
                         .attr("value", data.modellist[modelname])
@@ -1344,7 +1358,7 @@ $(document).ready(function(){
                 });
     }
 
-             
+
     $("#batchPerformance").on('click', batchPerformance);
     function batchPerformance(){
         var bSelected = $("#batchSelector").val();
@@ -1354,22 +1368,22 @@ $(document).ready(function(){
         if (document.getElementById("findAll").checked){
             findAll = 1;
         }
-        
+
         var formInfo = document.getElementById('batchPerfForm');
         formInfo.bSelected.value = bSelected;
         formInfo.cSelected.value = cSelected;
         formInfo.mSelected.value = mSelected;
         formInfo.findAll.value = findAll;
-        
+
         formInfo.submit();
     }
-    
+
     $("#fitReport").on('click', fitReport);
     function fitReport(){
         var bSelected = $("#batchSelector").val();
         var mSelected = $("#modelSelector").val();
         var cSelected = $("#cellSelector").val();
-        
+
         addLoad();
         $.ajax({
             url: $SCRIPT_ROOT + '/fit_report',
@@ -1396,9 +1410,9 @@ $(document).ready(function(){
         formInfo.bSelected.value = bSelected;
         formInfo.cSelected.value = cSelected;
         formInfo.mSelected.value = mSelected;
-        
+
         formInfo.submit();
-        */  
+        */
     }
 
 

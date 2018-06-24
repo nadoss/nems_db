@@ -78,8 +78,8 @@ def ozgf(loadkey, recording_uri):
 def env(loadkey, recording_uri):
     pattern = re.compile(r'^env\.?(\d{0,})\.?(\w{0,})$')
     parsed = re.match(pattern, loadkey)
-    fs = parsed[1]
-    options = parsed[2]
+    fs = parsed.group(1)
+    options = parsed.group(2)
 
     normalize = ('n' in options)
     pt = ('pt' in options)
@@ -112,9 +112,9 @@ def env(loadkey, recording_uri):
 def psth(loadkey, recording_uri):
     pattern = re.compile(r'^psth\.?([s,m]{0,})(\d{0,})(\w{0,})$')
     parsed = re.match(pattern, loadkey)
-    pre_options = parsed[1]
-    n = parsed[2]  # TODO: what is this?
-    post_options = parsed[3]
+    pre_options = parsed.group(1)
+    n = parsed.group(2)  # TODO: what is this?
+    post_options = parsed.group(3)
     smooth = ('s' in pre_options)
     mask = ('m' in pre_options)
     tar = ('tar' in post_options)
@@ -159,8 +159,8 @@ def nostim(loadkey, recording_uri):
 def evt(loadkey, recording_uri):
     pattern = re.compile(r'^evt\.?(\d{0,})\.?(\w{0,})$')
     parsed = re.match(pattern, loadkey)
-    n = parsed[1]  # what is this?
-    state = parsed[2]  # handled by _state_model_loadkey_helper right now.
+    n = parsed.group(1)  # what is this?
+    state = parsed.group(2)  # handled by _state_model_loadkey_helper right now.
     recordings = [recording_uri]
 
     state_signals, permute_signals, epoch2_shuffle = \

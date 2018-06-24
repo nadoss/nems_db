@@ -103,8 +103,8 @@ def generate_recording_uri(cellid, batch, loader):
     elif loader.startswith('nostim'):
         pattern = re.compile(r'^nostim\.(\d{1,})(\w*)?$')
         parsed = re.match(pattern, loader)
-        fs = parsed[1]
-        ops = parsed[2]
+        fs = parsed.group(1)
+        ops = parsed.group(2)
         pupil = ('pup' in ops)
 
         options.update(_parm_helper(fs, pupil))
@@ -112,9 +112,9 @@ def generate_recording_uri(cellid, batch, loader):
     elif loader.startswith('psth'):
         pattern = re.compile(r'^psth(s?)\.(\d{1,})(\w*)?$')
         parsed = re.match(pattern, loader)
-        state = parsed[1]  # not relevant here?
-        fs = parsed[2]
-        ops = parsed[3]
+        state = parsed.group(1)  # not relevant here?
+        fs = parsed.group(2)
+        ops = parsed.group(3)
         pupil = ('pup' in ops)
 
         options.update(_parm_helper(fs, pupil))
@@ -122,8 +122,8 @@ def generate_recording_uri(cellid, batch, loader):
     elif loader.startswith('evt'):
         pattern = re.compile(r'^evt\.(\d{1,})(\w*)?$')
         parsed = re.match(pattern, loader)
-        fs = parsed[1]
-        ops = parsed[2]
+        fs = parsed.group(1)
+        ops = parsed.group(2)
         pupil = ('pup' in ops)
 
         options.update(_parm_helper(fs, pupil))
@@ -131,8 +131,8 @@ def generate_recording_uri(cellid, batch, loader):
     elif loader.startswith('env'):
         pattern = re.compile(r'^env(m?)\.(\d{1,})$')
         parsed = re.match(pattern, loader)
-        mask = parsed[1]  # not relevant here?
-        fs = parsed[2]
+        mask = parsed.group(1)  # not relevant here?
+        fs = parsed.group(2)
 
         options.update({'rasterfs': fs, 'stimfmt': 'envelope', 'chancount': 0})
 
@@ -202,6 +202,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
             batch, cellid, ms.get_modelspec_longname(modelspecs[0]))
     modelspecs[0][0]['meta']['modelpath'] = destination
     modelspecs[0][0]['meta']['figurefile'] = destination+'figure.0000.png'
+    modelspecs[0][0]['meta'].update(meta)
 
     # save results
     log.info('Saving modelspec(s) to {0} ...'.format(destination))
