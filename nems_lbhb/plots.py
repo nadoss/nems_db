@@ -433,6 +433,9 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
     while tf is 0:
         if el_shift%3 != 0:
             el_shift += 1
+        elif max_shift>0 and max_shift<3:
+            el_shift+=1
+            tf=1
         else:
             tf=1
     while max_shift%3 != 0:
