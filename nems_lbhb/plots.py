@@ -403,6 +403,7 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
     print(h_mat_full[out_inds[:,0], out_inds[:,1]])
     h_mat_full[abs(h_mat_full)>3*one_sd] = 2*one_sd*np.sign(h_mat_full[abs(h_mat_full)>3*one_sd])
     print(h_mat_full[out_inds[:,0], out_inds[:,1]])
+    
     # Compute a sliding window averge of the weights
     h_means = np.nanmean(h_mat_full,0)
     h_mat = np.zeros(h_means.shape)
@@ -469,11 +470,12 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
     locations = np.hstack((l_col,c_col,r_col))[:,sort_inds]
     
     
-    locations[1,:] = 100*(locations[1,:]) #-(l4_zero/3*0.25))
+    locations[1,:] = 100*(locations[1,:])
     locations[0,:] = 3000*(locations[0,:]*0.2)
-    
+    print(h_mat_full.shape)
     if h_mat.shape[0] != locations.shape[1]:
         diff = locations.shape[1] - h_mat.shape[0]
+        h_mat_scatter = np.concatenate((h_mat_full, np.full((np.shape(h_mat_full)[0],diff), np.nan)),axis=1)
         h_mat = np.concatenate((h_mat, np.full(diff,np.nan)))
         h_mat_error = np.concatenate((h_mat_error, np.full(diff,np.nan)))
     
@@ -523,7 +525,9 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
     plt.axhline(locations[1][l4_zero]-75,color='k',lw=3,alpha=0.3)
     plt.axvline(0, color='k',linestyle='--',alpha=0.5)
     plt.ylabel('um (layer IV center at {0} um)'.format(int(locations[1][l4_zero])))
-    plt.xlim(-vmax, -vmin)
+    #plt.xlim(-vmax, -vmin)
+    for i in range(0, h_mat_scatter.shape[0]):
+        plt.plot(-h_mat_scatter[i,:],locations[1,:], 'k.')
     #plt.axis('off')
     
     # plot binned histogram for each layer
