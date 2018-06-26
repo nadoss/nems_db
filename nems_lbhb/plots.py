@@ -679,8 +679,8 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
     
     # fine binning for sliding window
     step_size=5
-    bin_size=100
-    nWindows = int(m/step_size)+1    
+    bin_size=50
+    nWindows = int(m/step_size)    
     depthBin = []
     m_sw = []
     e_sw = []
@@ -688,11 +688,11 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
         w = chan_depth_weight[(chan_depth_weight['depths']>(i*step_size)).values & (chan_depth_weight['depths']<((i*step_size)+bin_size)).values]
         mw = w.mean()['weights']
         sd = w.std()['weights']/np.sqrt(len(w['weights']))
-        m_sw.append(mw)
-        e_sw.append(sd)
-        depthBin.append((i*step_size))
+        if ~np.isnan(sd):
+            m_sw.append(mw)
+            e_sw.append(sd)
+            depthBin.append(np.mean([(i*step_size),(i*step_size)+bin_size]))
    
-    
     sigma = 1
     m_sw = sf.gaussian_filter1d(np.array(m_sw), sigma)
     e_sw = sf.gaussian_filter1d(np.array(e_sw), sigma)
