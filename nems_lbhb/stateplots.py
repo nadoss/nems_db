@@ -14,11 +14,44 @@ import nems.xforms as xforms
 
 params = {'legend.fontsize': 8,
           'figure.figsize': (8, 6),
-         'axes.labelsize': 8,
-         'axes.titlesize': 8,
-         'xtick.labelsize': 8,
-         'ytick.labelsize': 8}
+          'axes.labelsize': 8,
+          'axes.titlesize': 8,
+          'xtick.labelsize': 8,
+          'ytick.labelsize': 8,
+          'pdf.fonttype': 42,
+          'ps.fonttype': 42}
+
 plt.rcParams.update(params)
+
+line_colors = {'actual_psth': (0,0,0),
+               'predicted_psth': 'red',
+               'passive': (106/255, 90/255, 205/255),
+               'active': (178/255, 34/255, 34/255),
+               'false_alarm': 'red',
+               'miss': (123/255, 104/255, 238/255),
+               'hit': 'green',
+               'pre': 'green',
+               'post': (123/255, 104/255, 238/255),
+               'hard': 'red',
+               'easy': (123/255, 104/255, 238/255),
+               'puretone': 'green',
+               'large': 'orange',
+               'small': 'darkviolet'}
+fill_colors = {'actual_psth': (.8,.8,.8),
+               'predicted_psth': 'pink',
+               'passive': (132/255, 112/255, 255/255),
+               'active': (255/255, 99/255, 71/255),
+               'false_alarm': 'red',
+               'miss': (123/255, 104/255, 238/255),
+               'hit': 'green',
+               'pre': 'green',
+               'post': (123/255, 104/255, 238/255),
+               'hard': 'red',
+               'easy': (123/255, 104/255, 238/255),
+               'puretone': 'green',
+               'large': 'orangered',
+               'small': 'violet'}
+
 
 def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
               hist_range=[-1, 1], title='modelname/batch',
@@ -30,6 +63,13 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     """
     beta1 = np.array(beta1)
     beta2 = np.array(beta2)
+
+    nncells = np.isfinite(beta1) & np.isfinite(beta2)
+    beta1 = beta1[nncells]
+    beta2 = beta2[nncells]
+    if highlight is not None:
+        highlight = np.array(highlight)
+        highlight = highlight[nncells]
 
     # exclude cells without prepassive
     outcells = ((beta1 > hist_range[1]) | (beta1 < hist_range[0]) |
@@ -360,7 +400,13 @@ def _model_step_plot_old(cellid, batch, modelnames, factors):
     return fh, stats
 
 
-def _model_step_plot(cellid, batch, modelnames, factors):
+def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
+    """
+    state_colors : N x 2 list
+       color spec for high/low lines in each of the N states
+    """
+    global line_colors
+    global fill_colors
 
     modelname_p0b0, modelname_p0b, modelname_pb0, modelname_pb = \
        modelnames
@@ -421,6 +467,8 @@ def _model_step_plot(cellid, batch, modelnames, factors):
 
     col_count = len(factors) - 1
     psth_names_ctl = ["pred_p0b", "pred_pb0"]
+    if state_colors is None:
+        state_colors = [None]*col_count
 
     for i, var in enumerate(factors[1:]):
         ax = plt.subplot(3, col_count, col_count+i+1)
@@ -428,7 +476,8 @@ def _model_step_plot(cellid, batch, modelnames, factors):
         nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
                                        psth_name="resp",
                                        psth_name2=psth_names_ctl[i],
-                                       state_sig=var, ax=ax)
+                                       state_sig=var, ax=ax,
+                                       colors=state_colors[i])
         if i == 0:
             ax.set_ylabel("Control model")
             if ax.legend_:
@@ -447,13 +496,14 @@ def _model_step_plot(cellid, batch, modelnames, factors):
         nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
                                        psth_name="resp",
                                        psth_name2="pred",
-                                       state_sig=var, ax=ax)
+                                       state_sig=var, ax=ax,
+                                       colors=state_colors[i])
         if i == 0:
             ax.set_ylabel("Full Model")
-            if ax.legend_:
-                ax.legend_.remove()
         else:
             ax.yaxis.label.set_visible(False)
+        if ax.legend_:
+            ax.legend_.remove()
 
         ax.set_title("{} r={:.3f} rawmod={:.3f} unqmod={:.3f}"
                      .format(var.lower(),
@@ -462,6 +512,10 @@ def _model_step_plot(cellid, batch, modelnames, factors):
 
         if var == 'active':
             ax.legend(('pas', 'act'))
+        elif var == 'pupil':
+            ax.legend(('small', 'large'))
+        elif var == 'PRE_PASSIVE':
+            ax.legend(('act+post', 'pre'))
 
     plt.tight_layout()
 
@@ -509,6 +563,7 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301,
       can be 'basic-nf' or 'cd-nf'
 
     """
+    global line_colors
 
     modelname_p0b0 = loader + "20pup0beh0_stategain3_" + fitter
     modelname_p0b = loader + "20pup0beh_stategain3_" + fitter
@@ -522,8 +577,11 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301,
     modelnames = [modelname_p0b0, modelname_p0b, modelname_pb0,
                   modelname_pb]
     factors = [factor0, factor1, factor2]
+    state_colors = [[line_colors['small'], line_colors['large']],
+                    [line_colors['passive'], line_colors['active']]]
 
-    fh, stats = _model_step_plot(cellid, batch, modelnames, factors)
+    fh, stats = _model_step_plot(cellid, batch, modelnames, factors,
+                                 state_colors=state_colors)
 
     return fh, stats
 
@@ -550,47 +608,50 @@ def pp_model_plot(cellid='TAR010c-06-1', batch=301,
     modelnames = [modelname_p0b0, modelname_p0b, modelname_pb0,
                   modelname_pb]
     factors = [factor0, factor1, factor2]
+    state_colors = [[line_colors['small'], line_colors['large']],
+                    [line_colors['pre'], line_colors['post']]]
 
-    fh, stats = _model_step_plot(cellid, batch, modelnames, factors)
+    fh, stats = _model_step_plot(cellid, batch, modelnames, factors,
+                                 state_colors=state_colors)
 
     plt.tight_layout()
-    
+
     return fh, stats
 
 
 def psth_per_file(rec):
-    
+
     raise NotImplementedError
-    
+
     resp = rec['resp'].rasterize()
-    
+
     file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
-        
+
     epoch_regex = "^STIM_"
     stim_epochs = ep.epoch_names_matching(resp.epochs, epoch_regex)
-    
+
     r = []
     max_rep_id = np.zeros(len(file_epochs))
     for f in file_epochs:
-        
+
         r.append(resp.as_matrix(stim_epochs, overlapping_epoch=f) * resp.fs)
-        
+
     repcount = np.sum(np.isfinite(r[:, :, 0, 0]), axis=1)
     max_rep_id, = np.where(repcount == np.max(repcount))
-    
+
     t = np.arange(r.shape[-1]) / resp.fs
-    
+
     plt.figure()
-    
+
     ax = plt.subplot(3, 1, 1)
-    nplt.plot_spectrogram(s[max_rep_id[-1],0,:,:], fs=stim.fs, ax=ax, 
+    nplt.plot_spectrogram(s[max_rep_id[-1],0,:,:], fs=stim.fs, ax=ax,
                           title="cell {} - stim".format(cellid))
-    
+
     ax = plt.subplot(3, 1, 2)
     nplt.raster(t,r[max_rep_id[-1],:,0,:], ax=ax, title='raster')
-    
+
     ax = plt.subplot(3, 1, 3);
     nplt.psth_from_raster(t,r[max_rep_id[-1],:,0,:], ax=ax, title='raster',
                           ylabel='spk/s')
-    
+
     plt.tight_layout()
