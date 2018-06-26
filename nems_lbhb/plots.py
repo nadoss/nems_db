@@ -594,10 +594,9 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
     if (depth_list is not None) & (type(depth_list) is not list):
         depth_list = [depth_list]
     
-    l4_zero = 48  # center all recordings on layer 4, arbitraily call it ch 49 
+    l4_zero = 48  # arbitrary - just used to align everything to center of layer four
     
     if depth_list is None:
-        print("I'm running correctly")
         # Define depth for each electrode
         lr_col = np.arange(0,21*0.25,0.25)          # 25 micron vertical spacing
         center_col = np.arange(-0.25,20.25*.25,0.25)-0.125
@@ -652,13 +651,15 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
     chan_depth_weight = pd.concat(chan_depth_weight)    
     chan_depth_weight['depths'] = chan_depth_weight['depths']*100
     
-    # shift depths so that tip electrode is at 0um
+    # shift depths so that top of layer four is at 400um and depths count down
+    top_l4 = l4_depth + 100
+    chan_depth_weight['depth_adjusted'] = chan_depth_weight['depths'] - top_l4 - 400
     mi = chan_depth_weight.min()['depths']
     if mi<0:
         chan_depth_weight['depths'] = chan_depth_weight['depths']+abs(mi)
         l4_depth += abs(mi)
     else:
-        chan_depth_weight['depths'] = chan_depth_weight['depths']-mi 
+        chan_depth_weight['depths'] = chan_depth_weight['depths']-mi
         l4_depth -= mi
     
     # bin into 200um chunks, overlapping by 100um, for bar plot
@@ -669,13 +670,16 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
     wBinned = []
     wError = []
     xlabels = []
-    for i in range(0, nBins):
-        w = chan_depth_weight[(chan_depth_weight['depths']>(i*step_size)).values & (chan_depth_weight['depths']<((i*step_size)+bin_size)).values]
+    start = int(chan_depth_weight.min()['depth_adjusted'])
+    end = int(chan_depth_weight.max()['depth_adjusted'])
+    for i in np.arange(start, end, step_size):
+        w = chan_depth_weight[(chan_depth_weight['depth_adjusted']>i).values & (chan_depth_weight['depth_adjusted']<(i+bin_size)).values]
         mw = w.mean()['weights']
         sd = w.std()['weights']/np.sqrt(len(w['weights']))
         wBinned.append(mw)
         wError.append(sd)
-        xlabels.append(str(i*step_size)+' - '+str((i*step_size)+bin_size)+' um')
+        xlabels.append(str(i)+' - '+str(i+bin_size)+' um')
+        #xlabels.append(str(i*step_size)+' - '+str((i*step_size)+bin_size)+' um')
     
     # fine binning for sliding window
     step_size=5
@@ -684,14 +688,14 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
     depthBin = []
     m_sw = []
     e_sw = []
-    for i in range(0, nWindows):
-        w = chan_depth_weight[(chan_depth_weight['depths']>(i*step_size)).values & (chan_depth_weight['depths']<((i*step_size)+bin_size)).values]
+    for i in np.arange(start, end, step_size):
+        w = chan_depth_weight[(chan_depth_weight['depth_adjusted']>(i)).values & (chan_depth_weight['depth_adjusted']<(i+bin_size)).values]
         mw = w.mean()['weights']
         sd = w.std()['weights']/np.sqrt(len(w['weights']))
         if ~np.isnan(sd):
             m_sw.append(mw)
             e_sw.append(sd)
-            depthBin.append(np.mean([(i*step_size),(i*step_size)+bin_size]))
+            depthBin.append(np.mean([i, i+bin_size]))
    
     sigma = 1
     m_sw = sf.gaussian_filter1d(np.array(m_sw), sigma)
@@ -703,15 +707,15 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
     plt.plot(-m_sw, depthBin, 'k-')
     for i in range(0, len(chan_depth_weight)):
         if chan_depth_weight.iloc[i]['wft']==1:
-            plt.plot(-chan_depth_weight.iloc[i]['weights'], chan_depth_weight.iloc[i]['depths'], color='r',marker='.')
+            plt.plot(-chan_depth_weight.iloc[i]['weights'], chan_depth_weight.iloc[i]['depth_adjusted'], color='r',marker='.')
         else:
-            plt.plot(-chan_depth_weight.iloc[i]['weights'], chan_depth_weight.iloc[i]['depths'], color='k',marker='.')
+            plt.plot(-chan_depth_weight.iloc[i]['weights'], chan_depth_weight.iloc[i]['depth_adjusted'], color='k',marker='.')
         
     plt.fill_betweenx(depthBin, -(e_sw+m_sw), e_sw+-m_sw ,alpha=0.3, facecolor='k')
     plt.axvline(0, color='k',linestyle='--')
-    plt.axhline(l4_depth-100, color='Grey', lw=2)
-    plt.axhline(l4_depth+100, color='Grey', lw=2)
-    plt.ylabel('depth (um)')
+    plt.axhline(-600, color='Grey', lw=2)
+    plt.axhline(-400, color='Grey', lw=2)
+    plt.ylabel('depth from surface (um)')
     plt.xlabel('weights')
     plt.subplot(122)
     plt.bar(np.arange(0, nBins), wBinned, yerr=wError,facecolor='Grey')
