@@ -13,6 +13,9 @@ import nems.plots.api as nplt
 import nems.xforms as xforms
 import nems.epoch as ep
 from nems.utils import find_module
+import pandas as pd
+import scipy.ndimage.filters as sf
+import nems_db.db as nd
 
 params = {'legend.fontsize': 8,
           'figure.figsize': (8, 6),
@@ -512,7 +515,7 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
              linestyle='-', color='k', lw=4,alpha=0.3)
     
     # plot conditional density
-    import scipy.ndimage.filters as sf
+    
     h_kde = h_mat.copy()
     sigma = 3
     h_kde[np.isnan(h_mat)]=0
@@ -530,7 +533,7 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
     plt.ylabel('um (layer IV center at {0} um)'.format(int(locations[1][l4_zero])))
     #plt.xlim(-vmax, -vmin)
     for i in range(0, h_mat_scatter.shape[0]):
-        plt.plot(-h_mat_scatter[i,:],locations[1,:], 'k.')
+        plt.plot(-h_mat_scatter[i,:],locations[1,:],'.')
     #plt.axis('off')
     
     # plot binned histogram for each layer
@@ -579,6 +582,138 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
     plt.tight_layout()
     
     
+def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
     
+    # for case where given single array
+    if type(h) is not list:
+        h = [h]
+    if type(cellids) is not list:
+        cellids = [cellids]
+    if l4 is not None and type(l4) is not list:    
+        l4 = [l4] 
+    if (depth_list is not None) & (type(depth_list) is not list):
+        depth_list = [depth_list]
     
+    l4_zero = 48  # center all recordings on layer 4, arbitraily call it ch 49 
     
+    if depth_list is None:
+        print("I'm running correctly")
+        # Define depth for each electrode
+        lr_col = np.arange(0,21*0.25,0.25)          # 25 micron vertical spacing
+        center_col = np.arange(-0.25,20.25*.25,0.25)-0.125
+        left_ch_nums = np.arange(3,64,3)
+        right_ch_nums = np.arange(4,65,3)
+        center_ch_nums = np.insert(np.arange(5, 63, 3),obj=slice(0,1),values =[1,2],axis=0)
+        ch_nums = np.hstack((left_ch_nums, center_ch_nums, right_ch_nums))
+        sort_inds = np.argsort(ch_nums)
+        
+        # define locations of all electrodes
+        l_col = np.vstack((np.ones(21)*-0.2,lr_col))
+        r_col = np.vstack((np.ones(21)*0.2,lr_col))
+        c_col = np.vstack((np.zeros(22),center_col))
+        locations = np.hstack((l_col,c_col,r_col))[:,sort_inds]
+    
+        chan_depth_weight=[]
+        l4_depth = round(0.25*((l4_zero)/3)*100,2)
+        l4_depth_ = round(0.25*((l4_zero)/3),2)
+        # Assign each channel in each recording a depth    
+        for i in range(0, len(h)):
+            chans = np.array([int(x[-4:-2]) for x in cellids[i]])
+            l4_loc = locations[1,l4[i]]
+            shift_by = l4_depth_ - l4_loc
+            print('shift site {0} by {1} um'.format(cellids[i][0][:-5], round(shift_by*100,2)))
+            depths = np.array([locations[1,c] for c in chans]) + shift_by
+            w = h[i]
+            fs = []
+            for c in cellids[i]:
+                try:
+                    fs.append(nd.get_wft(c))
+                except:
+                    fs.append(-1)    
+            
+            chan_depth_weight.append(pd.DataFrame(data=np.vstack((chans, depths, w, fs)).T,
+                             columns=['chans','depths', 'weights', 'wft']))
+    elif depth_list is not None:
+        chan_depth_weight=[]
+        l4_depth = l4_depth = 0.25*int((l4_zero)/3)*100
+        for i in range(0, len(h)):
+            chans = np.array([int(x[-4:-2]) for x in cellids[i]])
+            depths = np.array(depth_list[i]) 
+            w = h[i]
+            fs = []
+            for c in cellids[i]:
+                try:
+                    fs.append(nd.get_wft(c))
+                except:
+                    fs.append(-1)
+            chan_depth_weight.append(pd.DataFrame(data=np.vstack((chans, depths, w, fs)).T,
+                             columns=['chans','depths', 'weights', 'wft']))
+    
+    chan_depth_weight = pd.concat(chan_depth_weight)    
+    chan_depth_weight['depths'] = chan_depth_weight['depths']*100
+    
+    # shift depths so that tip electrode is at 0um
+    mi = chan_depth_weight.min()['depths']
+    if mi<0:
+        chan_depth_weight['depths'] = chan_depth_weight['depths']+abs(mi)
+        l4_depth += abs(mi)
+    else:
+        chan_depth_weight['depths'] = chan_depth_weight['depths']-mi 
+        l4_depth -= mi
+    
+    # bin into 200um chunks, overlapping by 100um, for bar plot
+    step_size = 100
+    bin_size = 100
+    m = chan_depth_weight.max()['depths']
+    nBins = int(m/step_size)+1
+    wBinned = []
+    wError = []
+    xlabels = []
+    for i in range(0, nBins):
+        w = chan_depth_weight[(chan_depth_weight['depths']>(i*step_size)).values & (chan_depth_weight['depths']<((i*step_size)+bin_size)).values]
+        mw = w.mean()['weights']
+        sd = w.std()['weights']/np.sqrt(len(w['weights']))
+        wBinned.append(mw)
+        wError.append(sd)
+        xlabels.append(str(i*step_size)+' - '+str((i*step_size)+bin_size)+' um')
+    
+    # fine binning for sliding window
+    step_size=5
+    bin_size=50
+    nWindows = int(m/step_size)    
+    depthBin = []
+    m_sw = []
+    e_sw = []
+    for i in range(0, nWindows):
+        w = chan_depth_weight[(chan_depth_weight['depths']>(i*step_size)).values & (chan_depth_weight['depths']<((i*step_size)+bin_size)).values]
+        mw = w.mean()['weights']
+        sd = w.std()['weights']/np.sqrt(len(w['weights']))
+        if ~np.isnan(sd):
+            m_sw.append(mw)
+            e_sw.append(sd)
+            depthBin.append(np.mean([(i*step_size),(i*step_size)+bin_size]))
+   
+    sigma = 1
+    m_sw = sf.gaussian_filter1d(np.array(m_sw), sigma)
+    e_sw = sf.gaussian_filter1d(np.array(e_sw), sigma)
+    plt.figure()
+    if title is not None:
+        plt.suptitle(title)
+    plt.subplot(121)
+    plt.plot(-m_sw, depthBin, 'k-')
+    for i in range(0, len(chan_depth_weight)):
+        if chan_depth_weight.iloc[i]['wft']==1:
+            plt.plot(-chan_depth_weight.iloc[i]['weights'], chan_depth_weight.iloc[i]['depths'], color='r',marker='.')
+        else:
+            plt.plot(-chan_depth_weight.iloc[i]['weights'], chan_depth_weight.iloc[i]['depths'], color='k',marker='.')
+        
+    plt.fill_betweenx(depthBin, -(e_sw+m_sw), e_sw+-m_sw ,alpha=0.3, facecolor='k')
+    plt.axvline(0, color='k',linestyle='--')
+    plt.axhline(l4_depth-100, color='Grey', lw=2)
+    plt.axhline(l4_depth+100, color='Grey', lw=2)
+    plt.ylabel('depth (um)')
+    plt.xlabel('weights')
+    plt.subplot(122)
+    plt.bar(np.arange(0, nBins), wBinned, yerr=wError,facecolor='Grey')
+    plt.xticks(np.arange(0, nBins), xlabels, rotation=45)
+    plt.title('layer VI depth: {0}'.format(l4_depth))
