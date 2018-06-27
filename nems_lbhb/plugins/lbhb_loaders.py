@@ -76,7 +76,7 @@ def ozgf(loadkey, recording_uri):
 
 
 def env(loadkey, recording_uri):
-    pattern = re.compile(r'^env\.?(\d{0,})\.?(\w{0,})$')
+    pattern = re.compile(r'^env\.(\d{1,})([a-zA-Z0-9\.]*)$')
     parsed = re.match(pattern, loadkey)
     fs = parsed.group(1)
     options = parsed.group(2)

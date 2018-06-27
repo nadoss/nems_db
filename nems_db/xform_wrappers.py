@@ -129,10 +129,10 @@ def generate_recording_uri(cellid, batch, loader):
         options.update(_parm_helper(fs, pupil))
 
     elif loader.startswith('env'):
-        pattern = re.compile(r'^env(m?)\.(\d{1,})$')
+        pattern = re.compile(r'^env\.(\d{1,})([a-zA-Z0-9\.]*)$')
         parsed = re.match(pattern, loader)
-        mask = parsed.group(1)  # not relevant here?
-        fs = parsed.group(2)
+        fs = parsed.group(1)
+        ops = parsed.group(2)  # nothing relevant here yet?
 
         options.update({'rasterfs': fs, 'stimfmt': 'envelope', 'chancount': 0})
 
