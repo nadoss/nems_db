@@ -99,6 +99,7 @@ ENV/
 # mypy
 .mypy_cache/
 
+<<<<<<< HEAD
 # nems-specific
 saved_analysis/
 saved_images/
@@ -112,6 +113,7 @@ saved_models/
 *#
 **/database_info.txt
 **/nems_path.txt
+
 **/nems_analysis/static/gen/*
 **/nems_sample*
 nems.log*

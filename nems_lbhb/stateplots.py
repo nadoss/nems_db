@@ -14,11 +14,48 @@ import nems.xforms as xforms
 
 params = {'legend.fontsize': 8,
           'figure.figsize': (8, 6),
-         'axes.labelsize': 8,
-         'axes.titlesize': 8,
-         'xtick.labelsize': 8,
-         'ytick.labelsize': 8}
+          'axes.labelsize': 8,
+          'axes.titlesize': 8,
+          'xtick.labelsize': 8,
+          'ytick.labelsize': 8,
+          'pdf.fonttype': 42,
+          'ps.fonttype': 42}
+
 plt.rcParams.update(params)
+
+line_colors = {'actual_psth': (0,0,0),
+               'predicted_psth': 'red',
+               #'passive': (255/255, 133/255, 133/255),
+               'passive': (216/255, 151/255, 212/255),
+               #'active': (196/255, 33/255, 43/255),
+               'active': (129/255, 64/255, 138/255),
+               'false_alarm': (79/255, 114/255, 184/255),
+               'miss': (183/255, 196/255, 229/255),
+               'hit': (36/255, 49/255, 103/255),
+               'pre': 'green',
+               'post': (123/255, 104/255, 238/255),
+               'hard': (196/255, 149/255, 44/255),
+               'easy': (255/255, 206/255, 6/255),
+               'puretone': (247/255, 223/255, 164/255), 
+               'large': (44/255, 125/255, 61/255), 
+               'small': (181/255, 211/255, 166/255)}
+fill_colors = {'actual_psth': (.8,.8,.8),
+               'predicted_psth': 'pink',
+               #'passive': (226/255, 172/255, 185/255),
+               'passive': (234/255, 176/255, 223/255),
+               #'active': (244/255, 44/255, 63/255),
+               'active': (163/255, 102/255, 163/255),
+               'false_alarm': (107/255, 147/255, 204/255),
+               'miss': (200/255, 214/255, 237/255),
+               'hit': (78/255, 92/255, 135/255),
+               'pre': 'green',
+               'post': (123/255, 104/255, 238/255),
+               'hard':  (229/255, 172/255, 57/255),
+               'easy': (255/255, 225/255, 100/255),
+               'puretone': (255/255, 231/255, 179/255), 
+               'large': (69/255, 191/255, 89/255), 
+               'small': (215/255, 242/255, 199/255)}
+
 
 def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
               hist_range=[-1, 1], title='modelname/batch',
@@ -30,6 +67,13 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     """
     beta1 = np.array(beta1)
     beta2 = np.array(beta2)
+
+    nncells = np.isfinite(beta1) & np.isfinite(beta2)
+    beta1 = beta1[nncells]
+    beta2 = beta2[nncells]
+    if highlight is not None:
+        highlight = np.array(highlight)
+        highlight = highlight[nncells]
 
     # exclude cells without prepassive
     outcells = ((beta1 > hist_range[1]) | (beta1 < hist_range[0]) |
@@ -95,6 +139,9 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     plt.xlabel('difference')
 
     plt.tight_layout()
+
+    old_title=fh.canvas.get_window_title()
+    fh.canvas.set_window_title(old_title+': '+title)
 
     return fh
 
@@ -198,7 +245,7 @@ def _state_var_psth_from_epoch_difference(
     return mod1, mod2
 
 
-def _model_step_plot(cellid, batch, modelnames, factors):
+def _model_step_plot_old(cellid, batch, modelnames, factors):
 
     modelname_p0b0, modelname_p0b, modelname_pb0, modelname_pb = \
        modelnames
@@ -357,6 +404,159 @@ def _model_step_plot(cellid, batch, modelnames, factors):
     return fh, stats
 
 
+def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
+    """
+    state_colors : N x 2 list
+       color spec for high/low lines in each of the N states
+    """
+    global line_colors
+    global fill_colors
+
+    modelname_p0b0, modelname_p0b, modelname_pb0, modelname_pb = \
+       modelnames
+    factor0, factor1, factor2 = factors
+
+    xf_p0b0, ctx_p0b0 = nw.load_model_baphy_xform(cellid, batch, modelname_p0b0,
+                                                  eval_model=False)
+    # ctx_p0b0, l = xforms.evaluate(xf_p0b0, ctx_p0b0, stop=-2)
+
+    ctx_p0b0, l = xforms.evaluate(xf_p0b0, ctx_p0b0, start=0, stop=-2)
+
+    xf_p0b, ctx_p0b = nw.load_model_baphy_xform(cellid, batch, modelname_p0b,
+                                                eval_model=False)
+    ctx_p0b, l = xforms.evaluate(xf_p0b, ctx_p0b, start=0, stop=-2)
+
+    xf_pb0, ctx_pb0 = nw.load_model_baphy_xform(cellid, batch, modelname_pb0,
+                                                eval_model=False)
+    #ctx_pb0['rec'] = ctx_p0b0['rec'].copy()
+    ctx_pb0, l = xforms.evaluate(xf_pb0, ctx_pb0, start=0, stop=-2)
+
+    xf_pb, ctx_pb = nw.load_model_baphy_xform(cellid, batch, modelname_pb,
+                                              eval_model=False)
+    #ctx_pb['rec'] = ctx_p0b0['rec'].copy()
+    ctx_pb, l = xforms.evaluate(xf_pb, ctx_pb, start=0, stop=-2)
+
+    val = ctx_pb['val'][0].copy()
+
+    # val['pred_p0b0'] = ctx_p0b0['val'][0]['pred'].copy()
+    val['pred_p0b'] = ctx_p0b['val'][0]['pred'].copy()
+    val['pred_pb0'] = ctx_pb0['val'][0]['pred'].copy()
+
+    state_var_list = val['state'].chans
+
+    resp_mod = np.zeros([len(state_var_list), 2])
+    pred_mod = np.zeros([len(state_var_list), 2])
+    pred_mod_full = np.zeros([len(state_var_list), 2])
+    for i, var in enumerate(state_var_list):
+        mod1_p0b, mod2_p0b = _state_var_psth_from_epoch_difference(
+                val, epoch="REFERENCE", psth_name="resp",
+                psth_name2="pred_p0b", state_sig=var)
+        mod1_pb0, mod2_pb0 = _state_var_psth_from_epoch_difference(
+                val, epoch="REFERENCE", psth_name="resp",
+                psth_name2="pred_pb0", state_sig=var)
+        mod1_pb, mod2_pb = _state_var_psth_from_epoch_difference(
+                val, epoch="REFERENCE", psth_name="resp",
+                psth_name2="pred", state_sig=var)
+
+        resp_mod[i] = np.array([mod1_pb-mod1_p0b, mod1_pb-mod1_pb0])
+        pred_mod[i] = np.array([mod2_pb-mod2_p0b, mod2_pb-mod2_pb0])
+        pred_mod_full[i] = np.array([mod2_pb0, mod2_p0b])
+
+    fh = plt.figure()
+    ax = plt.subplot(3, 1, 1)
+    nplt.state_vars_timeseries(val, ctx_pb['modelspecs'][0])
+    ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
+    ax.set_ylabel("{} r={:.3f}".format(factor0,
+                  ctx_p0b0['modelspecs'][0][0]['meta']['r_test']))
+
+    col_count = len(factors) - 1
+    psth_names_ctl = ["pred_p0b", "pred_pb0"]
+    if state_colors is None:
+        state_colors = [None]*col_count
+
+    for i, var in enumerate(factors[1:]):
+        ax = plt.subplot(3, col_count, col_count+i+1)
+
+        nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
+                                       psth_name="resp",
+                                       psth_name2=psth_names_ctl[i],
+                                       state_sig=var, ax=ax,
+                                       colors=state_colors[i])
+        if i == 0:
+            ax.set_ylabel("Control model")
+            if ax.legend_:
+                ax.legend_.remove()
+            ax.set_title("{} pred by other vars r={:.3f}"
+                         .format(var.lower(),
+                                 ctx_p0b['modelspecs'][0][0]['meta']['r_test']))
+        else:
+            ax.yaxis.label.set_visible(False)
+            ax.set_title("{} pred by other vars r={:.3f}"
+                         .format(var.lower(),
+                                 ctx_pb0['modelspecs'][0][0]['meta']['r_test']))
+        ax.xaxis.label.set_visible(False)
+
+        ax = plt.subplot(3, col_count, col_count*2+i+1)
+        nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
+                                       psth_name="resp",
+                                       psth_name2="pred",
+                                       state_sig=var, ax=ax,
+                                       colors=state_colors[i])
+        if i == 0:
+            ax.set_ylabel("Full Model")
+        else:
+            ax.yaxis.label.set_visible(False)
+        if ax.legend_:
+            ax.legend_.remove()
+
+        ax.set_title("{} r={:.3f} rawmod={:.3f} unqmod={:.3f}"
+                     .format(var.lower(),
+                             ctx_pb['modelspecs'][0][0]['meta']['r_test'],
+                             pred_mod_full[i+1][i], pred_mod[i+1][i]))
+
+        if var == 'active':
+            ax.legend(('pas', 'act'))
+        elif var == 'pupil':
+            ax.legend(('small', 'large'))
+        elif var == 'PRE_PASSIVE':
+            ax.legend(('act+post', 'pre'))
+
+    plt.tight_layout()
+
+    stats = {'cellid': cellid,
+             'batch': batch,
+             'modelnames': modelnames,
+             'state_vars': state_var_list,
+             'factors': factors,
+             'r_test': np.array([
+                     ctx_p0b0['modelspecs'][0][0]['meta']['r_test'],
+                     ctx_p0b['modelspecs'][0][0]['meta']['r_test'],
+                     ctx_pb0['modelspecs'][0][0]['meta']['r_test'],
+                     ctx_pb['modelspecs'][0][0]['meta']['r_test']
+                     ]),
+             'r_floor': np.array([
+                     ctx_p0b0['modelspecs'][0][0]['meta']['r_floor'],
+                     ctx_p0b['modelspecs'][0][0]['meta']['r_floor'],
+                     ctx_pb0['modelspecs'][0][0]['meta']['r_floor'],
+                     ctx_pb['modelspecs'][0][0]['meta']['r_floor']
+                     ]),
+             'pred_mod': pred_mod.T,
+             'pred_mod_full': pred_mod_full.T,
+             'g': np.array([
+                     ctx_p0b0['modelspecs'][0][0]['phi']['g'],
+                     ctx_p0b['modelspecs'][0][0]['phi']['g'],
+                     ctx_pb0['modelspecs'][0][0]['phi']['g'],
+                     ctx_pb['modelspecs'][0][0]['phi']['g']]),
+             'b': np.array([
+                     ctx_p0b0['modelspecs'][0][0]['phi']['d'],
+                     ctx_p0b['modelspecs'][0][0]['phi']['d'],
+                     ctx_pb0['modelspecs'][0][0]['phi']['d'],
+                     ctx_pb['modelspecs'][0][0]['phi']['d']])
+        }
+
+    return fh, stats
+
+
 def pb_model_plot(cellid='TAR010c-06-1', batch=301,
                   loader="psth", fitter="basic-nf"):
     """
@@ -367,21 +567,25 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301,
       can be 'basic-nf' or 'cd-nf'
 
     """
+    global line_colors
 
     modelname_p0b0 = loader + "20pup0beh0_stategain3_" + fitter
     modelname_p0b = loader + "20pup0beh_stategain3_" + fitter
     modelname_pb0 = loader + "20pupbeh0_stategain3_" + fitter
     modelname_pb = loader + "20pupbeh_stategain3_" + fitter
 
-    factor0 = "None"
-    factor1 = "Act"
-    factor2 = "Pup"
+    factor0 = "baseline"
+    factor1 = "pupil"
+    factor2 = "active"
 
     modelnames = [modelname_p0b0, modelname_p0b, modelname_pb0,
                   modelname_pb]
     factors = [factor0, factor1, factor2]
+    state_colors = [[line_colors['small'], line_colors['large']],
+                    [line_colors['passive'], line_colors['active']]]
 
-    fh, stats = _model_step_plot(cellid, batch, modelnames, factors)
+    fh, stats = _model_step_plot(cellid, batch, modelnames, factors,
+                                 state_colors=state_colors)
 
     return fh, stats
 
@@ -401,14 +605,57 @@ def pp_model_plot(cellid='TAR010c-06-1', batch=301,
     modelname_pb0 = loader + "20puppre0beh_stategain4_" + fitter
     modelname_pb = loader + "20pupprebeh_stategain4_" + fitter
 
-    factor0 = "Act"
-    factor1 = "Act+Pre"
-    factor2 = "Act+Pup"
+    factor0 = "basline"
+    factor1 = "pupil"
+    factor2 = "PRE_PASSIVE"
 
     modelnames = [modelname_p0b0, modelname_p0b, modelname_pb0,
                   modelname_pb]
     factors = [factor0, factor1, factor2]
+    state_colors = [[line_colors['small'], line_colors['large']],
+                    [line_colors['pre'], line_colors['post']]]
 
-    fh, stats = _model_step_plot(cellid, batch, modelnames, factors)
+    fh, stats = _model_step_plot(cellid, batch, modelnames, factors,
+                                 state_colors=state_colors)
+
+    plt.tight_layout()
 
     return fh, stats
+
+
+def psth_per_file(rec):
+
+    raise NotImplementedError
+
+    resp = rec['resp'].rasterize()
+
+    file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
+
+    epoch_regex = "^STIM_"
+    stim_epochs = ep.epoch_names_matching(resp.epochs, epoch_regex)
+
+    r = []
+    max_rep_id = np.zeros(len(file_epochs))
+    for f in file_epochs:
+
+        r.append(resp.as_matrix(stim_epochs, overlapping_epoch=f) * resp.fs)
+
+    repcount = np.sum(np.isfinite(r[:, :, 0, 0]), axis=1)
+    max_rep_id, = np.where(repcount == np.max(repcount))
+
+    t = np.arange(r.shape[-1]) / resp.fs
+
+    plt.figure()
+
+    ax = plt.subplot(3, 1, 1)
+    nplt.plot_spectrogram(s[max_rep_id[-1],0,:,:], fs=stim.fs, ax=ax,
+                          title="cell {} - stim".format(cellid))
+
+    ax = plt.subplot(3, 1, 2)
+    nplt.raster(t,r[max_rep_id[-1],:,0,:], ax=ax, title='raster')
+
+    ax = plt.subplot(3, 1, 3);
+    nplt.psth_from_raster(t,r[max_rep_id[-1],:,0,:], ax=ax, title='raster',
+                          ylabel='spk/s')
+
+    plt.tight_layout()

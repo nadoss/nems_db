@@ -10,8 +10,11 @@ from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.automap import automap_base
 import pandas.io.sql as psql
+import json
 
 log = logging.getLogger(__name__)
+
+__ENGINE__ = None
 
 
 ###### Functions for establishing connectivity, starting a session, or
@@ -19,14 +22,20 @@ log = logging.getLogger(__name__)
 
 
 def Engine():
-    '''Returns a mysql engine object.'''
+    '''Returns a mysql engine object. Creates the engine if necessary.
+    Otherwise returns the existing one.'''
+    global __ENGINE__
+
     uri = _get_db_uri()
-    try:
-        return create_engine(uri, pool_recycle=7200)
-    except Exception as e:
-        log.exception("Error when attempting to establish a database "
-                      "connection.", e)
-        raise(e)
+    if not __ENGINE__:
+        __ENGINE__ = create_engine(uri, pool_recycle=7200)
+
+    return __ENGINE__
+
+    #except Exception as e:
+    #    log.exception("Error when attempting to establish a database "
+    #                  "connection.", e)
+    #    raise(e)
 
 
 def Session():
@@ -215,10 +224,8 @@ def enqueue_single_model(
               .first()
               )
     if result and not force_rerun:
-        log.info(
-            "Entry in NarfResults already exists for: %s, skipping.\n" %
-            note)
-        session.close()
+        log.info("Entry in NarfResults already exists for: %s, skipping.\n",
+                 note)
         return -1, 'skip'
 
     # query tQueue to check if entry with same cell/batch/model already exists
@@ -882,3 +889,20 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
     cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
 
     return cellids
+
+
+def get_wft(cellid=None):
+    engine = Engine()
+    params = ()
+    sql = "SELECT meta_data FROM gSingleCell WHERE 1"
+
+    sql += " and cellid =%s"
+    params = params+(cellid,)
+    
+    d = pd.read_sql(sql=sql, con=engine, params=params)
+    
+    wft = json.loads(d.values[0][0])
+    ## 1 is fast spiking, 0 is regular spiking
+    celltype = wft['wft_celltype']
+    
+    return celltype
