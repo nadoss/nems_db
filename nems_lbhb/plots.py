@@ -216,7 +216,7 @@ def scatter_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
 
 
 def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True):
-    
+
     '''
     given a weight vector, h, plot the weights on the appropriate electrode channel
     mapped based on the cellids supplied. Weight vector must be sorted the same as
@@ -224,11 +224,11 @@ def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True):
     where there are more than one unit on a given electrode, additional units will
     be "offset" from the array geometry as additional electrodes.
     '''
-    
+
 
     if type(cellids) is not np.ndarray:
         cellids = np.array(cellids)
-    
+
     if type(h) is not np.ndarray:
         h = np.array(h)
         if vmin is None:
@@ -240,9 +240,9 @@ def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True):
             vmin = np.min(h)
         if vmax is None:
             vmax = np.max(h)
-  
+
      # Make a vector for each column of electrodes
-    
+
     # left column + right column are identical
     lr_col = np.arange(0,21*0.25,0.25)  # 25 micron vertical spacing
     left_ch_nums = np.arange(3,64,3)
@@ -251,24 +251,24 @@ def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True):
     center_col = np.arange(-0.25,20.25*.25,0.25)-0.125
     ch_nums = np.hstack((left_ch_nums, center_ch_nums, right_ch_nums))
     sort_inds = np.argsort(ch_nums)
-    
-    
-    
+
+
+
     l_col = np.vstack((np.ones(21)*-0.2,lr_col))
     r_col = np.vstack((np.ones(21)*0.2,lr_col))
     c_col = np.vstack((np.zeros(22),center_col))
     locations = np.hstack((l_col,c_col,r_col))[:,sort_inds]
     #plt.figure()
     plt.scatter(locations[0,:],locations[1,:],facecolor='none',edgecolor='k',s=50)
-    
-    
-   
+
+
+
     # Now, color appropriately
     electrodes = np.zeros(len(cellids))
-    
+
     for i in range(0, len(cellids)):
         electrodes[i] = int(cellids[i][-4:-2])
-        
+
     # Add locations for cases where two or greater units on an electrode
     electrodes=list(electrodes-1)  # cellids labeled 1-64, python counts 0-63
     dupes = list(set([int(x) for x in electrodes if electrodes.count(x)>1]))
@@ -284,10 +284,10 @@ def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True):
     x_shifts = dict.fromkeys([str(i) for i in dupes])
     for i in np.arange(0,len(dupes)):
         loc_x = locations[0,dupes[i]]
-        
+
         x_shifts[str(dupes[i])]=[]
         x_shifts[str(dupes[i])].append(loc_x)
-        
+
         n_dupes = electrodes.count(dupes[i])-1
         shift = 0
         for d in range(0,n_dupes):
@@ -297,13 +297,13 @@ def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True):
                 shift += 0.4
             elif loc_x > 0:
                 shift += 0.2
-            
+
             m = shift
             if m > max_:
                 max_=m
-            
+
             x_shifts[str(dupes[i])].append(loc_x+shift)
-      
+
             count += 1
     count+=len(dupes)
     dup_locations = np.empty((2, count))
@@ -316,7 +316,7 @@ def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True):
             dup_locations[1,c] = locations[1,int(k)]
             h_dupes.append(h[index[i][0]])
             c+=1
-        
+
     plt.scatter(dup_locations[0,:],dup_locations[1,:],facecolor='none',edgecolor='k',s=50)
 
     plt.axis('scaled')
@@ -330,7 +330,7 @@ def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True):
     indexes2 = np.argwhere(np.array([electrodes.count(x) for x in electrodes])!=1)
     indexes=[x[0] for x in indexes]
     indexes2=[x[0] for x in indexes2]
-    
+
     # make an inverse mask of the unique indexes
     mask = np.ones(len(h),np.bool)
     mask[indexes]=0
@@ -361,43 +361,43 @@ def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True):
 
 
 def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, title=None):
-    
+
     # for case where given single array
-    
+
     if type(h) is not list:
         h = [h]
-        
+
     if type(cellids) is not list:
         cellids = [cellids]
-        
-    if type(l4) is not list:    
-        l4 = [l4] 
-      
-    
+
+    if type(l4) is not list:
+        l4 = [l4]
+
+
     # create average h-vector, after applying appropriate shift and filling in missing
     # electrodes with nans
-    
+
     l4_zero = 52 - 1 # align center of l4 with 52
     shift = np.subtract(l4,l4_zero)
     max_shift = shift[np.argmax(abs(shift))]
     h_mat_full = np.full((len(h), 64+abs(max_shift)), np.nan)
-    
+
     for i in range(0, h_mat_full.shape[0]):
-        
+
         if type(cellids[i]) is not np.ndarray:
             cellids[i] = np.array(cellids[i])
-        
+
         s = shift[i]
         electrodes = np.zeros(len(cellids[i]))
         for j in range(0, len(cellids[i])):
-            electrodes[j] = int(cellids[i][j][-4:-2])   
-        
+            electrodes[j] = int(cellids[i][j][-4:-2])
+
         chans = (np.sort([int(x) for x in electrodes])-1) + abs(max_shift)
-    
+
         chans = np.add(chans,s)
-        
+
         h_mat_full[i,chans] = h[i]
-    
+
     # remove outliers
     one_sd = np.nanstd(h_mat_full.flatten())
     print(one_sd)
@@ -406,7 +406,7 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
     print(h_mat_full[out_inds[:,0], out_inds[:,1]])
     h_mat_full[abs(h_mat_full)>3*one_sd] = 2*one_sd*np.sign(h_mat_full[abs(h_mat_full)>3*one_sd])
     print(h_mat_full[out_inds[:,0], out_inds[:,1]])
-    
+
     # Compute a sliding window averge of the weights
     h_means = np.nanmean(h_mat_full,0)
     h_mat = np.zeros(h_means.shape)
@@ -419,17 +419,17 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
             h_mat[i] = np.nanmean(h_means[i:])
             h_mat_error[i] = np.nanstd(h_means[i:])/np.sqrt(len(h_means)-i)
         else:
-            h_mat[i] = np.nanmean(h_means[(i-2):(i+2)]) 
+            h_mat[i] = np.nanmean(h_means[(i-2):(i+2)])
             h_mat_error[i] = np.nanstd(h_means[(i-2):(i+2)])/np.sqrt(4)
-            
+
     if vmin is None:
         vmin = np.nanmin(h_mat)
     if vmax is None:
         vmax = np.nanmax(h_mat)
 
-    
+
     # Now plot locations for each site
-    
+
     # left column + right column are identical
     el_shift = int(abs(max_shift)/3)
     tf=0
@@ -446,7 +446,7 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
             max_shift-=1
         elif max_shift>=0:
             max_shift+=1
-        
+
     lr_col = np.arange(0,(21+el_shift)*0.25,0.25)  # 25 micron vertical spacing
     left_ch_nums = np.arange(3,64+abs(max_shift),3)
     right_ch_nums = np.arange(4,65+abs(max_shift),3)
@@ -454,28 +454,28 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
     center_col = np.arange(-0.25,(20.25+el_shift)*.25,0.25)-0.125
     ch_nums = np.hstack((left_ch_nums, center_ch_nums, right_ch_nums))
     sort_inds = np.argsort(ch_nums)
-    
+
     l_col = np.vstack((np.ones(21+el_shift)*-0.2,lr_col))
     r_col = np.vstack((np.ones(21+el_shift)*0.2,lr_col))
     c_col = np.vstack((np.zeros(22+el_shift),center_col))
-    
+
     if l_col.shape[1]!=len(left_ch_nums):
         left_ch_nums = np.concatenate((left_ch_nums,[left_ch_nums[-1]+3]))
     if r_col.shape[1]!=len(right_ch_nums):
         right_ch_nums = np.concatenate((right_ch_nums,[left_ch_nums[-1]+3]))
     if c_col.shape[1]!=len(center_ch_nums):
-        center_ch_nums = np.concatenate((center_ch_nums,[left_ch_nums[-1]+3]))   
-    
-    ch_nums = np.hstack((left_ch_nums, center_ch_nums, right_ch_nums))    
+        center_ch_nums = np.concatenate((center_ch_nums,[left_ch_nums[-1]+3]))
+
+    ch_nums = np.hstack((left_ch_nums, center_ch_nums, right_ch_nums))
     sort_inds = np.argsort(ch_nums)
-    
+
     l_col = np.vstack((np.ones(21+el_shift)*-0.2,lr_col))
     r_col = np.vstack((np.ones(21+el_shift)*0.2,lr_col))
     c_col = np.vstack((np.zeros(22+el_shift),center_col))
-        
+
     locations = np.hstack((l_col,c_col,r_col))[:,sort_inds]
-    
-    
+
+
     locations[1,:] = 100*(locations[1,:])
     locations[0,:] = 3000*(locations[0,:]*0.2)
     print(h_mat_full.shape)
@@ -484,7 +484,7 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
         h_mat_scatter = np.concatenate((h_mat_full, np.full((np.shape(h_mat_full)[0],diff), np.nan)),axis=1)
         h_mat = np.concatenate((h_mat, np.full(diff,np.nan)))
         h_mat_error = np.concatenate((h_mat_error, np.full(diff,np.nan)))
-    
+
     if title is not None:
         plt.figure(title)
     else:
@@ -492,7 +492,7 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
     plt.subplot(142)
     plt.title('mean weights per channel')
     plt.scatter(locations[0,:],locations[1,:],facecolor='none',edgecolor='k',s=50)
-    
+
     indexes = [x[0] for x in np.argwhere(~np.isnan(h_mat))]
     # plot the colors
     import matplotlib
@@ -505,17 +505,17 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
                           c=colors,vmin=vmin,vmax=vmax,s=50,edgecolor='none')
     plt.colorbar(mappable) #,orientation='vertical',fraction=0.04, pad=0.0)
     #plt.axis('scaled')
-    plt.xlim(-500,500)  
+    plt.xlim(-500,500)
     plt.axis('off')
-    
+
     # Add dashed line at "layer IV"
     plt.plot([-250, 250], [locations[1][l4_zero]+75, locations[1][l4_zero]+75],
              linestyle='-', color='k', lw=4,alpha=0.3)
     plt.plot([-250, 250], [locations[1][l4_zero]-75, locations[1][l4_zero]-75],
              linestyle='-', color='k', lw=4,alpha=0.3)
-    
+
     # plot conditional density
-    
+
     h_kde = h_mat.copy()
     sigma = 3
     h_kde[np.isnan(h_mat)]=0
@@ -535,7 +535,7 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
     for i in range(0, h_mat_scatter.shape[0]):
         plt.plot(-h_mat_scatter[i,:],locations[1,:],'.')
     #plt.axis('off')
-    
+
     # plot binned histogram for each layer
     plt.subplot(222)
     l4_shift = locations[1][l4_zero]
@@ -547,10 +547,10 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
     step = 18
     sets = int(h_mat_full.shape[1]/step)+1
     print('number of {1} bins: {0}'.format(sets, width_string))
-    
+
     si = 0
     legend_strings = []
-    w = []    
+    w = []
     for i in range(0, sets):
         if si+width > h_mat_full.shape[1]:
             w.append(h_mat_full[:,si:][~np.isnan(h_mat_full[:,si:])])
@@ -562,40 +562,40 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
             plt.hist(w[i],alpha=0.5)
             legend_strings.append(str(int(100*si/3*0.25))+', '+str(int(100*(si+width)/3*0.25))+'um')
             si+=step
-                      
+
     plt.legend(legend_strings[::-1])
     plt.xlabel('weight')
     plt.ylabel('counts per {0} bin'.format(width_string))
-    
+
     plt.subplot(224)
     mw = []
     mw_error = []
     for i in range(0, sets):
         mw.append(np.nanmean(w[i]))
         mw_error.append(np.nanstd(w[i])/np.sqrt(len(w[i])))
-    
+
     plt.bar(np.arange(0,sets), mw, yerr=mw_error, facecolor='k',alpha=0.5)
-    plt.xticks(np.arange(0,sets), legend_strings, rotation=45)    
+    plt.xticks(np.arange(0,sets), legend_strings, rotation=45)
     plt.xlabel('Window')
     plt.ylabel('Mean weight')
-    
+
     plt.tight_layout()
-    
-    
+
+
 def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
-    
+
     # for case where given single array
     if type(h) is not list:
         h = [h]
     if type(cellids) is not list:
         cellids = [cellids]
-    if l4 is not None and type(l4) is not list:    
-        l4 = [l4] 
+    if l4 is not None and type(l4) is not list:
+        l4 = [l4]
     if (depth_list is not None) & (type(depth_list) is not list):
         depth_list = [depth_list]
-    
+
     l4_zero = 48  # arbitrary - just used to align everything to center of layer four
-    
+
     if depth_list is None:
         # Define depth for each electrode
         lr_col = np.arange(0,21*0.25,0.25)          # 25 micron vertical spacing
@@ -605,17 +605,17 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
         center_ch_nums = np.insert(np.arange(5, 63, 3),obj=slice(0,1),values =[1,2],axis=0)
         ch_nums = np.hstack((left_ch_nums, center_ch_nums, right_ch_nums))
         sort_inds = np.argsort(ch_nums)
-        
+
         # define locations of all electrodes
         l_col = np.vstack((np.ones(21)*-0.2,lr_col))
         r_col = np.vstack((np.ones(21)*0.2,lr_col))
         c_col = np.vstack((np.zeros(22),center_col))
         locations = np.hstack((l_col,c_col,r_col))[:,sort_inds]
-    
+
         chan_depth_weight=[]
         l4_depth = round(0.25*((l4_zero)/3)*100,2)
         l4_depth_ = round(0.25*((l4_zero)/3),2)
-        # Assign each channel in each recording a depth    
+        # Assign each channel in each recording a depth
         for i in range(0, len(h)):
             chans = np.array([int(x[-4:-2]) for x in cellids[i]])
             l4_loc = locations[1,l4[i]]
@@ -628,8 +628,8 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
                 try:
                     fs.append(nd.get_wft(c))
                 except:
-                    fs.append(-1)    
-            
+                    fs.append(-1)
+
             chan_depth_weight.append(pd.DataFrame(data=np.vstack((chans, depths, w, fs)).T,
                              columns=['chans','depths', 'weights', 'wft']))
     elif depth_list is not None:
@@ -637,7 +637,7 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
         l4_depth = l4_depth = 0.25*int((l4_zero)/3)*100
         for i in range(0, len(h)):
             chans = np.array([int(x[-4:-2]) for x in cellids[i]])
-            depths = np.array(depth_list[i]) 
+            depths = np.array(depth_list[i])
             w = h[i]
             fs = []
             for c in cellids[i]:
@@ -647,10 +647,10 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
                     fs.append(-1)
             chan_depth_weight.append(pd.DataFrame(data=np.vstack((chans, depths, w, fs)).T,
                              columns=['chans','depths', 'weights', 'wft']))
-    
-    chan_depth_weight = pd.concat(chan_depth_weight)    
+
+    chan_depth_weight = pd.concat(chan_depth_weight)
     chan_depth_weight['depths'] = chan_depth_weight['depths']*100
-    
+
     # shift depths so that top of layer four is at 400um and depths count down
     top_l4 = l4_depth + 100
     chan_depth_weight['depth_adjusted'] = chan_depth_weight['depths'] - top_l4 - 400
@@ -661,17 +661,22 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
     else:
         chan_depth_weight['depths'] = chan_depth_weight['depths']-mi
         l4_depth -= mi
-    
+
     # bin into 200um chunks, overlapping by 100um, for bar plot
     step_size = 100
     bin_size = 100
-    m = chan_depth_weight.max()['depths']
-    nBins = int(m/step_size)+1
     wBinned = []
     wError = []
     xlabels = []
+
     start = int(chan_depth_weight.min()['depth_adjusted'])
-    end = int(chan_depth_weight.max()['depth_adjusted'])
+    m = chan_depth_weight.max()['depths']
+    nBins = int(m/step_size)+1
+    nBins = int(np.floor((chan_depth_weight.max()['depth_adjusted'] -
+                          chan_depth_weight.min()['depth_adjusted'])/step_size))
+    end = int(start + nBins * step_size)
+    # end = int(chan_depth_weight.max()['depth_adjusted'])
+
     for i in np.arange(start, end, step_size):
         w = chan_depth_weight[(chan_depth_weight['depth_adjusted']>i).values & (chan_depth_weight['depth_adjusted']<(i+bin_size)).values]
         mw = w.mean()['weights']
@@ -680,11 +685,11 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
         wError.append(sd)
         xlabels.append(str(i)+' - '+str(i+bin_size)+' um')
         #xlabels.append(str(i*step_size)+' - '+str((i*step_size)+bin_size)+' um')
-    
+
     # fine binning for sliding window
     step_size=5
     bin_size=50
-    nWindows = int(m/step_size)    
+    nWindows = int(m/step_size)
     depthBin = []
     m_sw = []
     e_sw = []
@@ -696,7 +701,7 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
             m_sw.append(mw)
             e_sw.append(sd)
             depthBin.append(np.mean([i, i+bin_size]))
-   
+
     sigma = 1
     m_sw = sf.gaussian_filter1d(np.array(m_sw), sigma)
     e_sw = sf.gaussian_filter1d(np.array(e_sw), sigma)
@@ -710,7 +715,7 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
             plt.plot(-chan_depth_weight.iloc[i]['weights'], chan_depth_weight.iloc[i]['depth_adjusted'], color='r',marker='.')
         else:
             plt.plot(-chan_depth_weight.iloc[i]['weights'], chan_depth_weight.iloc[i]['depth_adjusted'], color='k',marker='.')
-        
+
     plt.fill_betweenx(depthBin, -(e_sw+m_sw), e_sw+-m_sw ,alpha=0.3, facecolor='k')
     plt.axvline(0, color='k',linestyle='--')
     plt.axhline(-600, color='Grey', lw=2)

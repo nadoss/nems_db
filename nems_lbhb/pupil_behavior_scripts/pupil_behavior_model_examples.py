@@ -28,8 +28,8 @@ RELOAD = True
 batch = 301
 loader = "psth"
 fitter = "basic-nf"
-#compare = "pp"   # pre/post + pupil interaction
-compare = "pb"   # active/passive + pupil interaction
+compare = "pp"   # pre/post + pupil interaction
+#compare = "pb"   # active/passive + pupil interaction
 
 # end of user parameters
 
