@@ -4,44 +4,9 @@ import re
 log = logging.getLogger(__name__)
 
 
-# template:
-#
-# user creates file with this function:
-#
-# def mykeyword(loadkey, recording_uri):
-#     xfspec=[]
-#     return xfspec
-#
-#
-# user adds this to nems configuration:
-#
-# nems.config.settings.loader_plugins = ['mylib']
-# then xform_helper finds out where loader plug-ins are and
-# adds them:
-#
-# loader_lib.register_plugins('mylib')
-
-
-def _aliased_loader(fn, loadkey):
-    '''Forces the keyword fn to use the given loadkey. Used for implementing
-    backwards compatibility with old keywords that did not follow the
-    <all-alpha kw_head><numbers> paradigm.
-    '''
-    def ignorant_loader(ignored_key, recording_uri):
-        return fn(loadkey, recording_uri)
-    return ignorant_loader
-
-# TODO: Add aliases for backwards compatibility
-
-# TODO: Some of the loader patterns should really be refactored for the new
-#       system, but holding off for now since we might be separating
-#       the lbhb loading side from preprocessing functions.
-#       ex: ozgf.100ch18 should become ozgf.fs100.ch18
-
-
 def ozgf(loadkey, recording_uri):
     recordings = [recording_uri]
-    pattern = re.compile(r'^ozgf\.?(\d{1,})ch(\d{1,})(\w*)?')
+    pattern = re.compile(r'^ozgf\.fs(\d{1,}).ch(\d{1,})([a-zA-Z0-9\.]*)?')
     parsed = re.match(pattern, loadkey)
     # TODO: fs and chans useful for anything for the loader? They don't
     #       seem to be used here, only in the baphy-specific stuff.
@@ -76,22 +41,22 @@ def ozgf(loadkey, recording_uri):
 
 
 def env(loadkey, recording_uri):
-    pattern = re.compile(r'^env\.(\d{1,})([a-zA-Z0-9\.]*)$')
+    pattern = re.compile(r'^env\.fs(\d{1,})([a-zA-Z0-9\.]*)$')
     parsed = re.match(pattern, loadkey)
     fs = parsed.group(1)
     options = parsed.group(2)
 
     normalize = ('n' in options)
     pt = ('pt' in options)
-    state = ('s' in options)
     mask = ('m' in options)
 
     recordings = [recording_uri]
     state_signals, permute_signals, _ = _state_model_loadkey_helper(loadkey)
+    use_state = (state_signals or permute_signals)
 
     xfspec = [['nems.xforms.load_recordings',
                {'recording_uri_list': recordings, 'normalize': normalize}]]
-    if state:
+    if use_state:
         xfspec.append(['nems.xforms.make_state_signal',
                        {'state_signals': state_signals,
                         'permute_signals': permute_signals,
@@ -99,7 +64,7 @@ def env(loadkey, recording_uri):
         if mask:
             xfspec.append(['nems.xforms.remove_all_but_correct_references',
                            {}])
-    if pt:
+    elif pt:
         xfspec.append(['nems.xforms.use_all_data_for_est_and_val', {}])
     else:
         xfspec.extend([['nems.xforms.split_by_occurrence_counts',
@@ -110,14 +75,13 @@ def env(loadkey, recording_uri):
 
 
 def psth(loadkey, recording_uri):
-    pattern = re.compile(r'^psth\.?([s,m]{0,})(\d{0,})(\w{0,})$')
+    pattern = re.compile(r'^psth\.(\d{1,})([a-zA-Z0-9\.]*)$')
     parsed = re.match(pattern, loadkey)
-    pre_options = parsed.group(1)
-    n = parsed.group(2)  # TODO: what is this?
-    post_options = parsed.group(3)
-    smooth = ('s' in pre_options)
-    mask = ('m' in pre_options)
-    tar = ('tar' in post_options)
+    options = parsed.group(2)
+    fs = parsed.group(1)
+    smooth = ('s' in options)
+    mask = ('m' in options)
+    tar = ('tar' in options)
 
     recordings = [recording_uri]
     epoch_regex = '^STIM_'
@@ -157,9 +121,9 @@ def nostim(loadkey, recording_uri):
 
 
 def evt(loadkey, recording_uri):
-    pattern = re.compile(r'^evt\.?(\d{0,})\.?(\w{0,})$')
+    pattern = re.compile(r'^evt\.fs(\d{0,})\.?(\w{0,})$')
     parsed = re.match(pattern, loadkey)
-    n = parsed.group(1)  # what is this?
+    fs = parsed.group(1)  # what is this?
     state = parsed.group(2)  # handled by _state_model_loadkey_helper right now.
     recordings = [recording_uri]
 
@@ -318,3 +282,23 @@ def _state_model_loadkey_helper(loader):
             permute_signals = []
 
     return state_signals, permute_signals, epoch2_shuffle
+
+
+def _aliased_loader(fn, loadkey):
+    '''Forces the keyword fn to use the given loadkey. Used for implementing
+    backwards compatibility with old keywords that did not follow the
+    <kw_head>.<option1>.<option2> paradigm.
+    '''
+    def ignorant_loader(ignored_key, recording_uri):
+        return fn(loadkey, recording_uri)
+    ignorant_loader.key = loadkey
+    return ignorant_loader
+
+
+# NOTE: Using the new keyword syntax is encouraged since it improves
+#       readability; however, for exceptionally long keywords or ones
+#       that get used very frequently, aliases can be implemented as below.
+#       If your alias is causing errors, ask Jacob for help.
+
+
+ozgf1 = _aliased_loader(ozgf, 'ozgf.fs100.ch18')

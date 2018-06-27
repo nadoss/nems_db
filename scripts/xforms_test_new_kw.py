@@ -20,7 +20,8 @@ import nems.utils
 #import nems_db.baphy as nb
 import nems_db.db as nd
 import nems_db.xform_wrappers as nw
-
+from nems_lbhb.old_xforms.xform_wrappers import generate_recording_uri as ogru
+import nems_lbhb.old_xforms.xform_helper as oxfh
 import logging
 log = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ log = logging.getLogger(__name__)
 
 cellid = 'TAR010c-18-1'
 batch = 271
-modelname = 'ozgf.100ch18_dlog-wc.18x1.g-fir.1x15-lvl.1-dexp.1_basic'
+modelname = 'ozgf.fs100.ch18_dlog-wc.18x1.g-fir.1x15-lvl.1-dexp.1_basic'
 
 #cellid = 'ley046f-01-1'
 #batch = 309
@@ -39,6 +40,8 @@ modelname = 'ozgf.100ch18_dlog-wc.18x1.g-fir.1x15-lvl.1-dexp.1_basic'
 
 #cellid = 'sti019b-d1'
 #batch = 274
+# TODO: this one seems a bit screwy. ask svd?
+#modelname = 'env.100.m.beh_wc.2x15-fir.15x2-lvl.2-mrg_basic.st.nf5'
 #modelname = 'envm100beh_rep2_fir2x2x15_lvl2_mrg_state01-jkm'
 #modelname = 'envm100beh_fir2x15_lvl1_rep2_dexp2_mrg_state01-jkm'
 #modelname = 'env100beh_fir2x15_lvl1_rep2_dexp2_mrg_state01-jk'
@@ -52,6 +55,13 @@ modelname = 'ozgf.100ch18_dlog-wc.18x1.g-fir.1x15-lvl.1-dexp.1_basic'
 #batch = 289
 #modelname = 'ozgf100ch18pup_dlog_wcg18x1_fir1x15_lvl1_dexp1_basic-nf'
 
+#batch = 307
+#cellid = 'TAR010c-60-1'
+#cellid = 'BRT026c-16-1'
+#modelname = 'evt20pup0beh0tarlic_firNx40_lvl1_stategain3_basic-nf'
+#modelname = 'evt20pupbehtarlic0_firNx40_lvl1_stategain3_basic-nf'
+
+
 autoPlot = True
 saveInDB = False
 
@@ -60,21 +70,37 @@ log.info('Initializing modelspec(s) for cell/batch %s/%d...',
 
 # Segment modelname for meta information
 kws = modelname.split("_")
-loader = kws[0].split('-')[0]
-modelspecname = "_".join(kws[1:-1])
+old = False
+if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')):
+    # Check if modelname uses old format.
+    log.info("Using old modelname format ... ")
+    old = True
+    modelspecname = '_'.join(kws[1:-1])
+else:
+    modelspecname = "-".join(kws[1:-1])
+loadkey = kws[0]
 fitkey = kws[-1]
 
 meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
-        'loader': loader, 'fitkey': fitkey, 'modelspecname': modelspecname,
+        'loader': loadkey, 'fitkey': fitkey, 'modelspecname': modelspecname,
         'username': 'nems', 'labgroup': 'lbhb', 'public': 1,
         'githash': os.environ.get('CODEHASH', ''),
-        'recording': loader}
+        'recording': loadkey}
 
-recording_uri = nw.generate_recording_uri(cellid, batch, loader)
-
-# generate xfspec, which defines sequence of events to load data,
-# generate modelspec, fit data, plot results and save
-xfspec = xhelp.generate_xforms_spec(recording_uri, modelname)
+if old:
+    recording_uri = ogru(cellid, batch, loadkey)
+    xfspec = oxfh.generate_loader_xfspec(loadkey, recording_uri)
+    xfspec.append(['nems_lbhb.old_xforms.xforms.init_from_keywords',
+                   {'keywordstring': modelspecname, 'meta': meta}])
+    xfspec.extend(oxfh.generate_fitter_xfspec(fitkey))
+    xfspec.append(['nems.analysis.api.standard_correlation', {},
+                   ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
+    if autoPlot:
+        log.info('Generating summary plot ...')
+        xfspec.append(['nems.xforms.plot_summary', {}])
+else:
+    recording_uri = nw.generate_recording_uri(cellid, batch, loadkey)
+    xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta)
 
 
 # Create a log stream set to the debug level; add it as a root log handler

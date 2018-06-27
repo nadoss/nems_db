@@ -24,6 +24,8 @@ from nems.recording import Recording
 from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
 import nems.xforms as xforms
 import nems.xform_helper as xhelp
+from nems_lbhb.old_xforms.xform_wrappers import generate_recording_uri as ogru
+import nems_lbhb.old_xforms.xform_helper as oxfh
 
 import logging
 log = logging.getLogger(__name__)
@@ -84,7 +86,7 @@ def generate_recording_uri(cellid, batch, loader):
         return options
 
     if loader.startswith('ozgf'):
-        pattern = re.compile(r'^ozgf\.(\d{1,})ch(\d{1,})(\w*)?$')
+        pattern = re.compile(r'^ozgf\.fs(\d{1,})\.ch(\d{1,})(\w*)?$')
         parsed = re.match(pattern, loader)
         # TODO: fs and chans useful for anything for the loader? They don't
         #       seem to be used here, only in the baphy-specific stuff.
@@ -110,17 +112,16 @@ def generate_recording_uri(cellid, batch, loader):
         options.update(_parm_helper(fs, pupil))
 
     elif loader.startswith('psth'):
-        pattern = re.compile(r'^psth(s?)\.(\d{1,})(\w*)?$')
+        pattern = re.compile(r'^psth\.fs(\d{1,})([a-zA-Z0-9\.]*)?$')
         parsed = re.match(pattern, loader)
-        state = parsed.group(1)  # not relevant here?
-        fs = parsed.group(2)
-        ops = parsed.group(3)
+        fs = parsed.group(1)
+        ops = parsed.group(2)
         pupil = ('pup' in ops)
 
         options.update(_parm_helper(fs, pupil))
 
     elif loader.startswith('evt'):
-        pattern = re.compile(r'^evt\.(\d{1,})(\w*)?$')
+        pattern = re.compile(r'^evt\.fs(\d{1,})([a-zA-Z0-9\.]*)?$')
         parsed = re.match(pattern, loader)
         fs = parsed.group(1)
         ops = parsed.group(2)
@@ -129,7 +130,7 @@ def generate_recording_uri(cellid, batch, loader):
         options.update(_parm_helper(fs, pupil))
 
     elif loader.startswith('env'):
-        pattern = re.compile(r'^env\.(\d{1,})([a-zA-Z0-9\.]*)$')
+        pattern = re.compile(r'^env\.fs(\d{1,})([a-zA-Z0-9\.]*)$')
         parsed = re.match(pattern, loader)
         fs = parsed.group(1)
         ops = parsed.group(2)  # nothing relevant here yet?
@@ -137,7 +138,7 @@ def generate_recording_uri(cellid, batch, loader):
         options.update({'rasterfs': fs, 'stimfmt': 'envelope', 'chancount': 0})
 
     else:
-        raise ValueError('unknown loader string')
+        raise ValueError('unknown loader string: %s' % loader)
 
     # recording_uri = get_recording_uri(cellid, batch, options)
     recording_uri = get_recording_file(cellid, batch, options)
@@ -176,21 +177,37 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
 
     # Segment modelname for meta information
     kws = modelname.split("_")
-    loader = kws[0].split('-')[0]
-    modelspecname = "_".join(kws[1:-1])
+    old = False
+    if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')):
+        # Check if modelname uses old format.
+        log.info("Using old modelname format ... ")
+        old = True
+        modelspecname = '_'.join(kws[1:-1])
+    else:
+        modelspecname = "-".join(kws[1:-1])
+    loadkey = kws[0]
     fitkey = kws[-1]
 
     meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
-            'loader': loader, 'fitkey': fitkey, 'modelspecname': modelspecname,
+            'loader': loadkey, 'fitkey': fitkey, 'modelspecname': modelspecname,
             'username': 'nems', 'labgroup': 'lbhb', 'public': 1,
             'githash': os.environ.get('CODEHASH', ''),
-            'recording': loader}
+            'recording': loadkey}
 
-    recording_uri = generate_recording_uri(cellid, batch, loader)
-
-    # generate xfspec, which defines sequence of events to load data,
-    # generate modelspec, fit data, plot results and save
-    xfspec = xhelp.generate_xforms_spec(recording_uri, modelname)
+    if old:
+        recording_uri = ogru(cellid, batch, loadkey)
+        xfspec = oxfh.generate_loader_xfspec(loadkey, recording_uri)
+        xfspec.append(['nems_lbhb.old_xforms.xforms.init_from_keywords',
+                       {'keywordstring': modelspecname, 'meta': meta}])
+        xfspec.extend(oxfh.generate_fitter_xfspec(fitkey))
+        xfspec.append(['nems.analysis.api.standard_correlation', {},
+                       ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
+        if autoPlot:
+            log.info('Generating summary plot ...')
+            xfspec.append(['nems.xforms.plot_summary', {}])
+    else:
+        recording_uri = generate_recording_uri(cellid, batch, loadkey)
+        xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta)
 
     # actually do the fit
     ctx, log_xf = xforms.evaluate(xfspec)
