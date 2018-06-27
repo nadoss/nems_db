@@ -662,11 +662,15 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
         chan_depth_weight['depths'] = chan_depth_weight['depths']-mi
         l4_depth -= mi
 
-    # bin into 200um chunks, overlapping by 100um, for bar plot
+    # bin for bar plot
     step_size = 100
     bin_size = 100
     wBinned = []
     wError = []
+    w_fsBinned = []
+    w_rsBinned = []
+    w_fsError = []
+    w_rsError = []
     xlabels = []
 
     start = int(chan_depth_weight.min()['depth_adjusted'])
@@ -675,7 +679,9 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
     nBins = int(np.floor((chan_depth_weight.max()['depth_adjusted'] -
                           chan_depth_weight.min()['depth_adjusted'])/step_size))
     end = int(start + nBins * step_size)
-    # end = int(chan_depth_weight.max()['depth_adjusted'])
+
+    fs_df = chan_depth_weight[chan_depth_weight['wft'] == 1]
+    rs_df = chan_depth_weight[chan_depth_weight['wft'] != 1]
 
     for i in np.arange(start, end, step_size):
         w = chan_depth_weight[(chan_depth_weight['depth_adjusted']>i).values & (chan_depth_weight['depth_adjusted']<(i+bin_size)).values]
@@ -683,8 +689,20 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
         sd = w.std()['weights']/np.sqrt(len(w['weights']))
         wBinned.append(mw)
         wError.append(sd)
+
+        w = fs_df[(fs_df['depth_adjusted']>i).values & (fs_df['depth_adjusted']<(i+bin_size)).values]
+        mw = w.mean()['weights']
+        sd = w.std()['weights']/np.sqrt(len(w['weights']))
+        w_fsBinned.append(mw)
+        w_fsError.append(sd)
+
+        w = rs_df[(rs_df['depth_adjusted']>i).values & (rs_df['depth_adjusted']<(i+bin_size)).values]
+        mw = w.mean()['weights']
+        sd = w.std()['weights']/np.sqrt(len(w['weights']))
+        w_rsBinned.append(mw)
+        w_rsError.append(sd)
+
         xlabels.append(str(i)+' - '+str(i+bin_size)+' um')
-        #xlabels.append(str(i*step_size)+' - '+str((i*step_size)+bin_size)+' um')
 
     # fine binning for sliding window
     step_size=5
@@ -722,7 +740,14 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
     plt.axhline(-400, color='Grey', lw=2)
     plt.ylabel('depth from surface (um)')
     plt.xlabel('weights')
-    plt.subplot(122)
+
+    plt.subplot(222)
     plt.bar(np.arange(0, nBins), wBinned, yerr=wError,facecolor='Grey')
-    plt.xticks(np.arange(0, nBins), xlabels, rotation=45)
-    plt.title('layer VI depth: {0}'.format(l4_depth))
+
+    plt.title('layer IV depth: {0}'.format(l4_depth))
+
+    plt.subplot(224)
+    plt.bar(np.arange(0, nBins, 1), w_fsBinned, width=0.4, yerr=w_fsError,facecolor='Red')
+    plt.bar(np.arange(0.5, nBins, 1), w_rsBinned, width=0.4, yerr=w_rsError,facecolor='Black')
+    plt.xticks(np.arange(0, nBins,1), xlabels, rotation=45)
+    plt.legend(['fast-spiking', 'regular-spiking'])
