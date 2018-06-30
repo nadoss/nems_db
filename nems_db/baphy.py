@@ -1510,7 +1510,7 @@ def baphy_load_multichannel_recording(**options):
     options['pertrial'] = int(options.get('pertrial', False))
     options['includeprestim'] = options.get('includeprestim', 1)
 
-    options['pupil'] = int(options.get('pupil', True))
+    options['pupil'] = int(options.get('pupil', False))
     options['pupil_deblink'] = int(options.get('pupil_deblink', 1))
     options['pupil_median'] = int(options.get('pupil_median', 1))
     options['stim'] = int(options.get('stim', False))
