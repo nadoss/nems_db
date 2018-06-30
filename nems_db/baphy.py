@@ -13,14 +13,18 @@ import scipy.io
 import scipy.ndimage.filters
 import scipy.signal
 import numpy as np
+import json
 import sys
 import io
+import datetime
+import glob
 
 import pandas as pd
 import matplotlib.pyplot as plt
 import nems.signal
 import nems.recording
 import nems_db.db as db
+from nems.recording import Recording
 
 # TODO: Replace catch-all `except:` statements with except SpecificError,
 #       or add some other way to help with debugging them.
@@ -409,6 +413,7 @@ def baphy_load_pupil_trace(pupilfilepath, exptevents, **options):
         blink[blink <= 0] = 0
         onidx, = np.where(np.diff(blink) > 0)
         offidx, = np.where(np.diff(blink) < 0)
+
         if onidx[0] > offidx[0]:
             onidx = np.concatenate((np.array([0]), onidx))
         if len(onidx) > len(offidx):
@@ -1431,6 +1436,7 @@ def baphy_data_path(cellid=None, batch=None, **options):
 
     TODO: include options['site'] for multichannel recordings
     """
+    print(options)
 
     if cellid is not None:
         options['cellid'] = cellid
@@ -1477,3 +1483,118 @@ def baphy_data_path(cellid=None, batch=None, **options):
         rec.save(data_file)
 
     return data_file
+
+
+def baphy_load_multichannel_recording(**options):
+    """
+    TESTING - CRH 6/29/2018
+    Meant to function as a wrapper around baphy_data_path. Will find all cellids
+    matching the batch and site specified (and rawids if given). Then, will 
+    load their individual recordings and build a multi-channel recording from 
+    this and cache it and return the recording uri. 
+    The cache will also save a json file containing all the options information 
+    for the recording. If the recording has been loaded before with the same 
+    cellids and options, it will just be re-loaded from cache. 
+    IMPORTANT, we include the check for cellids because it's possible that data 
+    could get resorted and the same batch/site/options might no longer mean the
+    same cellids!
+    """
+    if options.get('batch') is None or options.get('site') is None:
+        raise ValueError("must provide cellid and batch")
+  
+    batch = options.get('batch')
+    site = options.get('site')
+    options['rasterfs'] = int(options.get('rasterfs', 100))
+    options['stimfmt'] = options.get('stimfmt', 'ozgf')
+    options['chancount'] = int(options.get('chancount', 18))
+    options['pertrial'] = int(options.get('pertrial', False))
+    options['includeprestim'] = options.get('includeprestim', 1)
+
+    options['pupil'] = int(options.get('pupil', True))
+    options['pupil_deblink'] = int(options.get('pupil_deblink', 1))
+    options['pupil_median'] = int(options.get('pupil_median', 1))
+    options['stim'] = int(options.get('stim', False))
+    options['runclass'] = options.get('runclass', None)
+    
+    # TODO - this really should be smarter - pad with Nans or something...
+    # For the time being...
+    # If rawids are not specificed, will only load cellids that are stable across
+    # all rawids matching this batch and site.
+    if options.get('rawid') is None:
+        # Query database to get the matching cellids and rawids
+        cellids, all_rawids = db.get_stable_batch_cellids(batch=batch,
+                                                          cellid=site)
+        options['rawid'] = options.get('rawid', all_rawids)
+    else:
+        cellids, _ = db.get_stable_batch_cellids(batch=batch,
+                                                 cellid=site,
+                                                 rawid=options['rawid'])
+    
+    unique_id = str(datetime.datetime.now()).split('.')[0].replace(' ', '-')
+    full_rec_uri = '/auto/users/hellerc/recordings/'+str(batch)+'/'+site+'_'+unique_id+'.tgz'
+    full_rec_meta = full_rec_uri.split('.')[0:-1][0]+'.json'
+    
+    # since all uri's will have a unique id, we don't check for the exact name existing, we look
+    # for something with the same batch/site and identical meta data (load options)
+    search_str = full_rec_meta.split('_')[0]
+    meta_data_files = glob.glob(search_str+'*'+'.json')
+    cache_exists=None
+    temp_options = options.copy()
+    temp_options['cellid'] = list(cellids)   # b/c this will get set later
+    for mdf in meta_data_files:
+        with open(mdf,'r') as fp:
+            x = json.load(fp)
+        if x == temp_options:
+            full_rec_meta = mdf
+            full_rec_uri = mdf.split('.')[0:-1][0]+'.tgz'
+            print('Found cached recording, returning {0}'.format(full_rec_uri))
+            cache_exists = True
+            continue
+            
+    if cache_exists is None:
+        for i, cellid in enumerate(cellids):
+            
+            options['cellid'] = cellid
+            rec_uri = baphy_data_path(**options)
+            rec = Recording.load(rec_uri)
+                
+            # build full response matrix
+            if i == 0:
+                resp = np.zeros((len(cellids), rec['resp'].rasterize().shape[1]))
+                resp[i,:] = rec['resp'].rasterize().as_continuous()
+            else:
+                resp[i,:] = rec['resp'].rasterize().as_continuous()
+                
+        # create the signal, assign channels, add to recording, cache
+        full_resp_signal = rec['resp'].rasterize()._modified_copy(resp)
+        full_resp_signal.chans = list(cellids)
+        
+        # make sure all signals are rasterized before storing in newrec
+        sig = dict()
+        for s in rec.signals.keys():
+            if isinstance(rec[s], nems.signal.PointProcess) and s != 'resp':
+                sig[s] = rec[s].rasterize()
+            else:
+                sig[s] = rec[s]
+                
+        newrec = Recording(sig)
+        newrec.add_signal(full_resp_signal)
+        # cache recording
+        newrec.save(full_rec_uri)                       
+        # cache meta data about loading
+        options['cellid'] = list(cellids)  # full list of cellids stored
+        with open(full_rec_meta,'w') as fp:
+            json.dump(options, fp)
+            
+        return full_rec_uri
+    
+    else:
+        return full_rec_uri
+    
+    
+    
+    
+    
+    
+    
+    
