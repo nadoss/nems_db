@@ -1436,7 +1436,6 @@ def baphy_data_path(cellid=None, batch=None, **options):
 
     TODO: include options['site'] for multichannel recordings
     """
-    print(options)
 
     if cellid is not None:
         options['cellid'] = cellid
