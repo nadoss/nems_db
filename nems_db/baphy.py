@@ -1528,6 +1528,15 @@ def baphy_load_multichannel_recording(**options):
         cellids, _ = db.get_stable_batch_cellids(batch=batch,
                                                  cellid=site,
                                                  rawid=options['rawid'])
+    if type(cellids[0]) is np.ndarray:
+        cellids = list(cellids[0])  # full list of cellids stored
+    elif type(cellids[0]) is str and type(cellids) is np.ndarray:
+        cellids = list(cellids)
+    elif type(cellids) is list:
+        cellids = cellids
+    else:
+        raise ValueError("what's going on?")
+
     
     unique_id = str(datetime.datetime.now()).split('.')[0].replace(' ', '-')
     full_rec_uri = '/auto/users/hellerc/recordings/'+str(batch)+'/'+site+'_'+unique_id+'.tgz'
@@ -1538,8 +1547,9 @@ def baphy_load_multichannel_recording(**options):
     search_str = full_rec_meta.split('_')[0]
     meta_data_files = glob.glob(search_str+'*'+'.json')
     cache_exists=None
+    
     temp_options = options.copy()
-    temp_options['cellid'] = list(cellids)   # b/c this will get set later
+    temp_options['cellid'] = cellids
     for mdf in meta_data_files:
         with open(mdf,'r') as fp:
             x = json.load(fp)
@@ -1552,7 +1562,6 @@ def baphy_load_multichannel_recording(**options):
             
     if cache_exists is None:
         for i, cellid in enumerate(cellids):
-            
             options['cellid'] = cellid
             rec_uri = baphy_data_path(**options)
             rec = Recording.load(rec_uri)
@@ -1566,7 +1575,7 @@ def baphy_load_multichannel_recording(**options):
                 
         # create the signal, assign channels, add to recording, cache
         full_resp_signal = rec['resp'].rasterize()._modified_copy(resp)
-        full_resp_signal.chans = list(cellids)
+        full_resp_signal.chans = cellids
         
         # make sure all signals are rasterized before storing in newrec
         sig = dict()
@@ -1581,7 +1590,8 @@ def baphy_load_multichannel_recording(**options):
         # cache recording
         newrec.save(full_rec_uri)                       
         # cache meta data about loading
-        options['cellid'] = list(cellids)  # full list of cellids stored
+        options['cellid'] = cellids
+            
         with open(full_rec_meta,'w') as fp:
             json.dump(options, fp)
             
