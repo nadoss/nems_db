@@ -882,7 +882,7 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
 
     cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
 
-    return cellids
+    return cellids, list(rawid)
 
 
 def get_wft(cellid=None):
