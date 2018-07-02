@@ -12,12 +12,13 @@ import nems_db.xform_wrappers as nw
 import nems.plots.api as nplt
 import nems.xforms as xforms
 
-params = {'legend.fontsize': 8,
+font_size=12
+params = {'legend.fontsize': font_size,
           'figure.figsize': (8, 6),
-          'axes.labelsize': 8,
-          'axes.titlesize': 8,
-          'xtick.labelsize': 8,
-          'ytick.labelsize': 8,
+          'axes.labelsize': font_size,
+          'axes.titlesize': font_size,
+          'xtick.labelsize': font_size,
+          'ytick.labelsize': font_size,
           'pdf.fonttype': 42,
           'ps.fonttype': 42}
 
@@ -207,6 +208,34 @@ def beta_comp_cols(g, b, n1='A', n2='B', hist_bins=20,
     plt.tight_layout()
 
 
+def state_mod_index(rec, epoch='REFERENCE', psth_name='resp',
+                    state_sig='pupil'):
+
+    full_psth = rec[psth_name]
+    folded_psth = full_psth.extract_epoch(epoch)
+
+    full_var = rec['state'].loc[state_sig]
+    folded_var = np.squeeze(full_var.extract_epoch(epoch))
+
+    # compute the mean state for each occurrence
+    m = np.nanmean(folded_var, axis=1)
+
+    # compute the mean state across all occurrences
+    mean = np.nanmean(m)
+
+    # low = response on epochs when state less than mean
+    if np.sum(m < mean):
+        low = np.nanmean(folded_psth[m < mean, :, :], axis=0).T
+    else:
+        low = np.ones(folded_psth[0, :, :].shape).T * np.nan
+
+    # high = response on epochs when state less than mean
+    high = np.nanmean(folded_psth[m >= mean, :, :], axis=0).T
+    mod1 = np.sum(high - low) / np.sum(high + low)
+
+    return mod1
+
+
 def _state_var_psth_from_epoch_difference(
         rec, epoch='REFERENCE', psth_name='resp', psth_name2='pred',
         state_sig='pupil'):
@@ -235,7 +264,6 @@ def _state_var_psth_from_epoch_difference(
         low2 = np.ones(folded_psth2[0, :, :].shape).T * np.nan
 
     # high = response on epochs when state less than mean
-    title = state_sig
     high = np.nanmean(folded_psth[m >= mean, :, :], axis=0).T
     high2 = np.nanmean(folded_psth2[m >= mean, :, :], axis=0).T
 

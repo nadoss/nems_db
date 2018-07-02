@@ -264,10 +264,10 @@ for cellid,batch in zip(cellids,batches):
 
 f=plt.figure(figsize=(6,8))
 ax=plt.subplot(3,2,1)
-d=[('passive',np.concatenate(passive,axis=1)),
-   ('active',np.concatenate(active,axis=1))]
-#d=[('passive',np.concatenate(passive_full,axis=1)),
-#   ('active',np.concatenate(active_full,axis=1))]
+#d=[('passive',np.concatenate(passive,axis=1)),
+#   ('active',np.concatenate(active,axis=1))]
+d=[('passive',np.concatenate(passive_full,axis=1)),
+   ('active',np.concatenate(active_full,axis=1))]
 ev_pupil_plot(d, title="beh vs. d_pupil", fs=fs, prestimsilence=presilence,
               ax=ax,
               linecolors=[sp.line_colors['passive'],sp.line_colors['active']],
@@ -314,12 +314,12 @@ ev_pupil_plot(d, title="difficulty vs. d_pupil", fs=fs, prestimsilence=presilenc
 
 
 ax=plt.subplot(3,2,5)
-d=[('fas',np.concatenate(fas,axis=1)),
-   ('hits',np.concatenate(hits,axis=1)),
-   ('misses',np.concatenate(misses,axis=1))]
-#d=[('fas',np.concatenate(fas_full,axis=1)),
-#   ('hits',np.concatenate(hits_full,axis=1)),
-#   ('misses',np.concatenate(misses_full,axis=1))]
+#d=[('fas',np.concatenate(fas,axis=1)),
+#   ('hits',np.concatenate(hits,axis=1)),
+#   ('misses',np.concatenate(misses,axis=1))]
+d=[('fas',np.concatenate(fas_full,axis=1)),
+   ('hits',np.concatenate(hits_full,axis=1)),
+   ('misses',np.concatenate(misses_full,axis=1))]
 lc=[sp.line_colors['false_alarm'],sp.line_colors['hit'],sp.line_colors['miss']]
 fc=[sp.fill_colors['false_alarm'],sp.fill_colors['hit'],sp.fill_colors['miss']]
 ev_pupil_plot(d, title="performance vs. d_pupil", fs=fs, prestimsilence=presilence,

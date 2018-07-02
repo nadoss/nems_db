@@ -24,12 +24,12 @@ import nems.plots.api as nplt
 sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
 
 # User parameters:
-RELOAD = True
-batch = 301
+RELOAD = False
+batch = 309
 loader = "psth"
 fitter = "basic-nf"
-compare = "pp"   # pre/post + pupil interaction
-#compare = "pb"   # active/passive + pupil interaction
+#compare = "pp"   # pre/post + pupil interaction
+compare = "pb"   # active/passive + pupil interaction
 
 # end of user parameters
 
