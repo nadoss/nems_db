@@ -181,7 +181,8 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     # Segment modelname for meta information
     kws = modelname.split("_")
     old = False
-    if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')):
+    if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')
+                          and not kws[1].startswith('stategain.')):
         # Check if modelname uses old format.
         log.info("Using old modelname format ... ")
         old = True
