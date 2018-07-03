@@ -57,7 +57,7 @@ def get_recording_uri(cellid, batch, options={}):
     return url
 
 
-def generate_recording_uri(cellid, batch, loader):
+def generate_recording_uri(cellid, batch, loadkey):
     """
     figure out filename (or eventually URI) of pre-generated
     NEMS-format recording for a given cell/batch/loader string
@@ -84,6 +84,9 @@ def generate_recording_uri(cellid, batch, loader):
             options['pupil'] = False
 
         return options
+
+    # remove any preprocessing keywords in the loader string.
+    loader = loadkey.split("-")[0]
 
     if loader.startswith('ozgf'):
         pattern = re.compile(r'^ozgf\.fs(\d{1,})\.ch(\d{1,})(\w*)?$')
@@ -266,84 +269,3 @@ def quick_inspect(cellid="chn020f-b1", batch=271,
     nplt.plot_summary(val, modelspecs)
 
     return modelspecs, est, val
-
-
-"""
-# SPN example
-cellid='btn144a-c1'
-batch=259
-modelname="env100_fir15x2_dexp1_fit01"
-
-# A1 RDT example
-cellid = 'zee021e-c1'
-batch=269
-modelname = "ozgf100ch18pt_wc18x1_fir15x1_lvl1_dexp1_fit01"
-savepath = fit_model_baphy(cellid=cellid, batch=batch, modelname=modelname,
-                           autoPlot=False, saveInDB=True)
-modelspec,est,val=load_model_baphy(savepath)
-
-# A1 VOC+pupil example
-cellid = 'eno053f-a1'
-batch=294
-modelname = "ozgf100ch18pup_pup_psth_stategain2_fit02"
-savepath = fit_model_baphy(cellid=cellid, batch=batch, modelname=modelname,
-                           autoPlot=False, saveInDB=True)
-modelspec,est,val=load_model_baphy(savepath)
-
-
-# A1 NAT + pupil example
-cellid = 'TAR010c-18-1'
-batch=289
-modelname = "ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01"
-
-savepath = fit_model_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-modelspec,est,val=load_model_baphy(savepath)
-
-# IC NAT example
-cellid = "bbl031f-a1"
-batch=291
-modelname = "ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"
-
-savepath = fit_model_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-modelspec,est,val=load_model_baphy(savepath)
-"""
-
-
-# A1 NAT + pupil example
-"""
-cellid = 'TAR010c-18-1'
-batch=289
-modelname = "ozgf100ch18pup_wcg18x1_fir1x15_lvl1_stategain2_fitjk01"
-ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-
-"""
-
-
-# A1 NAT example
-"""
-
-cellid = 'zee019b-b1'
-batch=271
-modelname = "ozgf100ch18_dlog_wcg18x1_fir1x15_lvl1_dexp1_fit01"
-ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-
-savepath = fit_model_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-
-modelspec,est,val=load_model_baphy(savepath)
-
-"""
-
-# A1 VOC+pup example
-"""
-cellid = 'eno052d-a1'
-batch=294
-modelname = "nostim10pup_stategain2_fitpjk01"
-ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-"""
-
-"""
-cellid = 'TAR010c-06-1'
-batch=301
-modelname = "nostim10pup_stategain2_fitpjk01"
-ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-"""
