@@ -12,12 +12,13 @@ import nems_db.xform_wrappers as nw
 import nems.plots.api as nplt
 import nems.xforms as xforms
 
-params = {'legend.fontsize': 8,
+font_size=12
+params = {'legend.fontsize': font_size,
           'figure.figsize': (8, 6),
-          'axes.labelsize': 8,
-          'axes.titlesize': 8,
-          'xtick.labelsize': 8,
-          'ytick.labelsize': 8,
+          'axes.labelsize': font_size,
+          'axes.titlesize': font_size,
+          'xtick.labelsize': font_size,
+          'ytick.labelsize': font_size,
           'pdf.fonttype': 42,
           'ps.fonttype': 42}
 
@@ -36,8 +37,8 @@ line_colors = {'actual_psth': (0,0,0),
                'post': (123/255, 104/255, 238/255),
                'hard': (196/255, 149/255, 44/255),
                'easy': (255/255, 206/255, 6/255),
-               'puretone': (247/255, 223/255, 164/255), 
-               'large': (44/255, 125/255, 61/255), 
+               'puretone': (247/255, 223/255, 164/255),
+               'large': (44/255, 125/255, 61/255),
                'small': (181/255, 211/255, 166/255)}
 fill_colors = {'actual_psth': (.8,.8,.8),
                'predicted_psth': 'pink',
@@ -52,8 +53,8 @@ fill_colors = {'actual_psth': (.8,.8,.8),
                'post': (123/255, 104/255, 238/255),
                'hard':  (229/255, 172/255, 57/255),
                'easy': (255/255, 225/255, 100/255),
-               'puretone': (255/255, 231/255, 179/255), 
-               'large': (69/255, 191/255, 89/255), 
+               'puretone': (255/255, 231/255, 179/255),
+               'large': (69/255, 191/255, 89/255),
                'small': (215/255, 242/255, 199/255)}
 
 
@@ -207,6 +208,34 @@ def beta_comp_cols(g, b, n1='A', n2='B', hist_bins=20,
     plt.tight_layout()
 
 
+def state_mod_index(rec, epoch='REFERENCE', psth_name='resp',
+                    state_sig='pupil'):
+
+    full_psth = rec[psth_name]
+    folded_psth = full_psth.extract_epoch(epoch)
+
+    full_var = rec['state'].loc[state_sig]
+    folded_var = np.squeeze(full_var.extract_epoch(epoch))
+
+    # compute the mean state for each occurrence
+    m = np.nanmean(folded_var, axis=1)
+
+    # compute the mean state across all occurrences
+    mean = np.nanmean(m)
+
+    # low = response on epochs when state less than mean
+    if np.sum(m < mean):
+        low = np.nanmean(folded_psth[m < mean, :, :], axis=0).T
+    else:
+        low = np.ones(folded_psth[0, :, :].shape).T * np.nan
+
+    # high = response on epochs when state less than mean
+    high = np.nanmean(folded_psth[m >= mean, :, :], axis=0).T
+    mod1 = np.sum(high - low) / np.sum(high + low)
+
+    return mod1
+
+
 def _state_var_psth_from_epoch_difference(
         rec, epoch='REFERENCE', psth_name='resp', psth_name2='pred',
         state_sig='pupil'):
@@ -235,7 +264,6 @@ def _state_var_psth_from_epoch_difference(
         low2 = np.ones(folded_psth2[0, :, :].shape).T * np.nan
 
     # high = response on epochs when state less than mean
-    title = state_sig
     high = np.nanmean(folded_psth[m >= mean, :, :], axis=0).T
     high2 = np.nanmean(folded_psth2[m >= mean, :, :], axis=0).T
 
@@ -462,17 +490,18 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
         pred_mod[i] = np.array([mod2_pb-mod2_p0b, mod2_pb-mod2_pb0])
         pred_mod_full[i] = np.array([mod2_pb0, mod2_p0b])
 
-    fh = plt.figure()
-    ax = plt.subplot(3, 1, 1)
-    nplt.state_vars_timeseries(val, ctx_pb['modelspecs'][0])
-    ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
-    ax.set_ylabel("{} r={:.3f}".format(factor0,
-                  ctx_p0b0['modelspecs'][0][0]['meta']['r_test']))
-
     col_count = len(factors) - 1
     psth_names_ctl = ["pred_p0b", "pred_pb0"]
     if state_colors is None:
-        state_colors = [None]*col_count
+        state_colors = [[None, None]]*col_count
+    print (state_colors)
+    fh = plt.figure()
+    ax = plt.subplot(3, 1, 1)
+    nplt.state_vars_timeseries(val, ctx_pb['modelspecs'][0],
+                               state_colors=[s[1] for s in state_colors])
+    ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
+    ax.set_ylabel("{} r={:.3f}".format(factor0,
+                  ctx_p0b0['modelspecs'][0][0]['meta']['r_test']))
 
     for i, var in enumerate(factors[1:]):
         ax = plt.subplot(3, col_count, col_count+i+1)
@@ -613,7 +642,8 @@ def pp_model_plot(cellid='TAR010c-06-1', batch=301,
                   modelname_pb]
     factors = [factor0, factor1, factor2]
     state_colors = [[line_colors['small'], line_colors['large']],
-                    [line_colors['pre'], line_colors['post']]]
+                    [line_colors['pre'], line_colors['post']],
+                    [line_colors['passive'], line_colors['active']]]
 
     fh, stats = _model_step_plot(cellid, batch, modelnames, factors,
                                  state_colors=state_colors)

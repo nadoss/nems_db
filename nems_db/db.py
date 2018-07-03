@@ -888,7 +888,14 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
 
     cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
 
-    return cellids
+    # Make sure cellids is a list
+    if type(cellids) is np.ndarray and type(cellids[0]) is np.ndarray:
+        cellids = list(cellids[0])
+    elif type(cellids) is np.ndarray:
+        cellids = list(cellids)
+    else:
+        pass
+    return cellids, list(rawid)
 
 
 def get_wft(cellid=None):
