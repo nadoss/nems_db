@@ -905,8 +905,11 @@ def get_wft(cellid=None):
 
     sql += " and cellid =%s"
     params = params+(cellid,)
-    
+
     d = pd.read_sql(sql=sql, con=engine, params=params)
+    if d.values[0][0] is None:
+        print('no waveform type information for {0}'.format(cellid))
+        return -1
     
     wft = json.loads(d.values[0][0])
     ## 1 is fast spiking, 0 is regular spiking

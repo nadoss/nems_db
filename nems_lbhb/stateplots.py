@@ -7,6 +7,8 @@ Created on Wed Apr 25 17:05:34 2018
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+import matplotlib.image as mpimg
 
 import nems_db.xform_wrappers as nw
 import nems.plots.api as nplt
@@ -145,6 +147,106 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     fh.canvas.set_window_title(old_title+': '+title)
 
     return fh
+
+
+def display_png(event, cellids, path):
+    ind = event.ind
+    if len(ind) > 1:
+        ind = [ind[0]]
+    else:
+        ind = ind
+    cell1 = cellids[ind]
+    print('cell1: {0}'.format(cell1))
+    print(ind)
+    #img = mpimg.imread(path+'/'+cell1[0]+'.png')
+    img = plt.imread(path+'/'+cell1[0]+'.png')
+    plt.figure(figsize=(15,10))
+    plt.imshow(img)
+
+
+def beta_comp_from_folder(beta1='r_pup', beta2='r_beh', n1='model1', n2='model2', hist_bins=20,
+              hist_range=[-1, 1], title='modelname/batch',
+              folder=None):
+    
+    if folder is None:
+        raise ValueError('Must specify the results folder!')
+    elif folder[-1] == '/':
+        folder = folder[:-1]
+        
+    results = pd.read_csv(folder+'/results.csv')
+    cellids = results['cellid'].values
+    
+    beta1 = results[beta1].values
+    beta2 = results[beta2].values
+    
+    nncells = np.isfinite(beta1) & np.isfinite(beta2)
+    beta1 = beta1[nncells]
+    beta2 = beta2[nncells]
+    
+    # exclude cells without prepassive
+    outcells = ((beta1 > hist_range[1]) | (beta1 < hist_range[0]) |
+                (beta2 > hist_range[1]) | (beta2 < hist_range[0]))
+    goodcells = (np.abs(beta1) > 0) | (np.abs(beta2) > 0)
+
+    beta1[beta1 > hist_range[1]] = hist_range[1]
+    beta1[beta1 < hist_range[0]] = hist_range[0]
+    beta2[beta2 > hist_range[1]] = hist_range[1]
+    beta2[beta2 < hist_range[0]] = hist_range[0]
+
+    set1 = goodcells
+    
+    fh = plt.figure(figsize=(6, 6))
+
+    plt.subplot(2, 2, 3)
+    plt.plot(np.array(hist_range), np.array([0, 0]), 'k--')
+    plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
+    plt.plot(np.array(hist_range), np.array(hist_range), 'k--')
+    plt.plot(beta1[set1], beta2[set1], 'k.', picker=3)
+    plt.plot(beta1[outcells], beta2[outcells], '.', color='red')
+    plt.axis('equal')
+    plt.axis('tight')
+
+    plt.xlabel(n1)
+    plt.ylabel(n2)
+    plt.title(title)
+
+    fh.canvas.mpl_connect('pick_event', lambda event: display_png(event, cellids[set1], folder))
+
+    plt.subplot(2, 2, 1)
+    plt.hist([beta1[set1]], bins=hist_bins, range=hist_range,
+             histtype='bar', stacked=True,
+             color=['black'])
+    plt.title('mean={:.3f} abs={:.3f}'.
+              format(np.mean(beta1[goodcells]),
+                     np.mean(np.abs(beta1[goodcells]))))
+    plt.xlabel(n1)
+
+    ax = plt.subplot(2, 2, 4)
+    plt.hist([beta2[set1]], bins=hist_bins, range=hist_range,
+             histtype='bar', stacked=True, orientation="horizontal",
+             color=['black'])
+    plt.title('mean={:.3f} abs={:.3f}'.
+              format(np.mean(beta2[goodcells]),
+                     np.mean(np.abs(beta2[goodcells]))))
+    plt.xlabel(n2)
+
+    ax = plt.subplot(2, 2, 2)
+    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1])],
+             bins=hist_bins-1, range=[hist_range[0]/2,hist_range[1]/2],
+             histtype='bar', stacked=True,
+             color=['black'])
+    plt.title('mean={:.3f} abs={:.3f}'.
+              format(np.mean(beta2[goodcells]),
+                     np.mean(np.abs(beta2[goodcells]))))
+    plt.xlabel('difference')
+
+    plt.tight_layout()
+
+    old_title=fh.canvas.get_window_title()
+    fh.canvas.set_window_title(old_title+': '+title)
+
+    return fh
+
 
 def beta_comp_cols(g, b, n1='A', n2='B', hist_bins=20,
                   hist_range=[-1,1], title='modelname/batch',
