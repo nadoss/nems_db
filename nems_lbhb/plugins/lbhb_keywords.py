@@ -1,4 +1,22 @@
-from nems.plugins.default_keywords import wc, stp, dlog
+from nems.plugins.default_keywords import wc, fir
+
+
+def ctwc(kw):
+    '''
+    Same as nems.plugins.keywords.wc but renamed for contrast
+    to avoid confusion in the modelname and allow different
+    options to be supported if needed.
+    '''
+    return wc(kw)
+
+
+def ctfir(kw):
+    '''
+    Same as nems.plugins.keywords.fir but renamed for contrast
+    to avoid confusion in the modelname and allow different
+    options to be supported if needed.
+    '''
+    return fir(kw)
 
 
 def _aliased_keyword(fn, kw):
@@ -9,32 +27,3 @@ def _aliased_keyword(fn, kw):
     def ignorant_keyword(ignored_key):
         return fn(kw)
     return ignorant_keyword
-
-# Old keywords that are identical except for the period
-# (e.x. dexp1 vs dexp.1 or wc15x2 vs wc.15x2)
-# don't need to be aliased, but more complicated ones that had options
-# picked apart (like wc.NxN.n.g.c) will need to be aliased.
-
-
-wc_combinations = {}
-wcc_combinations = {}
-
-for n_in in (15, 18, 40):
-    for n_out in (1, 2, 3, 4):
-        for op in ('', 'g', 'g.n'):
-            old_k = 'wc%s%dx%d' % (op.strip('.'), n_in, n_out)
-            new_k = 'wc.%dx%d.%s' % (n_in, n_out, op)
-            wc_combinations[old_k] = _aliased_keyword(wc, new_k)
-
-for n_in in (1, 2, 3):
-    for n_out in (1, 2, 3, 4):
-        for op in ('c', 'n'):
-            old_k = 'wc%s%dx%d' % (op, n_in, n_out)
-            new_k = 'wc.%dx%d.%s' % (n_in, n_out, op)
-
-stp2b = _aliased_keyword(stp, 'stp.2.b')
-stpz2 = _aliased_keyword(stp, 'stp.2.z')
-stpn1 = _aliased_keyword(stp, 'stp.1.n')
-stpn2 = _aliased_keyword(stp, 'stp.2.n')
-dlogz = _aliased_keyword(stp, 'dlog')
-dlogf = _aliased_keyword(dlog, 'dlog.f')
