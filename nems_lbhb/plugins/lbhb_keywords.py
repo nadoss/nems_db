@@ -3,11 +3,13 @@ from nems.plugins.default_keywords import wc, fir
 
 def ctwc(kw):
     '''
-    Same as nems.plugins.keywords.wc but renamed for contrast
+    Same as nems.plugins.keywords.fir but renamed for contrast
     to avoid confusion in the modelname and allow different
     options to be supported if needed.
     '''
-    return wc(kw)
+    m = wc(kw[2:])
+    m['fn_kwargs'].update({'i': 'contrast', 'o': 'ctpred'})
+    return m
 
 
 def ctfir(kw):
@@ -16,7 +18,9 @@ def ctfir(kw):
     to avoid confusion in the modelname and allow different
     options to be supported if needed.
     '''
-    return fir(kw)
+    m = fir(kw[2:])
+    m['fn_kwargs'].update({'i': 'contrast', 'o': 'ctpred'})
+    return m
 
 
 def _aliased_keyword(fn, kw):

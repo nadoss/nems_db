@@ -206,7 +206,8 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
             log.info('Generating summary plot ...')
             xfspec.append(['nems.xforms.plot_summary', {}])
     else:
-        recording_uri = generate_recording_uri(cellid, batch, loadkey)
+        recording_uri = generate_recording_uri(cellid, batch,
+                                               loadkey.split('-')[0])
         xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta)
 
     # actually do the fit

@@ -284,6 +284,10 @@ def _state_model_loadkey_helper(loader):
     return state_signals, permute_signals, epoch2_shuffle
 
 
+def contrast(loadkey, recording_uri):
+    return [['nems_lbhb.contrast_helpers.add_contrast', {}]]
+
+
 def _aliased_loader(fn, loadkey):
     '''Forces the keyword fn to use the given loadkey. Used for implementing
     backwards compatibility with old keywords that did not follow the

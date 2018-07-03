@@ -1,5 +1,10 @@
 from nems.plugins.default_fitters import basic
-from nems.plugins.default_fitters import iter
+
+
+# TODO: This really isn't a fitter but this is where it has to go for new
+#       setup for now. Should be a 'postprocessing' function.
+def dynamic(fitkey):
+    return [['nems_lbhb.contrast_helpers.dynamic_logsig', {}]]
 
 
 def _aliased_fitter(fn, fitkey):

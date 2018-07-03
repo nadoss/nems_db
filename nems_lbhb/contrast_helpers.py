@@ -1,6 +1,12 @@
-from nems.utils import find_module
+import copy
 
-# TODO: Move init_logsig and make_contrast from main nems repo to here?
+import numpy as np
+from scipy.signal import convolve2d
+
+from nems.utils import find_module
+from nems import signal
+
+# TODO: Move init_logsig here?
 
 
 def static_to_dynamic(modelspec):
@@ -8,5 +14,74 @@ def static_to_dynamic(modelspec):
     Changes bounds on contrast model to allow for dynamic modulation
     of the logistic sigmoid output nonlinearity.
     '''
+    modelspec = copy.deepcopy(modelspec)
     logsig_idx = find_module('logistic_sigmoid', modelspec)
-    raise NotImplementedError
+    modelspec[logsig_idx]['bounds'].update({
+            'base_mod': (None, None), 'amplitude_mod': (None, None),
+            'shift_mod': (None, None), 'kappa_mod': (None, None)
+            })
+
+    return modelspec
+
+
+def dynamic_logsig(modelspecs, IsReload=False, **context):
+    if not IsReload:
+        dynamic_mspec = static_to_dynamic(modelspecs[0])
+        return {'modelspecs': [dynamic_mspec]}
+    else:
+        return {'modelspecs': modelspecs}
+
+
+def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
+                         bins=None):
+    '''
+    Creates a new signal whose values represent the degree of variability
+    in each channel of the source signal. Each value is based on the
+    previous values within a range specified by either <ms> or <bins>.
+    Only supports RasterizedSignal.
+    '''
+
+    rec = rec.copy()
+
+    source_signal = rec[source_name]
+    if not isinstance(source_signal, signal.RasterizedSignal):
+        try:
+            source_signal = source_signal.rasterize()
+        except AttributeError:
+            raise TypeError("signal with key {} was not a RasterizedSignal"
+                            " and could not be converted to one."
+                            .format(source_name))
+
+    array = source_signal.as_continuous().copy()
+
+    if ms:
+        history = int((ms/1000)*source_signal.fs)
+    elif bins:
+        history = int(bins)
+    else:
+        raise ValueError("Either ms or bins parameter must be specified "
+                         "and nonzero.")
+    # TODO: Alternatively, base history length on some feature of signal?
+    #       Like average length of some epoch ex 'TRIAL'
+
+    array[np.isnan(array)] = 0
+    filt = np.concatenate((np.zeros([1, history+1]),
+                           np.ones([1, history])), axis=1)
+    contrast = convolve2d(array, filt, mode='same')
+
+    contrast_sig = source_signal._modified_copy(contrast)
+    rec[name] = contrast_sig
+
+    return rec
+
+
+def add_contrast(rec, name='contrast', source_name='stim',
+                 ms=500, bins=None, IsReload=False, **context):
+    '''xforms wrapper for make_contrast_signal'''
+    if not IsReload:
+        rec_with_contrast = make_contrast_signal(
+                rec, name=name, source_name=source_name, ms=ms, bins=bins
+                )
+        return {'rec': rec_with_contrast}
+    else:
+        return {'rec': rec}
