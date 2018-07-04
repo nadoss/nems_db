@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import matplotlib.image as mpimg
+from PIL import Image                                                                                
 
 import nems_db.xform_wrappers as nw
 import nems.plots.api as nplt
@@ -159,9 +160,9 @@ def display_png(event, cellids, path):
     print('cell1: {0}'.format(cell1))
     print(ind)
     #img = mpimg.imread(path+'/'+cell1[0]+'.png')
-    img = plt.imread(path+'/'+cell1[0]+'.png')
-    plt.figure(figsize=(15,10))
-    plt.imshow(img)
+    #img = plt.imread(path+'/'+cell1[0]+'.png')
+    img = Image.open(path+'/'+cell1[0]+'.png')
+    img.show(img)
 
 
 def beta_comp_from_folder(beta1='r_pup', beta2='r_beh', n1='model1', n2='model2', hist_bins=20,
