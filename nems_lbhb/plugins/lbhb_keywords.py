@@ -19,7 +19,7 @@ def ctfir(kw):
     options to be supported if needed.
     '''
     m = fir(kw[2:])
-    m['fn_kwargs'].update({'i': 'contrast', 'o': 'ctpred'})
+    m['fn_kwargs'].update({'i': 'ctpred', 'o': 'ctpred'})
     return m
 
 
