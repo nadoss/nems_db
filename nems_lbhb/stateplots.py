@@ -7,17 +7,21 @@ Created on Wed Apr 25 17:05:34 2018
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+import matplotlib.image as mpimg
+from PIL import Image                                                                                
 
 import nems_db.xform_wrappers as nw
 import nems.plots.api as nplt
 import nems.xforms as xforms
 
-params = {'legend.fontsize': 8,
+font_size=12
+params = {'legend.fontsize': font_size,
           'figure.figsize': (8, 6),
-          'axes.labelsize': 8,
-          'axes.titlesize': 8,
-          'xtick.labelsize': 8,
-          'ytick.labelsize': 8,
+          'axes.labelsize': font_size,
+          'axes.titlesize': font_size,
+          'xtick.labelsize': font_size,
+          'ytick.labelsize': font_size,
           'pdf.fonttype': 42,
           'ps.fonttype': 42}
 
@@ -36,8 +40,8 @@ line_colors = {'actual_psth': (0,0,0),
                'post': (123/255, 104/255, 238/255),
                'hard': (196/255, 149/255, 44/255),
                'easy': (255/255, 206/255, 6/255),
-               'puretone': (247/255, 223/255, 164/255), 
-               'large': (44/255, 125/255, 61/255), 
+               'puretone': (247/255, 223/255, 164/255),
+               'large': (44/255, 125/255, 61/255),
                'small': (181/255, 211/255, 166/255)}
 fill_colors = {'actual_psth': (.8,.8,.8),
                'predicted_psth': 'pink',
@@ -52,8 +56,8 @@ fill_colors = {'actual_psth': (.8,.8,.8),
                'post': (123/255, 104/255, 238/255),
                'hard':  (229/255, 172/255, 57/255),
                'easy': (255/255, 225/255, 100/255),
-               'puretone': (255/255, 231/255, 179/255), 
-               'large': (69/255, 191/255, 89/255), 
+               'puretone': (255/255, 231/255, 179/255),
+               'large': (69/255, 191/255, 89/255),
                'small': (215/255, 242/255, 199/255)}
 
 
@@ -145,6 +149,106 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
 
     return fh
 
+
+def display_png(event, cellids, path):
+    ind = event.ind
+    if len(ind) > 1:
+        ind = [ind[0]]
+    else:
+        ind = ind
+    cell1 = cellids[ind]
+    print('cell1: {0}'.format(cell1))
+    print(ind)
+    #img = mpimg.imread(path+'/'+cell1[0]+'.png')
+    #img = plt.imread(path+'/'+cell1[0]+'.png')
+    img = Image.open(path+'/'+cell1[0]+'.png')
+    img.show(img)
+
+
+def beta_comp_from_folder(beta1='r_pup', beta2='r_beh', n1='model1', n2='model2', hist_bins=20,
+              hist_range=[-1, 1], title='modelname/batch',
+              folder=None):
+    
+    if folder is None:
+        raise ValueError('Must specify the results folder!')
+    elif folder[-1] == '/':
+        folder = folder[:-1]
+        
+    results = pd.read_csv(folder+'/results.csv')
+    cellids = results['cellid'].values
+    
+    beta1 = results[beta1].values
+    beta2 = results[beta2].values
+    
+    nncells = np.isfinite(beta1) & np.isfinite(beta2)
+    beta1 = beta1[nncells]
+    beta2 = beta2[nncells]
+    
+    # exclude cells without prepassive
+    outcells = ((beta1 > hist_range[1]) | (beta1 < hist_range[0]) |
+                (beta2 > hist_range[1]) | (beta2 < hist_range[0]))
+    goodcells = (np.abs(beta1) > 0) | (np.abs(beta2) > 0)
+
+    beta1[beta1 > hist_range[1]] = hist_range[1]
+    beta1[beta1 < hist_range[0]] = hist_range[0]
+    beta2[beta2 > hist_range[1]] = hist_range[1]
+    beta2[beta2 < hist_range[0]] = hist_range[0]
+
+    set1 = goodcells
+    
+    fh = plt.figure(figsize=(6, 6))
+
+    plt.subplot(2, 2, 3)
+    plt.plot(np.array(hist_range), np.array([0, 0]), 'k--')
+    plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
+    plt.plot(np.array(hist_range), np.array(hist_range), 'k--')
+    plt.plot(beta1[set1], beta2[set1], 'k.', picker=3)
+    plt.plot(beta1[outcells], beta2[outcells], '.', color='red')
+    plt.axis('equal')
+    plt.axis('tight')
+
+    plt.xlabel(n1)
+    plt.ylabel(n2)
+    plt.title(title)
+
+    fh.canvas.mpl_connect('pick_event', lambda event: display_png(event, cellids[set1], folder))
+
+    plt.subplot(2, 2, 1)
+    plt.hist([beta1[set1]], bins=hist_bins, range=hist_range,
+             histtype='bar', stacked=True,
+             color=['black'])
+    plt.title('mean={:.3f} abs={:.3f}'.
+              format(np.mean(beta1[goodcells]),
+                     np.mean(np.abs(beta1[goodcells]))))
+    plt.xlabel(n1)
+
+    ax = plt.subplot(2, 2, 4)
+    plt.hist([beta2[set1]], bins=hist_bins, range=hist_range,
+             histtype='bar', stacked=True, orientation="horizontal",
+             color=['black'])
+    plt.title('mean={:.3f} abs={:.3f}'.
+              format(np.mean(beta2[goodcells]),
+                     np.mean(np.abs(beta2[goodcells]))))
+    plt.xlabel(n2)
+
+    ax = plt.subplot(2, 2, 2)
+    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1])],
+             bins=hist_bins-1, range=[hist_range[0]/2,hist_range[1]/2],
+             histtype='bar', stacked=True,
+             color=['black'])
+    plt.title('mean={:.3f} abs={:.3f}'.
+              format(np.mean(beta2[goodcells]),
+                     np.mean(np.abs(beta2[goodcells]))))
+    plt.xlabel('difference')
+
+    plt.tight_layout()
+
+    old_title=fh.canvas.get_window_title()
+    fh.canvas.set_window_title(old_title+': '+title)
+
+    return fh
+
+
 def beta_comp_cols(g, b, n1='A', n2='B', hist_bins=20,
                   hist_range=[-1,1], title='modelname/batch',
                   highlight=None):
@@ -207,6 +311,34 @@ def beta_comp_cols(g, b, n1='A', n2='B', hist_bins=20,
     plt.tight_layout()
 
 
+def state_mod_index(rec, epoch='REFERENCE', psth_name='resp',
+                    state_sig='pupil'):
+
+    full_psth = rec[psth_name]
+    folded_psth = full_psth.extract_epoch(epoch)
+
+    full_var = rec['state'].loc[state_sig]
+    folded_var = np.squeeze(full_var.extract_epoch(epoch))
+
+    # compute the mean state for each occurrence
+    m = np.nanmean(folded_var, axis=1)
+
+    # compute the mean state across all occurrences
+    mean = np.nanmean(m)
+
+    # low = response on epochs when state less than mean
+    if np.sum(m < mean):
+        low = np.nanmean(folded_psth[m < mean, :, :], axis=0).T
+    else:
+        low = np.ones(folded_psth[0, :, :].shape).T * np.nan
+
+    # high = response on epochs when state less than mean
+    high = np.nanmean(folded_psth[m >= mean, :, :], axis=0).T
+    mod1 = np.sum(high - low) / np.sum(high + low)
+
+    return mod1
+
+
 def _state_var_psth_from_epoch_difference(
         rec, epoch='REFERENCE', psth_name='resp', psth_name2='pred',
         state_sig='pupil'):
@@ -235,7 +367,6 @@ def _state_var_psth_from_epoch_difference(
         low2 = np.ones(folded_psth2[0, :, :].shape).T * np.nan
 
     # high = response on epochs when state less than mean
-    title = state_sig
     high = np.nanmean(folded_psth[m >= mean, :, :], axis=0).T
     high2 = np.nanmean(folded_psth2[m >= mean, :, :], axis=0).T
 
@@ -462,17 +593,18 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
         pred_mod[i] = np.array([mod2_pb-mod2_p0b, mod2_pb-mod2_pb0])
         pred_mod_full[i] = np.array([mod2_pb0, mod2_p0b])
 
-    fh = plt.figure()
-    ax = plt.subplot(3, 1, 1)
-    nplt.state_vars_timeseries(val, ctx_pb['modelspecs'][0])
-    ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
-    ax.set_ylabel("{} r={:.3f}".format(factor0,
-                  ctx_p0b0['modelspecs'][0][0]['meta']['r_test']))
-
     col_count = len(factors) - 1
     psth_names_ctl = ["pred_p0b", "pred_pb0"]
     if state_colors is None:
-        state_colors = [None]*col_count
+        state_colors = [[None, None]]*col_count
+    print (state_colors)
+    fh = plt.figure()
+    ax = plt.subplot(3, 1, 1)
+    nplt.state_vars_timeseries(val, ctx_pb['modelspecs'][0],
+                               state_colors=[s[1] for s in state_colors])
+    ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
+    ax.set_ylabel("{} r={:.3f}".format(factor0,
+                  ctx_p0b0['modelspecs'][0][0]['meta']['r_test']))
 
     for i, var in enumerate(factors[1:]):
         ax = plt.subplot(3, col_count, col_count+i+1)
@@ -613,7 +745,8 @@ def pp_model_plot(cellid='TAR010c-06-1', batch=301,
                   modelname_pb]
     factors = [factor0, factor1, factor2]
     state_colors = [[line_colors['small'], line_colors['large']],
-                    [line_colors['pre'], line_colors['post']]]
+                    [line_colors['pre'], line_colors['post']],
+                    [line_colors['passive'], line_colors['active']]]
 
     fh, stats = _model_step_plot(cellid, batch, modelnames, factors,
                                  state_colors=state_colors)

@@ -75,7 +75,13 @@ def env(loadkey, recording_uri):
 
 
 def psth(loadkey, recording_uri):
-    pattern = re.compile(r'^psth\.(\d{1,})([a-zA-Z0-9\.]*)$')
+    """
+    deprecated
+    m- replaced by masking
+    tar - to be replaced by evs load keyword
+    state signal generator - to be replaced by st load keyword
+    """
+    pattern = re.compile(r'^psth\.fs(\d{1,})([a-zA-Z0-9\.]*)$')
     parsed = re.match(pattern, loadkey)
     options = parsed.group(2)
     fs = parsed.group(1)
@@ -87,12 +93,14 @@ def psth(loadkey, recording_uri):
     epoch_regex = '^STIM_'
     state_signals, permute_signals, _ = _state_model_loadkey_helper(loadkey)
 
+#    xfspec = [['nems.xforms.load_recordings',
+#               {'recording_uri_list': recordings}],
+#              ['nems.xforms.make_state_signal',
+#               {'state_signals': state_signals,
+#                'permute_signals': permute_signals,
+#                'new_signalname': 'state'}]]
     xfspec = [['nems.xforms.load_recordings',
-               {'recording_uri_list': recordings}],
-              ['nems.xforms.make_state_signal',
-               {'state_signals': state_signals,
-                'permute_signals': permute_signals,
-                'new_signalname': 'state'}]]
+               {'recording_uri_list': recordings}]]
     if mask:
         xfspec.append(['nems.xforms.remove_all_but_correct_references', {}])
     elif tar:
@@ -181,6 +189,13 @@ def _state_model_loadkey_helper(loader):
             state_signals = ['active', 'pupil']
             permute_signals = ['active', 'pupil']
             epoch2_shuffle = True
+
+        elif loader.endswith("lic"):
+            pass
+
+        elif loader.endswith("lic0"):
+            epoch2_shuffle = True
+
         else:
             raise ValueError("unknown state_signals for evt loader")
 

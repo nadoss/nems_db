@@ -888,7 +888,14 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
 
     cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
 
-    return cellids
+    # Make sure cellids is a list
+    if type(cellids) is np.ndarray and type(cellids[0]) is np.ndarray:
+        cellids = list(cellids[0])
+    elif type(cellids) is np.ndarray:
+        cellids = list(cellids)
+    else:
+        pass
+    return cellids, list(rawid)
 
 
 def get_wft(cellid=None):
@@ -898,8 +905,11 @@ def get_wft(cellid=None):
 
     sql += " and cellid =%s"
     params = params+(cellid,)
-    
+
     d = pd.read_sql(sql=sql, con=engine, params=params)
+    if d.values[0][0] is None:
+        print('no waveform type information for {0}'.format(cellid))
+        return -1
     
     wft = json.loads(d.values[0][0])
     ## 1 is fast spiking, 0 is regular spiking

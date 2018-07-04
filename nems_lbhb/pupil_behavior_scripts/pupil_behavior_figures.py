@@ -23,7 +23,7 @@ fittype = "basic-nf"
 pretype = "psth"
 #pretype = "psths"
 
-batch = 301
+batch = 309
 
 
 if 1:
@@ -62,7 +62,7 @@ elif 0:
     i2 = 1
     factor_names = ['baseline', 'pre', 'active']
 
-if batch == 303:
+if batch in [303, 309]:
     hist_range = [-0.5, 0.5]
     hist_range = [-1, 1]
 else:

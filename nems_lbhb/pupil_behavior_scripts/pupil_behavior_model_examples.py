@@ -24,8 +24,8 @@ import nems.plots.api as nplt
 sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
 
 # User parameters:
-RELOAD = True
-batch = 301
+RELOAD = False
+batch = 307
 loader = "psth"
 fitter = "basic-nf"
 #compare = "pp"   # pre/post + pupil interaction
@@ -71,6 +71,7 @@ if RELOAD:
         stats_list.append(stats)
         if os.access(out_path, os.W_OK):
             fh.savefig(out_path+cellid+'.pdf')
+            fh.savefig(out_path+cellid+'.png')
         plt.close(fh)
 
     col_names = ['cellid', 'r_p0b0', 'r_p0b', 'r_pb0', 'r_pb',
