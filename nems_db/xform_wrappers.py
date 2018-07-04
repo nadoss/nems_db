@@ -87,14 +87,14 @@ def generate_recording_uri(cellid, batch, loadkey):
 
     # remove any preprocessing keywords in the loader string.
     loader = loadkey.split("-")[0]
-
+    log.info('loader=%s',loader)
     if loader.startswith('ozgf'):
-        pattern = re.compile(r'^ozgf\.fs(\d{1,})\.ch(\d{1,})(\w*)?$')
+        pattern = re.compile(r'^ozgf\.fs(\d{1,})\.ch(\d{1,})(\.\w*)?$')
         parsed = re.match(pattern, loader)
         # TODO: fs and chans useful for anything for the loader? They don't
         #       seem to be used here, only in the baphy-specific stuff.
-        fs = parsed.group(1)
-        chans = parsed.group(2)
+        fs = int(parsed.group(1))
+        chans = int(parsed.group(2))
         ops = parsed.group(3)
         pupil = ('pup' in ops)
 
