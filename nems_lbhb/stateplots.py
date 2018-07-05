@@ -167,22 +167,22 @@ def display_png(event, cellids, path):
 def beta_comp_from_folder(beta1='r_pup', beta2='r_beh', n1='model1', n2='model2', hist_bins=20,
               hist_range=[-1, 1], title='modelname/batch',
               folder=None):
-    
+
     if folder is None:
         raise ValueError('Must specify the results folder!')
     elif folder[-1] == '/':
         folder = folder[:-1]
-        
+
     results = pd.read_csv(folder+'/results.csv')
     cellids = results['cellid'].values
-    
+
     beta1 = results[beta1].values
     beta2 = results[beta2].values
-    
+
     nncells = np.isfinite(beta1) & np.isfinite(beta2)
     beta1 = beta1[nncells]
     beta2 = beta2[nncells]
-    
+
     # exclude cells without prepassive
     outcells = ((beta1 > hist_range[1]) | (beta1 < hist_range[0]) |
                 (beta2 > hist_range[1]) | (beta2 < hist_range[0]))
@@ -194,7 +194,7 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh', n1='model1', n2='model2'
     beta2[beta2 < hist_range[0]] = hist_range[0]
 
     set1 = goodcells
-    
+
     fh = plt.figure(figsize=(6, 6))
 
     plt.subplot(2, 2, 3)
@@ -324,20 +324,26 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='resp',
 
     # compute the mean state across all occurrences
     mean = np.nanmean(m)
+    gtidx = (m >= mean)
+    ltidx = np.logical_not(gtidx)
 
     # low = response on epochs when state less than mean
-    if np.sum(m < mean):
-        low = np.nanmean(folded_psth[m < mean, :, :], axis=0).T
+    if np.sum(ltidx):
+        low = np.nanmean(folded_psth[ltidx, :, :], axis=0).T
     else:
         low = np.ones(folded_psth[0, :, :].shape).T * np.nan
 
-    # high = response on epochs when state less than mean
-    high = np.nanmean(folded_psth[m >= mean, :, :], axis=0).T
-    mod1 = np.sum(high - low) / np.sum(high + low)
+    # high = response on epochs when state greater than or equal to mean
+    if np.sum(gtidx):
+        high = np.nanmean(folded_psth[gtidx, :, :], axis=0).T
+    else:
+        high = np.ones(folded_psth[0, :, :].shape).T * np.nan
 
-    return mod1
+    mod = np.sum(high - low) / np.sum(high + low)
 
+    return mod
 
+"""
 def _state_var_psth_from_epoch_difference(
         rec, epoch='REFERENCE', psth_name='resp', psth_name2='pred',
         state_sig='pupil'):
@@ -373,8 +379,9 @@ def _state_var_psth_from_epoch_difference(
     mod2 = np.sum(high2 - low2) / np.sum(high2 + low2)
 
     return mod1, mod2
+"""
 
-
+"""
 def _model_step_plot_old(cellid, batch, modelnames, factors):
 
     modelname_p0b0, modelname_p0b, modelname_pb0, modelname_pb = \
@@ -532,7 +539,7 @@ def _model_step_plot_old(cellid, batch, modelnames, factors):
     }
 
     return fh, stats
-
+"""
 
 def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
     """
@@ -574,21 +581,22 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
 
     state_var_list = val['state'].chans
 
-    resp_mod = np.zeros([len(state_var_list), 2])
     pred_mod = np.zeros([len(state_var_list), 2])
     pred_mod_full = np.zeros([len(state_var_list), 2])
+    resp_mod_full = np.zeros([len(state_var_list), 1])
     for i, var in enumerate(state_var_list):
-        mod1_p0b, mod2_p0b = _state_var_psth_from_epoch_difference(
-                val, epoch="REFERENCE", psth_name="resp",
-                psth_name2="pred_p0b", state_sig=var)
-        mod1_pb0, mod2_pb0 = _state_var_psth_from_epoch_difference(
-                val, epoch="REFERENCE", psth_name="resp",
-                psth_name2="pred_pb0", state_sig=var)
-        mod1_pb, mod2_pb = _state_var_psth_from_epoch_difference(
-                val, epoch="REFERENCE", psth_name="resp",
-                psth_name2="pred", state_sig=var)
 
-        resp_mod[i] = np.array([mod1_pb-mod1_p0b, mod1_pb-mod1_pb0])
+        # actual response modulation index for each state var
+        resp_mod_full[i] = state_mod_index(val, epoch='REFERENCE',
+                     psth_name='resp', state_sig=var)
+
+        mod2_p0b = state_mod_index(val, epoch='REFERENCE',
+                     psth_name='pred_p0b', state_sig=var)
+        mod2_pb0 = state_mod_index(val, epoch='REFERENCE',
+                     psth_name='pred_pb0', state_sig=var)
+        mod2_pb = state_mod_index(val, epoch='REFERENCE',
+                     psth_name='pred', state_sig=var)
+
         pred_mod[i] = np.array([mod2_pb-mod2_p0b, mod2_pb-mod2_pb0])
         pred_mod_full[i] = np.array([mod2_pb0, mod2_p0b])
 
@@ -689,7 +697,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
 
 
 def pb_model_plot(cellid='TAR010c-06-1', batch=301,
-                  loader="psth", fitter="basic-nf"):
+                  loader="psth.fs20", fitter="basic.st.nf10"):
     """
     test for pupil-behavior interaction.
     loader : string
@@ -700,10 +708,16 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301,
     """
     global line_colors
 
-    modelname_p0b0 = loader + "20pup0beh0_stategain3_" + fitter
-    modelname_p0b = loader + "20pup0beh_stategain3_" + fitter
-    modelname_pb0 = loader + "20pupbeh0_stategain3_" + fitter
-    modelname_pb = loader + "20pupbeh_stategain3_" + fitter
+    # modelname_p0b0 = loader + "20pup0beh0_stategain3_" + fitter
+    # modelname_p0b = loader + "20pup0beh_stategain3_" + fitter
+    # modelname_pb0 = loader + "20pupbeh0_stategain3_" + fitter
+    # modelname_pb = loader + "20pupbeh_stategain3_" + fitter
+    # psth.fs20-st.pup0.beh0_stategain.N_basic.st.nf10
+
+    modelname_p0b0 = loader + "-st.pup0.beh0_stategain.N_" + fitter
+    modelname_p0b = loader + "-st.pup0.beh_stategain.N_" + fitter
+    modelname_pb0 = loader + "-st.pup.beh0_stategain.N_" + fitter
+    modelname_pb = loader + "-st.pup.beh_stategain.N_" + fitter
 
     factor0 = "baseline"
     factor1 = "pupil"
@@ -735,6 +749,42 @@ def pp_model_plot(cellid='TAR010c-06-1', batch=301,
     modelname_p0b = loader + "20pup0prebeh_stategain4_" + fitter
     modelname_pb0 = loader + "20puppre0beh_stategain4_" + fitter
     modelname_pb = loader + "20pupprebeh_stategain4_" + fitter
+
+    factor0 = "basline"
+    factor1 = "pupil"
+    factor2 = "PRE_PASSIVE"
+
+    modelnames = [modelname_p0b0, modelname_p0b, modelname_pb0,
+                  modelname_pb]
+    factors = [factor0, factor1, factor2]
+    state_colors = [[line_colors['small'], line_colors['large']],
+                    [line_colors['pre'], line_colors['post']],
+                    [line_colors['passive'], line_colors['active']]]
+
+    fh, stats = _model_step_plot(cellid, batch, modelnames, factors,
+                                 state_colors=state_colors)
+
+    plt.tight_layout()
+
+    return fh, stats
+
+
+def ppas_model_plot(cellid='TAR010c-06-1', batch=301,
+                    loader="psth.fs20", fitter="basic.st.nf10"):
+    """
+    test for pre-post effects -- passive only data
+    loader : string
+      can be 'psth' or 'psths'
+    fitter : string
+      can be 'basic-nf' or 'cd-nf'
+    """
+
+    # psth.fs20-st.pup0.pas0-pas_stategain.N_basic.st.nf10
+    # -st.pup0.pas0-pas_stategain.N_
+    modelname_p0b0 = loader + "-st.pup0.pas0-pas_stategain.N_" + fitter
+    modelname_p0b = loader + "-st.pup0.pas-pas_stategain.N_" + fitter
+    modelname_pb0 = loader + "-st.pup.pas0-pas_stategain.N_" + fitter
+    modelname_pb = loader + "-st.pup.pas-pas_stategain.N_" + fitter
 
     factor0 = "basline"
     factor1 = "pupil"
