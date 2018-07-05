@@ -13,13 +13,22 @@ def static_to_dynamic(modelspec):
     '''
     Changes bounds on contrast model to allow for dynamic modulation
     of the logistic sigmoid output nonlinearity.
+    Also sets initial phi values ctwc and ctfir equal to the fitted
+    values for wc and fir.
     '''
     modelspec = copy.deepcopy(modelspec)
     logsig_idx = find_module('logistic_sigmoid', modelspec)
+    wc_idx, ctwc_idx = find_module('weight_channels', modelspec,
+                                   find_all_matches=True)
+    fir_idx, ctfir_idx = find_module('fir', modelspec, find_all_matches=True)
+
     modelspec[logsig_idx]['bounds'].update({
             'base_mod': (None, None), 'amplitude_mod': (None, None),
             'shift_mod': (None, None), 'kappa_mod': (None, None)
             })
+
+    modelspec[ctwc_idx]['phi'] = copy.deepcopy(modelspec[wc_idx]['phi'])
+    modelspec[ctfir_idx]['phi'] = copy.deepcopy(modelspec[fir_idx]['phi'])
 
     return modelspec
 
