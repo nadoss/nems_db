@@ -97,7 +97,7 @@ def generate_recording_uri(cellid, batch, loadkey):
         fs = int(parsed.group(1))
         chans = int(parsed.group(2))
         ops = parsed.group(3)
-        pupil = ('pup' in ops)
+        pupil = ('pup' in ops) if ops is not None else False
 
         options = {'rasterfs': fs, 'includeprestim': True,
                    'stimfmt': 'ozgf', 'chancount': chans}
