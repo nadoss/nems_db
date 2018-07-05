@@ -25,6 +25,7 @@ from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
 import nems.xforms as xforms
 import nems.xform_helper as xhelp
 from nems_lbhb.old_xforms.xform_wrappers import generate_recording_uri as ogru
+import nems_lbhb.old_xforms.xforms as oxf
 import nems_lbhb.old_xforms.xform_helper as oxfh
 
 import logging
@@ -246,12 +247,21 @@ def load_model_baphy_xform(cellid, batch=271,
         modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
         eval_model=True):
 
+    kws = modelname.split("_")
+    old = False
+    if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')
+                          and not kws[1].startswith('stategain.')):
+        # Check if modelname uses old format.
+        log.info("Using old modelname format ... ")
+        old = True
+
     d = nd.get_results_file(batch, [modelname], [cellid])
     filepath = d['modelpath'][0]
-    # Removed print statement here since load_analysis already does it.
-    # Was causing a lot of log spam when loading many modelspecs.
-    # -jacob 4-8-2018
-    return xforms.load_analysis(filepath, eval_model=eval_model)
+
+    if old:
+        return oxf.load_analysis(filepath, eval_model=eval_model)
+    else:
+        return xforms.load_analysis(filepath, eval_model=eval_model)
 
 
 def load_batch_modelpaths(batch, modelnames, cellids=None, eval_model=True):
