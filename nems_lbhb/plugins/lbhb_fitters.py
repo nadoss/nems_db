@@ -3,8 +3,12 @@ from nems.plugins.default_fitters import basic
 
 # TODO: This really isn't a fitter but this is where it has to go for new
 #       setup for now. Should be a 'postprocessing' function.
-def dynamic(fitkey):
+def dynlsig(fitkey):
     return [['nems_lbhb.contrast_helpers.dynamic_logsig', {}]]
+
+
+def srec(fitkey):
+    return [['nems_lbhb.contrast_helpers.reset_single_recording', {}]]
 
 
 def _aliased_fitter(fn, fitkey):

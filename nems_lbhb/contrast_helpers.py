@@ -85,3 +85,20 @@ def add_contrast(rec, name='contrast', source_name='stim',
         return {'rec': rec_with_contrast}
     else:
         return {'rec': rec}
+
+
+def reset_single_recording(rec, est, val, IsReload=False, **context):
+    '''
+    Forces rec, est, and val to be a recording instead of a singleton
+    list after a fit.
+
+    Warning: This may mess up jackknifing!
+    '''
+    if not IsReload:
+        if isinstance(rec, list):
+            rec = rec[0]
+        if isinstance(est, list):
+            est = est[0]
+        if isinstance(val, list):
+            val = val[0]
+    return {'rec': rec, 'est': est, 'val': val}
