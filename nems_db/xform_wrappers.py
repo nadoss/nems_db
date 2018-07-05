@@ -228,19 +228,20 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
 
     # save results
     log.info('Saving modelspec(s) to {0} ...'.format(destination))
-    xforms.save_analysis(destination,
-                         recording=ctx['rec'],
-                         modelspecs=modelspecs,
-                         xfspec=xfspec,
-                         figures=ctx['figures'],
-                         log=log_xf)
+    save_data = xforms.save_analysis(destination,
+                                     recording=ctx['rec'],
+                                     modelspecs=modelspecs,
+                                     xfspec=xfspec,
+                                     figures=ctx['figures'],
+                                     log=log_xf)
+    savepath = save_data['savepath']
 
     # save in database as well
     if saveInDB:
         # TODO : db results finalized?
         nd.update_results_table(modelspecs[0])
 
-    return ctx
+    return savepath
 
 
 def load_model_baphy_xform(cellid, batch=271,
