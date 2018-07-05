@@ -35,7 +35,7 @@ def ozgf(loadkey, recording_uri):
                   ['nems.xforms.average_away_stim_occurrences', {}]]
 
     if contrast:
-        xfspec.insert(1, ['nems.xforms.add_contrast', {}])
+        xfspec.insert(1, ['nems_lbhb.contrast_helpers.add_contrast', {}])
 
     return xfspec
 
@@ -297,10 +297,6 @@ def _state_model_loadkey_helper(loader):
             permute_signals = []
 
     return state_signals, permute_signals, epoch2_shuffle
-
-
-def contrast(loadkey, recording_uri):
-    return [['nems_lbhb.contrast_helpers.add_contrast', {}]]
 
 
 def _aliased_loader(fn, loadkey):

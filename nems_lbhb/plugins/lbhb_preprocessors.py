@@ -133,3 +133,8 @@ def st(loadkey, recording_uri):
                 'new_signalname': 'state'}]]
     return xfspec
 
+
+def contrast(loadkey, recording_uri):
+    # TODO: currently handled in ozgf but should be removed from that
+    #       function once the est/val split and avg stim are separated as well.
+    return [['nems_lbhb.contrast_helpers.add_contrast', {}]]
