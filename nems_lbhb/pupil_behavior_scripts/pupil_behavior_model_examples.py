@@ -25,7 +25,7 @@ sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
 
 # User parameters:
 RELOAD = True
-batch = 309
+batch = 301
 loader = "psth.fs20"
 fitter = "basic.st.nf10"
 #compare = "pp"   # pre/post + pupil interaction
