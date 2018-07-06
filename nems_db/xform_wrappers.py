@@ -144,7 +144,7 @@ def generate_recording_uri(cellid, batch, loadkey):
     else:
         raise ValueError('unknown loader string: %s' % loader)
 
-    # recording_uri = get_recording_uri(cellid, batch, options)
+    # recording_uri = get_recording_uri(cellid, batch, options)\
     recording_uri = get_recording_file(cellid, batch, options)
 
     return recording_uri

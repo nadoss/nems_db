@@ -141,9 +141,9 @@ def hrc(load_key, recording_uri):
     """
     xfspec = [['auto.users.hellerc.code.nems_utilities.preprocessing.mask_high_repetion_stim',
                {}, ['rec'], ['rec']]]
-        
+
     return xfspec
-    
+
 
 def psthfr(load_key, recording_uri):
     """
@@ -153,6 +153,26 @@ def psthfr(load_key, recording_uri):
     smooth = ('s' in options)
     epoch_regex = '^STIM_'
     xfspec=[['nems.xforms.generate_psth_from_resp',
-                   {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]   
+                   {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
     return xfspec
- 
+
+
+# TODO: Maybe can keep splitep and avgep as one thing?
+#       Would they ever be done separately?
+def splitep(kw):
+    ops = kw.split('.')[1:]
+    epoch_regex = '^STIM' if not ops else ops[0]
+    xfspec = [['nems.xforms.split_by_occurrence_counts',
+               {'epoch_regex': epoch_regex}]]
+    return xfspec
+
+
+def avgep(kw):
+    ops = kw.split('.')[1:]
+    epoch_regex = '^STIM' if not ops else ops[0]
+    return [['nems.xforms.average_away_stim_occurrences',
+             {'epoch_regex': epoch_regex}]]
+
+
+def ref(kw):
+    return [['nems.xforms.remove_all_but_correct_references', {}]]
