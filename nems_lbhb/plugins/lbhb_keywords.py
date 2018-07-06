@@ -22,28 +22,31 @@ def _aliased_keyword(fn, kw):
 # picked apart (like wc.NxN.n.g.c) will need to be aliased.
 
 
-wc_combinations = {}
-wcc_combinations = {}
+# These aren't actually  needed anymore since we separated old models
+# from new ones, but gives an example of how aliasing can be done.
 
-for n_in in (15, 18, 40):
-    for n_out in (1, 2, 3, 4):
-        for op in ('', 'g', 'g.n'):
-            old_k = 'wc%s%dx%d' % (op.strip('.'), n_in, n_out)
-            new_k = 'wc.%dx%d.%s' % (n_in, n_out, op)
-            wc_combinations[old_k] = _aliased_keyword(wc, new_k)
-
-for n_in in (1, 2, 3):
-    for n_out in (1, 2, 3, 4):
-        for op in ('c', 'n'):
-            old_k = 'wc%s%dx%d' % (op, n_in, n_out)
-            new_k = 'wc.%dx%d.%s' % (n_in, n_out, op)
-
-stp2b = _aliased_keyword(stp, 'stp.2.b')
-stpz2 = _aliased_keyword(stp, 'stp.2.z')
-stpn1 = _aliased_keyword(stp, 'stp.1.n')
-stpn2 = _aliased_keyword(stp, 'stp.2.n')
-dlogz = _aliased_keyword(stp, 'dlog')
-dlogf = _aliased_keyword(dlog, 'dlog.f')
+#wc_combinations = {}
+#wcc_combinations = {}
+#
+#for n_in in (15, 18, 40):
+#    for n_out in (1, 2, 3, 4):
+#        for op in ('', 'g', 'g.n'):
+#            old_k = 'wc%s%dx%d' % (op.strip('.'), n_in, n_out)
+#            new_k = 'wc.%dx%d.%s' % (n_in, n_out, op)
+#            wc_combinations[old_k] = _aliased_keyword(wc, new_k)
+#
+#for n_in in (1, 2, 3):
+#    for n_out in (1, 2, 3, 4):
+#        for op in ('c', 'n'):
+#            old_k = 'wc%s%dx%d' % (op, n_in, n_out)
+#            new_k = 'wc.%dx%d.%s' % (n_in, n_out, op)
+#
+#stp2b = _aliased_keyword(stp, 'stp.2.b')
+#stpz2 = _aliased_keyword(stp, 'stp.2.z')
+#stpn1 = _aliased_keyword(stp, 'stp.1.n')
+#stpn2 = _aliased_keyword(stp, 'stp.2.n')
+#dlogz = _aliased_keyword(stp, 'dlog')
+#dlogf = _aliased_keyword(dlog, 'dlog.f')
 
 
 def _one_zz(zerocount=1):
