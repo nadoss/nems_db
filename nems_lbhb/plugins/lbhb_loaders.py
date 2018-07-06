@@ -128,6 +128,16 @@ def nostim(loadkey, recording_uri):
     return xfspec
 
 
+def ns(loadkey, recording_uri):
+    """
+    only load recording. No preprocessing.
+    """
+    recordings = [recording_uri]
+    xfspec = [['nems.xforms.load_recordings',
+               {'recording_uri_list': recordings}]]
+    return xfspec   
+
+
 def evt(loadkey, recording_uri):
     pattern = re.compile(r'^evt\.fs(\d{0,})\.?(\w{0,})$')
     parsed = re.match(pattern, loadkey)

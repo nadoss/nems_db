@@ -34,9 +34,9 @@ cellid = 'TAR010c-18-1'
 batch = 271
 modelname = 'ozgf.fs100.ch18_dlog-wc.18x1.g-fir.1x15-lvl.1-dexp.1_basic'
 
-cellid = 'ley046f-01-1'
-batch = 309
-modelname = "psth.20-pupbeh_stategain3_basic-nf"
+#cellid = 'ley046f-01-1'
+#batch = 309
+#modelname = "psth.20-pupbeh_stategain3_basic-nf"
 
 #cellid = 'sti019b-d1'
 #batch = 274
