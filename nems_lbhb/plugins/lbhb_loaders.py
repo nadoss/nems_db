@@ -91,8 +91,8 @@ def psth(loadkey, recording_uri):
 
     recordings = [recording_uri]
     epoch_regex = '^STIM_'
-    state_signals, permute_signals, _ = _state_model_loadkey_helper(loadkey)
-
+#    state_signals, permute_signals, _ = _state_model_loadkey_helper(loadkey)
+#
 #    xfspec = [['nems.xforms.load_recordings',
 #               {'recording_uri_list': recordings}],
 #              ['nems.xforms.make_state_signal',

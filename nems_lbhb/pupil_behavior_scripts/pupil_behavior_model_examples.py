@@ -25,11 +25,12 @@ sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
 
 # User parameters:
 RELOAD = True
-batch = 301
+batch = 309
 loader = "psth.fs20"
 fitter = "basic.st.nf10"
 #compare = "pp"   # pre/post + pupil interaction
-compare = "pb"   # active/passive + pupil interaction
+#compare = "pb"   # active/passive + pupil interaction
+compare = "ppas"   # each passive + pupil interaction
 
 # end of user parameters
 
@@ -63,6 +64,10 @@ if RELOAD:
         if compare == "pb":
             fh, stats = stateplots.pb_model_plot(cellid, batch,
                                                  loader=loader, fitter=fitter)
+        elif compare == "ppas":
+            fh, stats = stateplots.ppas_model_plot(
+                    cellid, batch, loader=loader, fitter=fitter)
+
         else:
             fh, stats = stateplots.pp_model_plot(cellid, batch,
                                                  loader=loader, fitter=fitter)
@@ -102,16 +107,22 @@ else:
     df = pd.read_csv(datafile, index_col=0)
 
 sig_mod = list(df['r_pb'] > df['r_p0b0'] + 0.01)
+if compare == "pb":
+    alabel="active"
+elif compare == "ppas":
+    alabel="each passive"
+else:
+    alabel="pre/post"
 
-fh1 = stateplots.beta_comp(df['r_pup'], df['r_beh'], n1='pupil', n2='active',
+fh1 = stateplots.beta_comp(df['r_pup'], df['r_beh'], n1='pupil', n2=alabel,
                            title=modelset+' unique pred', hist_range=[-0.1, 0.1],
                            highlight=sig_mod)
 fh2 = stateplots.beta_comp(df['pup_mod'], df['beh_mod'],
-                           n1='pupil', n2='active',
+                           n1='pupil', n2=alabel,
                            title=modelset+' mod index', hist_range=[-0.4, 0.4],
                            highlight=sig_mod)
 fh3 = stateplots.beta_comp(df['beh_mod_pup0'], df['beh_mod'],
-                           n1='active-nopup', n2='active',
+                           n1=alabel+'-nopup', n2=alabel,
                            title=modelset+' unique mod', hist_range=[-0.4, 0.4],
                            highlight=sig_mod)
 
