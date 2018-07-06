@@ -31,10 +31,10 @@ log = logging.getLogger(__name__)
 #modelname = 'env.100_dlog-wc.2x1.c-fir.1x15-lvl.1-dexp.1_basic'
 
 cellid = 'TAR010c-18-1'
-batch = 289
-modelname = ('ozgf.fs100.ch18.pup-load-st.pup.beh0-splitep-avgep_'
+batch = 271
+modelname = ('ozgf.fs100.ch18-ld_'
              'wc.18x1.g-fir.1x15-lvl.1-dexp.1_'
-             'basic.st.t3')
+             'mt.shr-jk.nf5-iter-pred')
 
 #cellid = 'ley046f-01-1'
 #batch = 309
