@@ -139,8 +139,9 @@ def hrc(load_key, recording_uri):
     Mask only data during stimuli that were repeated 10 or greater times.
     hrc = high rep count
     """
-    xfspec = [['auto.users.hellerc.code.nems_utilities.preprocessing.mask_high_repetion_stim',
-               {}, ['rec'], ['rec']]]
+    # preprocessing is in Charlie's auto users
+    xfspec = [['preprocessing.mask_high_repetion_stims',
+               {'epoch_regex':'^STIM_'}, ['rec'], ['rec']]]
         
     return xfspec
     
