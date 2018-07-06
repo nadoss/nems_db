@@ -133,3 +133,26 @@ def st(loadkey, recording_uri):
                 'new_signalname': 'state'}]]
     return xfspec
 
+
+def hrc(load_key, recording_uri):
+    """
+    Mask only data during stimuli that were repeated 10 or greater times.
+    hrc = high rep count
+    """
+    xfspec = [['auto.users.hellerc.code.nems_utilities.preprocessing.mask_high_repetion_stim',
+               {}, ['rec'], ['rec']]]
+        
+    return xfspec
+    
+
+def psthfr(load_key, recording_uri):
+    """
+    Generate psth from resp
+    """
+    options = load_key.split('.')[1:]
+    smooth = ('s' in options)
+    epoch_regex = '^STIM_'
+    xfspec=[['nems.xforms.generate_psth_from_resp',
+                   {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]   
+    return xfspec
+ 
