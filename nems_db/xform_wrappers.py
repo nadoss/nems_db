@@ -114,7 +114,15 @@ def generate_recording_uri(cellid, batch, loadkey):
         pupil = ('pup' in ops)
 
         options.update(_parm_helper(fs, pupil))
+        
+    elif loader.startswith('ns'):
+        pattern = re.compile(r'^ns\.fs(\d{1,})')
+        parsed = re.match(pattern, loader)
+        fs = parsed.group(1)
+        pupil = ('pup' in loadkey)
 
+        options.update(_parm_helper(fs, pupil))
+        
     elif loader.startswith('psth'):
         pattern = re.compile(r'^psth\.fs(\d{1,})([a-zA-Z0-9\.]*)?$')
         parsed = re.match(pattern, loader)
@@ -144,7 +152,7 @@ def generate_recording_uri(cellid, batch, loadkey):
     else:
         raise ValueError('unknown loader string: %s' % loader)
 
-    # recording_uri = get_recording_uri(cellid, batch, options)
+    # recording_uri = get_recording_uri(cellid, batch, options)\
     recording_uri = get_recording_file(cellid, batch, options)
 
     return recording_uri
@@ -229,19 +237,20 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
 
     # save results
     log.info('Saving modelspec(s) to {0} ...'.format(destination))
-    xforms.save_analysis(destination,
-                         recording=ctx['rec'],
-                         modelspecs=modelspecs,
-                         xfspec=xfspec,
-                         figures=ctx['figures'],
-                         log=log_xf)
+    save_data = xforms.save_analysis(destination,
+                                     recording=ctx['rec'],
+                                     modelspecs=modelspecs,
+                                     xfspec=xfspec,
+                                     figures=ctx['figures'],
+                                     log=log_xf)
+    savepath = save_data['savepath']
 
     # save in database as well
     if saveInDB:
         # TODO : db results finalized?
         nd.update_results_table(modelspecs[0])
 
-    return ctx
+    return savepath
 
 
 def load_model_baphy_xform(cellid, batch=271,

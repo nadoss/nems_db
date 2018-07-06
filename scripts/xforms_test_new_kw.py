@@ -31,16 +31,18 @@ log = logging.getLogger(__name__)
 #modelname = 'env.100_dlog-wc.2x1.c-fir.1x15-lvl.1-dexp.1_basic'
 
 cellid = 'TAR010c-18-1'
-batch = 271
-modelname = 'ozgf.fs100.ch18_dlog-wc.18x1.g-fir.1x15-lvl.1-dexp.1_basic'
+batch = 289
+modelname = ('ozgf.fs100.ch18.pup-load-st.pup.beh0-splitep-avgep_'
+             'wc.18x1.g-fir.1x15-lvl.1-dexp.1_'
+             'basic.st.t3')
 
-cellid = 'ley046f-01-1'
-batch = 309
-modelname = "psth.20-pupbeh_stategain3_basic-nf"
+#cellid = 'ley046f-01-1'
+#batch = 309
+#modelname = "psth.20-pupbeh_stategain3_basic-nf"
 
 #cellid = 'sti019b-d1'
 #batch = 274
-# TODO: this one seems a bit screwy. ask svd?
+
 #modelname = 'env.100.m.beh_wc.2x15-fir.15x2-lvl.2-mrg_basic.st.nf5'
 #modelname = 'envm100beh_rep2_fir2x2x15_lvl2_mrg_state01-jkm'
 #modelname = 'envm100beh_fir2x15_lvl1_rep2_dexp2_mrg_state01-jkm'

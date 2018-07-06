@@ -138,3 +138,48 @@ def contrast(loadkey, recording_uri):
     # TODO: currently handled in ozgf but should be removed from that
     #       function once the est/val split and avg stim are separated as well.
     return [['nems_lbhb.contrast_helpers.add_contrast', {}]]
+
+
+def hrc(load_key, recording_uri):
+    """
+    Mask only data during stimuli that were repeated 10 or greater times.
+    hrc = high rep count
+    """
+    # preprocessing is in Charlie's auto users
+    xfspec = [['preprocessing.mask_high_repetion_stims',
+               {'epoch_regex':'^STIM_'}, ['rec'], ['rec']]]
+
+    return xfspec
+
+
+def psthfr(load_key, recording_uri):
+    """
+    Generate psth from resp
+    """
+    options = load_key.split('.')[1:]
+    smooth = ('s' in options)
+    epoch_regex = '^STIM_'
+    xfspec=[['nems.xforms.generate_psth_from_resp',
+                   {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
+    return xfspec
+
+
+# TODO: Maybe can keep splitep and avgep as one thing?
+#       Would they ever be done separately?
+def splitep(kw):
+    ops = kw.split('.')[1:]
+    epoch_regex = '^STIM' if not ops else ops[0]
+    xfspec = [['nems.xforms.split_by_occurrence_counts',
+               {'epoch_regex': epoch_regex}]]
+    return xfspec
+
+
+def avgep(kw):
+    ops = kw.split('.')[1:]
+    epoch_regex = '^STIM' if not ops else ops[0]
+    return [['nems.xforms.average_away_stim_occurrences',
+             {'epoch_regex': epoch_regex}]]
+
+
+def ref(kw):
+    return [['nems.xforms.remove_all_but_correct_references', {}]]
