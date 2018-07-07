@@ -21,6 +21,9 @@ def pas(loadkey, recording_uri):
 
     return xfspec
 
+def ref(kw):
+    return [['nems.xforms.mask_all_but_correct_references', {}]]
+
 
 def evs(loadkey, recording_uri):
     """
@@ -181,5 +184,13 @@ def avgep(kw):
              {'epoch_regex': epoch_regex}]]
 
 
-def ref(kw):
-    return [['nems.xforms.remove_all_but_correct_references', {}]]
+def sev(kw):
+    ops = kw.split('.')[1:]
+    epoch_regex = '^STIM' if not ops else ops[0]
+    xfspec = [['nems.xforms.split_by_occurrence_counts',
+               {'epoch_regex': epoch_regex}],
+        ['nems.xforms.average_away_stim_occurrences',
+         {'epoch_regex': epoch_regex}]]
+    return xfspec
+
+

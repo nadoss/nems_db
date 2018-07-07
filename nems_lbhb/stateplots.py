@@ -104,15 +104,15 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
         set1 = np.logical_and(goodcells, (highlight))
         set2 = np.logical_and(goodcells, (1-highlight))
 
-    fh = plt.figure(figsize=(6, 6))
+    fh = plt.figure(figsize=(8, 6))
 
     plt.subplot(2, 2, 3)
     plt.plot(np.array(hist_range), np.array([0, 0]), 'k--')
     plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
     plt.plot(np.array(hist_range), np.array(hist_range), 'k--')
-    plt.plot(beta1[set1], beta2[set1], 'k.')
-    plt.plot(beta1[set2], beta2[set2], '.', color='lightgray')
     plt.plot(beta1[outcells], beta2[outcells], '.', color='red')
+    plt.plot(beta1[set2], beta2[set2], '.', color='lightgray')
+    plt.plot(beta1[set1], beta2[set1], 'k.')
     plt.axis('equal')
     plt.axis('tight')
 
@@ -139,15 +139,19 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     plt.xlabel(n2)
 
     ax = plt.subplot(2, 2, 2)
-    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1]),
-              beta2[set2]-beta1[set2] * np.sign(beta2[set2])],
-             bins=hist_bins-1, range=[hist_range[0]/2,hist_range[1]/2],
-             histtype='bar', stacked=True,
-             color=['black','lightgray'])
+#    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1]),
+#              beta2[set2]-beta1[set2] * np.sign(beta2[set2])],
+#             bins=hist_bins-1, range=[hist_range[0]/2,hist_range[1]/2],
+#             histtype='bar', stacked=True,
+#             color=['black','lightgray'])
+
+    d=np.sort(np.sign(beta1[goodcells])*(beta2[goodcells]-beta1[goodcells]))
+    plt.bar(np.arange(np.sum(goodcells)), d,
+            color='black')
     plt.title('mean={:.3f} abs={:.3f}'.
               format(np.mean(beta2[goodcells]),
                      np.mean(np.abs(beta2[goodcells]))))
-    plt.xlabel('difference')
+    plt.ylabel('difference')
 
     plt.tight_layout()
 
@@ -396,23 +400,27 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
     pred_mod = np.zeros([len(state_var_list), 2])
     pred_mod_full = np.zeros([len(state_var_list), 2])
     resp_mod_full = np.zeros([len(state_var_list), 1])
-    pred_mod_norm = np.zeros([len(state_var_list), 2])
-    pred_mod_full_norm = np.zeros([len(state_var_list), 2])
+
+    state_std = np.nanstd(val['state'].as_continuous(), axis=1, keepdims=True)
     for i, var in enumerate(state_var_list):
-        # actual response modulation index for each state var
-        resp_mod_full[i] = state_mod_index(val, epoch='REFERENCE',
-                     psth_name='resp', state_sig=var)
+        if state_std[i]:
+            # actual response modulation index for each state var
+            resp_mod_full[i] = state_mod_index(val, epoch='REFERENCE',
+                                               psth_name='resp', state_sig=var)
 
-        mod2_p0b = state_mod_index(val, epoch='REFERENCE',
-                     psth_name='pred_p0b', state_sig=var)
-        mod2_pb0 = state_mod_index(val, epoch='REFERENCE',
-                     psth_name='pred_pb0', state_sig=var)
-        mod2_pb = state_mod_index(val, epoch='REFERENCE',
-                     psth_name='pred', state_sig=var)
+            mod2_p0b = state_mod_index(val, epoch='REFERENCE',
+                                       psth_name='pred_p0b', state_sig=var)
+            mod2_pb0 = state_mod_index(val, epoch='REFERENCE',
+                                       psth_name='pred_pb0', state_sig=var)
+            mod2_pb = state_mod_index(val, epoch='REFERENCE',
+                                      psth_name='pred', state_sig=var)
 
-        pred_mod[i] = np.array([mod2_pb-mod2_p0b, mod2_pb-mod2_pb0])
-        pred_mod_full[i] = np.array([mod2_pb0, mod2_p0b])
+            pred_mod[i] = np.array([mod2_pb-mod2_p0b, mod2_pb-mod2_pb0])
+            pred_mod_full[i] = np.array([mod2_pb0, mod2_p0b])
 
+    pred_mod_norm = pred_mod / (state_std + (state_std == 0).astype(float))
+    pred_mod_full_norm = pred_mod_full / (state_std +
+                                          (state_std == 0).astype(float))
 
 #    pred_mod = np.zeros([len(factors), 2])
 #    pred_mod_full = np.zeros([len(factors), 2])
@@ -515,7 +523,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
 
         ax.set_title("r={:.3f} rawmod={:.3f} umod={:.3f}"
                      .format(ctx_pb['modelspecs'][0][0]['meta']['r_test'],
-                             pred_mod_full[i+1][j], pred_mod[i+1][j]),
+                             pred_mod_full_norm[i+1][j], pred_mod_norm[i+1][j]),
                      fontsize=8)
 
         if var == 'active':
@@ -540,6 +548,12 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
                      ctx_pb0['modelspecs'][0][0]['meta']['r_test'],
                      ctx_pb['modelspecs'][0][0]['meta']['r_test']
                      ]),
+             'se_test': np.array([
+                     ctx_p0b0['modelspecs'][0][0]['meta']['se_test'],
+                     ctx_p0b['modelspecs'][0][0]['meta']['se_test'],
+                     ctx_pb0['modelspecs'][0][0]['meta']['se_test'],
+                     ctx_pb['modelspecs'][0][0]['meta']['se_test']
+                     ]),
              'r_floor': np.array([
                      ctx_p0b0['modelspecs'][0][0]['meta']['r_floor'],
                      ctx_p0b['modelspecs'][0][0]['meta']['r_floor'],
@@ -548,6 +562,8 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
                      ]),
              'pred_mod': pred_mod.T,
              'pred_mod_full': pred_mod_full.T,
+             'pred_mod_norm': pred_mod_norm.T,
+             'pred_mod_full_norm': pred_mod_full_norm.T,
              'g': np.array([
                      ctx_p0b0['modelspecs'][0][0]['phi']['g'],
                      ctx_p0b['modelspecs'][0][0]['phi']['g'],
@@ -564,7 +580,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
 
 
 def pb_model_plot(cellid='TAR010c-06-1', batch=301,
-                  loader="psth.fs20", fitter="basic.st.nf10"):
+                  loader="psth.fs20", basemodel="stategain.S", fitter="basic.st.nf10"):
     """
     test for pupil-behavior interaction.
     loader : string
@@ -579,15 +595,10 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301,
     # modelname_p0b = loader + "20pup0beh_stategain3_" + fitter
     # modelname_pb0 = loader + "20pupbeh0_stategain3_" + fitter
     # modelname_pb = loader + "20pupbeh_stategain3_" + fitter
-
-#    modelname_p0b0 = loader + "-st.pup0.beh0_stategain.N_" + fitter
-#    modelname_p0b = loader + "-st.pup0.beh_stategain.N_" + fitter
-#    modelname_pb0 = loader + "-st.pup.beh0_stategain.N_" + fitter
-#    modelname_pb = loader + "-st.pup.beh_stategain.N_" + fitter
-    modelname_p0b0 = loader + "-st.pup0.beh0_sdexp.S_" + fitter
-    modelname_p0b = loader + "-st.pup0.beh_sdexp.S_" + fitter
-    modelname_pb0 = loader + "-st.pup.beh0_sdexp.S_" + fitter
-    modelname_pb = loader + "-st.pup.beh_sdexp.S_" + fitter
+    modelname_p0b0 = loader + "-st.pup0.beh0_" + basemodel + "_" + fitter
+    modelname_p0b = loader + "-st.pup0.beh_" + basemodel + "_" + fitter
+    modelname_pb0 = loader + "-st.pup.beh0_" + basemodel + "_" + fitter
+    modelname_pb = loader + "-st.pup.beh_" + basemodel + "_" + fitter
 
     factor0 = "baseline"
     factor1 = "pupil"
@@ -606,7 +617,7 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301,
 
 
 def pp_model_plot(cellid='TAR010c-06-1', batch=301,
-                  loader="psth", fitter="basic-nf"):
+                  loader="psth", basemodel="stategain.N", fitter="basic-nf"):
     """
     test for pre-post effects
     loader : string
@@ -640,7 +651,8 @@ def pp_model_plot(cellid='TAR010c-06-1', batch=301,
 
 
 def ppas_model_plot(cellid='TAR010c-06-1', batch=301,
-                    loader="psth.fs20", fitter="basic.st.nf10"):
+                    loader="psth.fs20", basemodel="stategain.S",
+                    fitter="basic.st.nf10"):
     """
     test for pre-post effects -- passive only data
     loader : string
@@ -650,15 +662,10 @@ def ppas_model_plot(cellid='TAR010c-06-1', batch=301,
     """
 
     # psth.fs20-st.pup0.pas0-pas_stategain.N_basic.st.nf10
-    # -st.pup0.pas0-pas_stategain.N_
-#    modelname_p0b0 = loader + "-st.pup0.pas0-pas_stategain.N_" + fitter
-#    modelname_p0b = loader + "-st.pup0.pas-pas_stategain.N_" + fitter
-#    modelname_pb0 = loader + "-st.pup.pas0-pas_stategain.N_" + fitter
-#    modelname_pb = loader + "-st.pup.pas-pas_stategain.N_" + fitter
-    modelname_p0b0 = loader + "-st.pup0.pas0-pas_sdexp.S_" + fitter
-    modelname_p0b = loader + "-st.pup0.pas-pas_sdexp.S_" + fitter
-    modelname_pb0 = loader + "-st.pup.pas0-pas_sdexp.S_" + fitter
-    modelname_pb = loader + "-st.pup.pas-pas_sdexp.S_" + fitter
+    modelname_p0b0 = loader + "-st.pup0.pas0-pas_" + basemodel + "_" + fitter
+    modelname_p0b = loader + "-st.pup0.pas-pas_" + basemodel + "_" + fitter
+    modelname_pb0 = loader + "-st.pup.pas0-pas_" + basemodel + "_" + fitter
+    modelname_pb = loader + "-st.pup.pas-pas_" + basemodel + "_" + fitter
 
     factor0 = "baseline"
     factor1 = "pupil"
