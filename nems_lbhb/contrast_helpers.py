@@ -1,3 +1,4 @@
+import logging
 import copy
 
 import numpy as np
@@ -6,6 +7,7 @@ from scipy.signal import convolve2d
 from nems.utils import find_module
 from nems import signal
 
+log = logging.getLogger(__name__)
 # TODO: Move init_logsig here?
 
 

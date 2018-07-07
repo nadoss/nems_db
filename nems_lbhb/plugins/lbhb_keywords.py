@@ -1,4 +1,4 @@
-from nems.plugins.default_keywords import wc, stp, dlog
+from nems.plugins.default_keywords import wc, fir, lvl, stp, dlog
 import re
 import logging
 
@@ -25,6 +25,16 @@ def ctfir(kw):
     options to be supported if needed.
     '''
     m = fir(kw[2:])
+    m['fn_kwargs'].update({'i': 'ctpred', 'o': 'ctpred'})
+    return m
+
+
+def ctlvl(kw):
+    '''
+    Same as nems.plugins.keywords.lvl but renamed for
+    contrast.
+    '''
+    m = lvl(kw[2:])
     m['fn_kwargs'].update({'i': 'ctpred', 'o': 'ctpred'})
     return m
 
