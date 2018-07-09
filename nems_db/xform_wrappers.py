@@ -90,6 +90,13 @@ def generate_recording_uri(cellid, batch, loader):
         options = {'rasterfs': 20, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': True, 'stim': False,
                    'pupil_deblink': 1, 'pupil_median': 0.5}
+        
+    elif (loader.startswith("nostim5pup") or loader.startswith("psth5pup")
+          or loader.startswith("psths5pup")
+          or loader.startswith("evt5pup")):
+        options = {'rasterfs': 5, 'stimfmt': 'parm',
+                   'chancount': 0, 'pupil': True, 'stim': False,
+                   'pupil_deblink': 1, 'pupil_median': 0.5} 
 
     elif (loader.startswith("nostim20") or loader.startswith("psth20")
           or loader.startswith("psthm20") or loader.startswith("psths20")):
