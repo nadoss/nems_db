@@ -7,9 +7,7 @@ log = logging.getLogger(__name__)
 
 from flask import abort, Response, request
 from flask_restful import Resource
-from sqlalchemy import and_
 
-from .db import NarfResults, Session
 from .query import grep_dirtree
 
 # Define some regexes for sanitizing inputs

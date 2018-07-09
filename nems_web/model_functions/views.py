@@ -44,8 +44,6 @@ def enqueue_models_view():
     execPath = request.args.get('execPath')
     scriptPath = request.args.get('scriptPath')
 
-    log.info('codeHash retrieved properly?: {0}'.format(codeHash))
-
     if not codeHash:
         codeHash = 'master'
     if not execPath:

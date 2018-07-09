@@ -256,6 +256,9 @@ def enqueue_single_model(
         qdata.progress = 0
         job = qdata
         job.codeHash = codeHash
+        # update command prompt incase a new executable or script path
+        # has been provided.
+        job.commandPrompt = commandPrompt
     elif qdata and (int(qdata.complete) == 1):
         # TODO:
         # resetting existing queue entry for note
@@ -267,6 +270,9 @@ def enqueue_single_model(
         job = qdata
         # update codeHash on re-run
         job.codeHash = codeHash
+        # update command prompt incase a new executable or script path
+        # has been provided.
+        job.commandPrompt = commandPrompt
     else:
         # result must not have existed, or status value was greater than 2
         # add new entry

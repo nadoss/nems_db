@@ -656,7 +656,7 @@ def baphy_load_data(parmfilepath, **options):
                     )
             state_dict['pupiltrace'] = pupiltrace
 
-        except:
+        except ValueError:
             raise ValueError("Error loading pupil data: " + pupilfilepath)
 
     return (exptevents, stim, spike_dict, state_dict,
@@ -1488,21 +1488,23 @@ def baphy_load_multichannel_recording(**options):
     """
     TESTING - CRH 6/29/2018
     Meant to function as a wrapper around baphy_data_path. Will find all cellids
-    matching the batch and site specified (and rawids if given). Then, will 
-    load their individual recordings and build a multi-channel recording from 
-    this and cache it and return the recording uri. 
-    The cache will also save a json file containing all the options information 
-    for the recording. If the recording has been loaded before with the same 
-    cellids and options, it will just be re-loaded from cache. 
-    IMPORTANT, we include the check for cellids because it's possible that data 
+    matching the batch and site specified (and rawids if given). Then, will
+    load their individual recordings and build a multi-channel recording from
+    this and cache it and return the recording uri.
+    The cache will also save a json file containing all the options information
+    for the recording. If the recording has been loaded before with the same
+    cellids and options, it will just be re-loaded from cache.
+    IMPORTANT, we include the check for cellids because it's possible that data
     could get resorted and the same batch/site/options might no longer mean the
     same cellids!
     """
-    if options.get('batch') is None or options.get('site') is None:
-        raise ValueError("must provide cellid and batch")
-  
-    batch = options.get('batch')
-    site = options.get('site')
+
+    try:
+        batch = options.get('batch')
+        site = options.get('site')
+    except ValueError:
+        raise ValueError("must provide site and batch parameters")
+
     options['rasterfs'] = int(options.get('rasterfs', 100))
     options['stimfmt'] = options.get('stimfmt', 'ozgf')
     options['chancount'] = int(options.get('chancount', 18))
@@ -1514,7 +1516,7 @@ def baphy_load_multichannel_recording(**options):
     options['pupil_median'] = int(options.get('pupil_median', 1))
     options['stim'] = int(options.get('stim', False))
     options['runclass'] = options.get('runclass', None)
-    
+
     # TODO - this really should be smarter - pad with Nans or something...
     # For the time being...
     # If rawids are not specificed, will only load cellids that are stable across
@@ -1537,17 +1539,17 @@ def baphy_load_multichannel_recording(**options):
     else:
         raise ValueError("what's going on?")
 
-    
+
     unique_id = str(datetime.datetime.now()).split('.')[0].replace(' ', '-')
     full_rec_uri = '/auto/users/hellerc/recordings/'+str(batch)+'/'+site+'_'+unique_id+'.tgz'
     full_rec_meta = full_rec_uri.split('.')[0:-1][0]+'.json'
-    
+
     # since all uri's will have a unique id, we don't check for the exact name existing, we look
     # for something with the same batch/site and identical meta data (load options)
     search_str = full_rec_meta.split('_')[0]
     meta_data_files = glob.glob(search_str+'*'+'.json')
     cache_exists=None
-    
+
     temp_options = options.copy()
     temp_options['cellid'] = cellids
     for mdf in meta_data_files:
@@ -1559,24 +1561,24 @@ def baphy_load_multichannel_recording(**options):
             print('Found cached recording, returning {0}'.format(full_rec_uri))
             cache_exists = True
             continue
-            
+
     if cache_exists is None:
         for i, cellid in enumerate(cellids):
             options['cellid'] = cellid
             rec_uri = baphy_data_path(**options)
             rec = Recording.load(rec_uri)
-                
+
             # build full response matrix
             if i == 0:
                 resp = np.zeros((len(cellids), rec['resp'].rasterize().shape[1]))
                 resp[i,:] = rec['resp'].rasterize().as_continuous()
             else:
                 resp[i,:] = rec['resp'].rasterize().as_continuous()
-                
+
         # create the signal, assign channels, add to recording, cache
         full_resp_signal = rec['resp'].rasterize()._modified_copy(resp)
         full_resp_signal.chans = cellids
-        
+
         # make sure all signals are rasterized before storing in newrec
         sig = dict()
         for s in rec.signals.keys():
@@ -1584,26 +1586,25 @@ def baphy_load_multichannel_recording(**options):
                 sig[s] = rec[s].rasterize()
             else:
                 sig[s] = rec[s]
-                
+
         newrec = Recording(sig)
         newrec.add_signal(full_resp_signal)
         # cache recording
-        newrec.save(full_rec_uri)                       
+        newrec.save(full_rec_uri)
         # cache meta data about loading
         options['cellid'] = cellids
-            
+
         with open(full_rec_meta,'w') as fp:
             json.dump(options, fp)
-            
+
         return full_rec_uri
-    
+
     else:
         return full_rec_uri
-    
-    
-    
-    
-    
-    
-    
-    
+
+
+
+
+
+
+
