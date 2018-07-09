@@ -58,7 +58,7 @@ def get_recording_uri(cellid, batch, options={}):
     return url
 
 
-def generate_recording_uri(cellid, batch, loadkey):
+def generate_recording_uri(cellid, batch, loader):
     """
     figure out filename (or eventually URI) of pre-generated
     NEMS-format recording for a given cell/batch/loader string
@@ -72,6 +72,19 @@ def generate_recording_uri(cellid, batch, loadkey):
     #       repeated code.
 
     options = {}
+    
+    def _parm_helper(fs, pupil):
+        options = {'rasterfs': fs, 'stimfmt': 'parm',
+                   'chancount': 0, 'stim': False}
+
+        if pupil:
+            pup_med = 2.0 if fs == 10 else 0.5
+            options.update({'pupil': True, 'pupil_deblink': True,
+                            'pupil_median': pup_med})
+        else:
+            options['pupil'] = False
+
+        return options
 
     if loader in ["ozgf100ch18", "ozgf100ch18n"]:
         options = {'rasterfs': 100, 'includeprestim': True,
@@ -117,82 +130,6 @@ def generate_recording_uri(cellid, batch, loadkey):
 
     elif loader.startswith("env200"):
         options = {'rasterfs': 200, 'stimfmt': 'envelope', 'chancount': 0}
-
-    def _parm_helper(fs, pupil):
-        options = {'rasterfs': fs, 'stimfmt': 'parm',
-                   'chancount': 0, 'stim': False}
-
-        if pupil:
-            pup_med = 2.0 if fs == 10 else 0.5
-            options.update({'pupil': True, 'pupil_deblink': True,
-                            'pupil_median': pup_med})
-        else:
-            options['pupil'] = False
-
-        return options
-
-    # remove any preprocessing keywords in the loader string.
-    loader = loadkey.split("-")[0]
-    log.info('loader=%s',loader)
-    if loader.startswith('ozgf'):
-        pattern = re.compile(r'^ozgf\.fs(\d{1,})\.ch(\d{1,})(\.\w*)?$')
-        parsed = re.match(pattern, loader)
-        # TODO: fs and chans useful for anything for the loader? They don't
-        #       seem to be used here, only in the baphy-specific stuff.
-        fs = int(parsed.group(1))
-        chans = int(parsed.group(2))
-        ops = parsed.group(3)
-        pupil = ('pup' in ops) if ops is not None else False
-
-        options = {'rasterfs': fs, 'includeprestim': True,
-                   'stimfmt': 'ozgf', 'chancount': chans}
-
-        if pupil:
-            options.update({'pupil': True, 'stim': True, 'pupil_deblink': True,
-                            'pupil_median': 2})
-
-    elif loader.startswith('nostim'):
-        pattern = re.compile(r'^nostim\.(\d{1,})(\w*)?$')
-        parsed = re.match(pattern, loader)
-        fs = parsed.group(1)
-        ops = parsed.group(2)
-        pupil = ('pup' in ops)
-
-        options.update(_parm_helper(fs, pupil))
-
-    elif loader.startswith('ns'):
-        pattern = re.compile(r'^ns\.fs(\d{1,})')
-        parsed = re.match(pattern, loader)
-        fs = parsed.group(1)
-        pupil = ('pup' in loadkey)
-
-        options.update(_parm_helper(fs, pupil))
-
-    elif loader.startswith('psth'):
-        pattern = re.compile(r'^psth\.fs(\d{1,})([a-zA-Z0-9\.]*)?$')
-        parsed = re.match(pattern, loader)
-        fs = parsed.group(1)
-        ops = parsed.group(2)
-        pupil = ('pup' in ops)
-
-        options.update(_parm_helper(fs, pupil))
-
-    elif loader.startswith('evt'):
-        pattern = re.compile(r'^evt\.fs(\d{1,})([a-zA-Z0-9\.]*)?$')
-        parsed = re.match(pattern, loader)
-        fs = parsed.group(1)
-        ops = parsed.group(2)
-        pupil = ('pup' in ops)
-
-        options.update(_parm_helper(fs, pupil))
-
-    elif loader.startswith('env'):
-        pattern = re.compile(r'^env\.fs(\d{1,})([a-zA-Z0-9\.]*)$')
-        parsed = re.match(pattern, loader)
-        fs = parsed.group(1)
-        ops = parsed.group(2)  # nothing relevant here yet?
-
-        options.update({'rasterfs': fs, 'stimfmt': 'envelope', 'chancount': 0})
 
     else:
         raise ValueError('unknown loader string: %s' % loader)
