@@ -3,6 +3,7 @@
 
 import os
 import random
+import re
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
@@ -23,6 +24,9 @@ from nems.recording import Recording
 from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
 import nems.xforms as xforms
 import nems.xform_helper as xhelp
+from nems_lbhb.old_xforms.xform_wrappers import generate_recording_uri as ogru
+import nems_lbhb.old_xforms.xforms as oxf
+import nems_lbhb.old_xforms.xform_helper as oxfh
 
 import logging
 log = logging.getLogger(__name__)
@@ -54,7 +58,7 @@ def get_recording_uri(cellid, batch, options={}):
     return url
 
 
-def generate_recording_uri(cellid, batch, loader):
+def generate_recording_uri(cellid, batch, loadkey):
     """
     figure out filename (or eventually URI) of pre-generated
     NEMS-format recording for a given cell/batch/loader string
@@ -63,7 +67,12 @@ def generate_recording_uri(cellid, batch, loader):
     in nems.xform_helper
     """
 
+    # TODO: A lot of the parsing is copy-pasted from nems_lbhb/loaders/,
+    #       need to figure out which role goes where and delete the
+    #       repeated code.
+
     options = {}
+
     if loader in ["ozgf100ch18", "ozgf100ch18n"]:
         options = {'rasterfs': 100, 'includeprestim': True,
                    'stimfmt': 'ozgf', 'chancount': 18}
@@ -109,10 +118,86 @@ def generate_recording_uri(cellid, batch, loader):
     elif loader.startswith("env200"):
         options = {'rasterfs': 200, 'stimfmt': 'envelope', 'chancount': 0}
 
-    else:
-        raise ValueError('unknown loader string')
+    def _parm_helper(fs, pupil):
+        options = {'rasterfs': fs, 'stimfmt': 'parm',
+                   'chancount': 0, 'stim': False}
 
-    # recording_uri = get_recording_uri(cellid, batch, options)
+        if pupil:
+            pup_med = 2.0 if fs == 10 else 0.5
+            options.update({'pupil': True, 'pupil_deblink': True,
+                            'pupil_median': pup_med})
+        else:
+            options['pupil'] = False
+
+        return options
+
+    # remove any preprocessing keywords in the loader string.
+    loader = loadkey.split("-")[0]
+    log.info('loader=%s',loader)
+    if loader.startswith('ozgf'):
+        pattern = re.compile(r'^ozgf\.fs(\d{1,})\.ch(\d{1,})(\.\w*)?$')
+        parsed = re.match(pattern, loader)
+        # TODO: fs and chans useful for anything for the loader? They don't
+        #       seem to be used here, only in the baphy-specific stuff.
+        fs = int(parsed.group(1))
+        chans = int(parsed.group(2))
+        ops = parsed.group(3)
+        pupil = ('pup' in ops) if ops is not None else False
+
+        options = {'rasterfs': fs, 'includeprestim': True,
+                   'stimfmt': 'ozgf', 'chancount': chans}
+
+        if pupil:
+            options.update({'pupil': True, 'stim': True, 'pupil_deblink': True,
+                            'pupil_median': 2})
+
+    elif loader.startswith('nostim'):
+        pattern = re.compile(r'^nostim\.(\d{1,})(\w*)?$')
+        parsed = re.match(pattern, loader)
+        fs = parsed.group(1)
+        ops = parsed.group(2)
+        pupil = ('pup' in ops)
+
+        options.update(_parm_helper(fs, pupil))
+
+    elif loader.startswith('ns'):
+        pattern = re.compile(r'^ns\.fs(\d{1,})')
+        parsed = re.match(pattern, loader)
+        fs = parsed.group(1)
+        pupil = ('pup' in loadkey)
+
+        options.update(_parm_helper(fs, pupil))
+
+    elif loader.startswith('psth'):
+        pattern = re.compile(r'^psth\.fs(\d{1,})([a-zA-Z0-9\.]*)?$')
+        parsed = re.match(pattern, loader)
+        fs = parsed.group(1)
+        ops = parsed.group(2)
+        pupil = ('pup' in ops)
+
+        options.update(_parm_helper(fs, pupil))
+
+    elif loader.startswith('evt'):
+        pattern = re.compile(r'^evt\.fs(\d{1,})([a-zA-Z0-9\.]*)?$')
+        parsed = re.match(pattern, loader)
+        fs = parsed.group(1)
+        ops = parsed.group(2)
+        pupil = ('pup' in ops)
+
+        options.update(_parm_helper(fs, pupil))
+
+    elif loader.startswith('env'):
+        pattern = re.compile(r'^env\.fs(\d{1,})([a-zA-Z0-9\.]*)$')
+        parsed = re.match(pattern, loader)
+        fs = parsed.group(1)
+        ops = parsed.group(2)  # nothing relevant here yet?
+
+        options.update({'rasterfs': fs, 'stimfmt': 'envelope', 'chancount': 0})
+
+    else:
+        raise ValueError('unknown loader string: %s' % loader)
+
+    # recording_uri = get_recording_uri(cellid, batch, options)\
     recording_uri = get_recording_file(cellid, batch, options)
 
     return recording_uri
@@ -147,40 +232,40 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     log.info('Initializing modelspec(s) for cell/batch %s/%d...',
              cellid, int(batch))
 
-    # parse modelname
+    # Segment modelname for meta information
     kws = modelname.split("_")
-    loader = kws[0]
-    modelspecname = "_".join(kws[1:-1])
+    old = False
+    if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')
+                          and not kws[1].startswith('stategain.')):
+        # Check if modelname uses old format.
+        log.info("Using old modelname format ... ")
+        old = True
+        modelspecname = '_'.join(kws[1:-1])
+    else:
+        modelspecname = "-".join(kws[1:-1])
+    loadkey = kws[0]
     fitkey = kws[-1]
 
     meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
-            'loader': loader, 'fitkey': fitkey, 'modelspecname': modelspecname,
+            'loader': loadkey, 'fitkey': fitkey, 'modelspecname': modelspecname,
             'username': 'nems', 'labgroup': 'lbhb', 'public': 1,
             'githash': os.environ.get('CODEHASH', ''),
-            'recording': loader}
+            'recording': loadkey}
 
-    recording_uri = generate_recording_uri(cellid, batch, loader)
-
-    # generate xfspec, which defines sequence of events to load data,
-    # generate modelspec, fit data, plot results and save
-    xfspec = xhelp.generate_loader_xfspec(loader, recording_uri)
-
-    xfspec.append(['nems.xforms.init_from_keywords',
-                   {'keywordstring': modelspecname, 'meta': meta}])
-    # xfspec.append(['nems.initializers.from_keywords_as_list',
-    #                {'keyword_string': modelspecname, 'meta': meta},
-    #                [],['modelspecs']])
-
-    xfspec += xhelp.generate_fitter_xfspec(fitkey)
-
-    # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
-    xfspec.append(['nems.analysis.api.standard_correlation', {},
-                   ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
-
-    if autoPlot:
-        # GENERATE PLOTS
-        log.info('Generating summary plot...')
-        xfspec.append(['nems.xforms.plot_summary',    {}])
+    if old:
+        recording_uri = ogru(cellid, batch, loadkey)
+        xfspec = oxfh.generate_loader_xfspec(loadkey, recording_uri)
+        xfspec.append(['nems_lbhb.old_xforms.xforms.init_from_keywords',
+                       {'keywordstring': modelspecname, 'meta': meta}])
+        xfspec.extend(oxfh.generate_fitter_xfspec(fitkey))
+        xfspec.append(['nems.analysis.api.standard_correlation', {},
+                       ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
+        if autoPlot:
+            log.info('Generating summary plot ...')
+            xfspec.append(['nems.xforms.plot_summary', {}])
+    else:
+        recording_uri = generate_recording_uri(cellid, batch, loadkey)
+        xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta)
 
     # actually do the fit
     ctx, log_xf = xforms.evaluate(xfspec)
@@ -192,34 +277,45 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
             batch, cellid, ms.get_modelspec_longname(modelspecs[0]))
     modelspecs[0][0]['meta']['modelpath'] = destination
     modelspecs[0][0]['meta']['figurefile'] = destination+'figure.0000.png'
+    modelspecs[0][0]['meta'].update(meta)
 
     # save results
     log.info('Saving modelspec(s) to {0} ...'.format(destination))
-    xforms.save_analysis(destination,
-                         recording=ctx['rec'],
-                         modelspecs=modelspecs,
-                         xfspec=xfspec,
-                         figures=ctx['figures'],
-                         log=log_xf)
+    save_data = xforms.save_analysis(destination,
+                                     recording=ctx['rec'],
+                                     modelspecs=modelspecs,
+                                     xfspec=xfspec,
+                                     figures=ctx['figures'],
+                                     log=log_xf)
+    savepath = save_data['savepath']
 
     # save in database as well
     if saveInDB:
         # TODO : db results finalized?
         nd.update_results_table(modelspecs[0])
 
-    return ctx
+    return savepath
 
 
 def load_model_baphy_xform(cellid, batch=271,
         modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
         eval_model=True):
 
+    kws = modelname.split("_")
+    old = False
+    if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')
+                          and not kws[1].startswith('stategain.')):
+        # Check if modelname uses old format.
+        log.info("Using old modelname format ... ")
+        old = True
+
     d = nd.get_results_file(batch, [modelname], [cellid])
     filepath = d['modelpath'][0]
-    # Removed print statement here since load_analysis already does it.
-    # Was causing a lot of log spam when loading many modelspecs.
-    # -jacob 4-8-2018
-    return xforms.load_analysis(filepath, eval_model=eval_model)
+
+    if old:
+        return oxf.load_analysis(filepath, eval_model=eval_model)
+    else:
+        return xforms.load_analysis(filepath, eval_model=eval_model)
 
 
 def load_batch_modelpaths(batch, modelnames, cellids=None, eval_model=True):
@@ -238,84 +334,3 @@ def quick_inspect(cellid="chn020f-b1", batch=271,
     nplt.plot_summary(val, modelspecs)
 
     return modelspecs, est, val
-
-
-"""
-# SPN example
-cellid='btn144a-c1'
-batch=259
-modelname="env100_fir15x2_dexp1_fit01"
-
-# A1 RDT example
-cellid = 'zee021e-c1'
-batch=269
-modelname = "ozgf100ch18pt_wc18x1_fir15x1_lvl1_dexp1_fit01"
-savepath = fit_model_baphy(cellid=cellid, batch=batch, modelname=modelname,
-                           autoPlot=False, saveInDB=True)
-modelspec,est,val=load_model_baphy(savepath)
-
-# A1 VOC+pupil example
-cellid = 'eno053f-a1'
-batch=294
-modelname = "ozgf100ch18pup_pup_psth_stategain2_fit02"
-savepath = fit_model_baphy(cellid=cellid, batch=batch, modelname=modelname,
-                           autoPlot=False, saveInDB=True)
-modelspec,est,val=load_model_baphy(savepath)
-
-
-# A1 NAT + pupil example
-cellid = 'TAR010c-18-1'
-batch=289
-modelname = "ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01"
-
-savepath = fit_model_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-modelspec,est,val=load_model_baphy(savepath)
-
-# IC NAT example
-cellid = "bbl031f-a1"
-batch=291
-modelname = "ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"
-
-savepath = fit_model_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-modelspec,est,val=load_model_baphy(savepath)
-"""
-
-
-# A1 NAT + pupil example
-"""
-cellid = 'TAR010c-18-1'
-batch=289
-modelname = "ozgf100ch18pup_wcg18x1_fir1x15_lvl1_stategain2_fitjk01"
-ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-
-"""
-
-
-# A1 NAT example
-"""
-
-cellid = 'zee019b-b1'
-batch=271
-modelname = "ozgf100ch18_dlog_wcg18x1_fir1x15_lvl1_dexp1_fit01"
-ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-
-savepath = fit_model_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-
-modelspec,est,val=load_model_baphy(savepath)
-
-"""
-
-# A1 VOC+pup example
-"""
-cellid = 'eno052d-a1'
-batch=294
-modelname = "nostim10pup_stategain2_fitpjk01"
-ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-"""
-
-"""
-cellid = 'TAR010c-06-1'
-batch=301
-modelname = "nostim10pup_stategain2_fitpjk01"
-ctx=fit_model_xforms_baphy(cellid = cellid, batch=batch, modelname = modelname, autoPlot=True, saveInDB=True)
-"""

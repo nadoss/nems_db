@@ -24,6 +24,8 @@ any other category (so far, just one function to serve error_log.txt).
 import logging
 import copy
 import datetime
+import json
+import itertools
 from base64 import b64encode
 from urllib.parse import urlparse
 from collections import namedtuple
@@ -261,13 +263,24 @@ def update_models():
     # which will use a series of internal methods to convert the tree string
     # to a list of model names.
     if modeltree:
-        mf = ModelFinder(modeltree[0])
+        load, mod, fit = _get_trees(modeltree[0])
+        if load and mod and fit:
+            loader = ModelFinder(load).modellist
+            model = ModelFinder(mod).modellist
+            fitter = ModelFinder(fit).modellist
+            combined = itertools.product(loader, model, fitter)
+            model_list = ['_'.join(m) for m in combined]
+        else:
+            # Probably an old modeltree that doesn't have a separate
+            # specification of loaders/preprocessors and fitters/postprocessors
+            model_list = ModelFinder(mod, sep='_').modellist
+
     else:
         return jsonify(modellist="Model tree not found.")
 
     session.close()
 
-    return jsonify(modellist=mf.modellist)
+    return jsonify(modellist=model_list)
 
 
 @app.route('/update_cells')
@@ -574,7 +587,10 @@ def edit_analysis():
     eTags = request.args.get('tags')
     eQuestion = request.args.get('question')
     eAnswer = request.args.get('answer')
-    eTree = request.args.get('tree')
+    eLoad = request.args.get('load')
+    eMod = request.args.get('mod')
+    eFit = request.args.get('fit')
+    eTree = json.dumps([eLoad, eMod, eFit])
 
     if eId == '__none':
         checkExists = False
@@ -663,11 +679,13 @@ def get_current_analysis():
         .first()
         )
 
+    load, mod, fit = _get_trees(a.modeltree)
+
     session.close()
 
     return jsonify(
             id=a.id, name=a.name, status=a.status, tags=a.tags,
-            question=a.question, answer=a.answer, tree=a.modeltree,
+            question=a.question, answer=a.answer, load=load, mod=mod, fit=fit,
             )
 
 
@@ -739,6 +757,16 @@ def delete_analysis():
     session.close()
 
     return jsonify(success=success)
+
+
+def _get_trees(modeltree):
+    try:
+        load, mod, fit = json.loads(modeltree)
+    except ValueError:
+        # Modeltree is still using old paradigm with only one entry
+        load, mod, fit = '', modeltree, ''
+
+    return load, mod, fit
 
 
 ####################################################################

@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 
 
 def fitted_params_per_batch(batch, modelname, mod_key='id', limit=None,
-                            multi='mean', meta=['r_test', 'r_fit'],
+                            multi='mean', meta=['r_test', 'r_fit', 'se_test'],
                             stats_keys=['mean', 'std', 'sem', 'max', 'min']):
     celldata = nd.get_batch_cells(batch=batch)
     cellids = celldata['cellid'].tolist()
@@ -29,7 +29,7 @@ def fitted_params_per_batch(batch, modelname, mod_key='id', limit=None,
 
 
 def fitted_params_per_cell(cellids, batch, modelname, mod_key='id',
-                           meta=['r_test', 'r_fit'], multi='mean',
+                           meta=['r_test', 'r_fit', 'se_test'], multi='mean',
                            stats_keys=['mean', 'std', 'sem', 'max', 'min']):
     '''
     Valid meta keys for LBHB (not exhaustive):

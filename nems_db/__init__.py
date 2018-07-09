@@ -1,4 +1,5 @@
 import logging
+import ast
 log = logging.getLogger(__name__)
 
 # for each setting defined in db_defaults:
@@ -52,14 +53,14 @@ def _init_settings(environ, defaults, settings, cache):
                 d = getattr(settings, s)
                 if d is None:
                     d = ''
-                environ[s] = d
+                environ[s] = str(d)
             else:
                 log.info("No value specified for: %s. Using default value "
                          "in %s", s, defaults.__name__)
                 d = getattr(defaults, s)
                 if d is None:
                     d = ''
-                environ[s] = d
+                environ[s] = str(d)
             cache[s] = environ[s]
 
 
@@ -72,8 +73,18 @@ _cached_config = load_config()
 
 
 def get_setting(s):
-    return _cached_config.get(s, None)
-
+    s = _cached_config.get(s, None)
+    # Necessary since environment variables can only hold strings,
+    # but config settings some times need to be other types.
+    # NOTE: Will not work for dictionaries, but tested fine so far
+    #       with strings, lists, ints, floats, and booleans.
+    try:
+        # s is something other than a string
+        s = ast.literal_eval(s)
+    except SyntaxError or ValueError:
+        # setting is just a string
+        pass
+    return s
 
 # TODO: Wouldn't caching the variables in os env make changing them from
 #       the .py files difficult? Would probably have to restart
