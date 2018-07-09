@@ -110,10 +110,14 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
     strmean = np.median(str_mtx, axis=0)
     strerr = np.std(str_mtx, axis=0) / np.sqrt(str_mtx.shape[0])
 
+    xstr = 'E'
+    ystr = 'I'
+
     fh = plt.figure(figsize=(8,5))
 
     dotcolor = 'black'
     dotcolor_ns = 'lightgray'
+    thinlinecolor = 'gray'
     barcolors = [(235/255, 47/255, 40/255), (115/255, 200/255, 239/255)]
     barwidth = 0.5
 
@@ -149,29 +153,28 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
     ax = plt.subplot(2, 3, 4)
     plt.plot(np.array([-0.5, 1.5]), np.array([0, 0]), 'k--')
     plt.bar(np.arange(2), umean, color=barcolors, width=barwidth)
-    plt.plot(np.random.normal(0, 0.05, size=u_mtx[show_units, 0].shape),
-             u_mtx[show_units, 0], '.', color=dotcolor)
-    plt.plot(np.random.normal(1, 0.05, size=u_mtx[show_units, 0].shape),
-             u_mtx[show_units, 1], '.', color=dotcolor)
-    # plt.errorbar(np.arange(2), umean, yerr=uerr, color='black', linewidth=2)
-    w, p = ss.wilcoxon(u_mtx[show_units, 0], u_mtx[show_units, 1])
+    plt.errorbar(np.arange(2), umean, yerr=uerr, color='black', linewidth=2)
+    plt.plot(u_mtx[show_units].T, linewidth=0.5, color=thinlinecolor)
+#    plt.plot(np.random.normal(0, 0.05, size=u_mtx[show_units, 0].shape),
+#             u_mtx[show_units, 0], '.', color=dotcolor)
+#    plt.plot(np.random.normal(1, 0.05, size=u_mtx[show_units, 0].shape),
+#             u_mtx[show_units, 1], '.', color=dotcolor)
 
+    w, p = ss.wilcoxon(u_mtx[show_units, 0], u_mtx[show_units, 1])
     plt.ylim(u_bounds)
     plt.ylabel('u')
-    plt.xlabel('E {:.3f} - I {:.3f} - rat {:.3f} - p<{:.5f}'.format(
-            umean[0], umean[1], umean[1]/umean[0], p))
+    plt.xlabel('{} {:.3f} - {} {:.3f} - rat {:.3f} - p<{:.5f}'.format(
+                xstr, umean[0], ystr, umean[1], umean[1]/umean[0], p))
     lplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 3, 5)
     plt.plot(np.array([-0.5, 1.5]), np.array([0, 0]), 'k--')
     plt.bar(np.arange(2), np.sqrt(taumean), color=barcolors, width=barwidth)
-    plt.plot(np.random.normal(0, 0.05, size=tau_mtx[show_units, 0].shape),
-             np.sqrt(tau_mtx[show_units, 0]), '.', color=dotcolor)
-    plt.plot(np.random.normal(1, 0.05, size=tau_mtx[show_units, 0].shape),
-             np.sqrt(tau_mtx[show_units, 1]), '.', color=dotcolor)
-    # plt.errorbar(np.arange(2), taumean, yerr=tauerr, color='black', linewidth=2)
-    w, p = ss.wilcoxon(tau_mtx[show_units, 0], tau_mtx[show_units, 1])
+    plt.errorbar(np.arange(2), taumean, yerr=tauerr, color='black',
+                 linewidth=2)
+    plt.plot(tau_mtx[show_units].T, linewidth=0.5, color=thinlinecolor)
 
+    w, p = ss.wilcoxon(tau_mtx[show_units, 0], tau_mtx[show_units, 1])
     plt.ylim((-np.sqrt(np.abs(tau_bounds[0])), np.sqrt(tau_bounds[1])))
     plt.ylabel('sqrt(tau)')
     plt.xlabel('E {:.3f} - I {:.3f} - rat {:.3f} - p<{:.5f}'.format(
@@ -181,12 +184,11 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
     ax = plt.subplot(2, 3, 6)
     plt.plot(np.array([-0.5, 1.5]), np.array([0, 0]), 'k--')
     plt.bar(np.arange(2), strmean, color=barcolors, width=barwidth)
-    plt.plot(np.random.normal(0, 0.05, size=str_mtx[show_units, 0].shape),
-             str_mtx[show_units, 0], '.', color=dotcolor)
-    plt.plot(np.random.normal(1, 0.05, size=str_mtx[show_units, 0].shape),
-             str_mtx[show_units, 1], '.', color=dotcolor)
-    w, p = ss.wilcoxon(str_mtx[show_units, 0], str_mtx[show_units, 1])
+    plt.errorbar(np.arange(2), strmean, yerr=strerr, color='black',
+                 linewidth=2)
+    plt.plot(str_mtx[show_units].T, linewidth=0.5, color=thinlinecolor)
 
+    w, p = ss.wilcoxon(str_mtx[show_units, 0], str_mtx[show_units, 1])
     plt.ylim(str_bounds)
     plt.ylabel('STP str')
     plt.xlabel('E {:.3f} - I {:.3f} - rat {:.3f} - p<{:.5f}'.format(
@@ -199,6 +201,8 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
 
 
 # start main code
+plt.close('all')
+outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
 
 # figure 6
 batch = 259

@@ -118,7 +118,9 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     plt.plot(beta1[set2], beta2[set2], '.', color='lightgray')
     plt.plot(beta1[set1], beta2[set1], 'k.')
     plt.axis('equal')
-    plt.axis('tight')
+    plt.ylim(hist_range)
+    plt.xlim(hist_range)
+    #plt.axis('tight')
 
     plt.xlabel(n1)
     plt.ylabel(n2)

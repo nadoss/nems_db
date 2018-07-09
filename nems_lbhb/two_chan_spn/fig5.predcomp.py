@@ -66,7 +66,8 @@ plt.bar(np.arange(len(modelnames)), m,
         color='black')
 plt.plot(np.array([-1, len(modelnames)]), np.array([0, 0]), 'k--')
 plt.ylim((-.05, 0.8))
-plt.title("n={}/{} good cells".format(np.sum(goodcells), len(goodcells)))
+plt.title("batch {}, n={}/{} good cells".format(
+        batch, np.sum(goodcells), len(goodcells)))
 plt.ylabel('median pred corr')
 plt.xlabel('model architecture')
 lplt.ax_remove_box()
@@ -78,5 +79,6 @@ for i in range(len(modelnames)-1):
     s, p = ss.wilcoxon(d1, d2)
     plt.text(i+0.5, m[i+1]+0.03, "{:.1e}".format(p), ha='center', fontsize=6)
 
-fh1.savefig(outpath + "fig5.pred_scatter.pdf")
-fh2.savefig(outpath + "fig5.pred_sum_bar.pdf")
+batchstr = str(batch)
+fh1.savefig(outpath + "fig5.pred_scatter_batch"+batchstr+".pdf")
+fh2.savefig(outpath + "fig5.pred_sum_bar_batch"+batchstr+".pdf")
