@@ -114,7 +114,7 @@ def generate_recording_uri(cellid, batch, loadkey):
         pupil = ('pup' in ops)
 
         options.update(_parm_helper(fs, pupil))
-        
+
     elif loader.startswith('ns'):
         pattern = re.compile(r'^ns\.fs(\d{1,})')
         parsed = re.match(pattern, loader)
@@ -122,7 +122,7 @@ def generate_recording_uri(cellid, batch, loadkey):
         pupil = ('pup' in loadkey)
 
         options.update(_parm_helper(fs, pupil))
-        
+
     elif loader.startswith('psth'):
         pattern = re.compile(r'^psth\.fs(\d{1,})([a-zA-Z0-9\.]*)?$')
         parsed = re.match(pattern, loader)

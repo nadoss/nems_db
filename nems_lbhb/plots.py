@@ -16,20 +16,35 @@ from nems.utils import find_module
 import pandas as pd
 import scipy.ndimage.filters as sf
 import nems_db.db as nd
+import nems_lbhb.old_xforms.xforms as oxf
+import nems_lbhb.old_xforms.xform_helper as oxfh
 
-params = {'legend.fontsize': 8,
+params = {'legend.fontsize': 6,
           'figure.figsize': (8, 6),
           'axes.labelsize': 8,
           'axes.titlesize': 8,
           'xtick.labelsize': 8,
-          'ytick.labelsize': 8}
+          'ytick.labelsize': 8,
+          'pdf.fonttype': 42,
+          'ps.fonttype': 42}
 plt.rcParams.update(params)
+
+
+def ax_remove_box(ax=None):
+    """
+    remove right and top lines from plot border
+    """
+    if ax is None:
+        ax = plt.gca()
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
 
 
 def get_model_preds(cellid, batch, modelname):
     xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname,
                                         eval_model=False)
     ctx, l = xforms.evaluate(xf, ctx, stop=-1)
+    #ctx, l = oxf.evaluate(xf, ctx, stop=-1)
 
     return xf, ctx
 
@@ -87,21 +102,37 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
     nplt.strf_timeseries(ms1, ax=ax, clim=None, show_factorized=True,
                          title="{}/{} rtest={:.3f}".format(cellid,modelname1,r_test1),
                          fs=resp.fs)
+    ax_remove_box(ax)
+
     ax = plt.subplot(5, 2, 2)
     nplt.strf_timeseries(ms2, ax=ax, clim=None, show_factorized=True,
                       title="{}/{} rtest={:.3f}".format(cellid,modelname2,r_test2),
                       fs=resp.fs)
+    ax_remove_box(ax)
 
     if find_module('stp', ms1):
         ax = plt.subplot(5, 2, 3)
         nplt.before_and_after_stp(ms1, sig_name='pred', ax=ax, title='',
                                   channels=0, xlabel='Time (s)', ylabel='STP',
                                   fs=resp.fs)
-    if find_module('stp', ms2):
+        ax_remove_box(ax)
+
+    wcidx = find_module('weight_channels', ms2)
+    if wcidx:
         ax = plt.subplot(5, 2, 4)
+        coefs = ms2[wcidx]['phi']['coefficients']
+        plt.imshow(coefs, clim=np.array([-1,1])*np.max(np.abs(coefs)))
+        plt.xlabel('in')
+        plt.ylabel('out')
+        plt.colorbar()
+        ax_remove_box(ax)
+
+    if find_module('stp', ms2):
+        ax = plt.subplot(5, 2, 6)
         nplt.before_and_after_stp(ms2, sig_name='pred', ax=ax, title='',
                                   channels=0, xlabel='Time (s)', ylabel='STP',
                                   fs=resp.fs)
+        ax_remove_box(ax)
 
     for i, stim_i in enumerate(stim_ids):
 
@@ -119,6 +150,7 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
                     title="{}/{} rfit={:.3f}/{:.3f}".format(
                             cellid, stim_epochs[stim_i], r_test1, r_test2))
         ax.get_xaxis().set_visible(False)
+        ax_remove_box(ax)
 
         ax = plt.subplot(5, 2, 7+i)
         _r = r[stim_i, :, 0, :]
@@ -131,9 +163,89 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
                 [np.nanmean(_r, axis=0), p1[stim_i, 0, 0, :],
                  p2[stim_i, 0, 0, :]],
                 fs=resp.fs, time_offset=PreStimSilence, ax=ax)
+        ax_remove_box(ax)
 
     # plt.tight_layout()
     return fh, ctx2
+
+
+def quick_pred_comp(cellid, batch, modelname1, modelname2, ax=None):
+    """
+    compare prediction accuracy of two models on validation stimuli
+
+    borrows a lot of functionality from nplt.quickplot()
+
+    """
+    ax0 = None
+
+    if ax is None:
+        ax = plt.gca()
+    elif type(ax) is tuple:
+        ax0=ax[0]
+        ax=ax[1]
+
+    xf1, ctx1 = get_model_preds(cellid, batch, modelname1)
+    xf2, ctx2 = get_model_preds(cellid, batch, modelname2)
+
+    rec = ctx1['rec']
+    val1 = ctx1['val'][0]
+    val2 = ctx2['val'][0]
+
+    stim = rec['stim'].rasterize()
+    resp = rec['resp'].rasterize()
+    pred1 = val1['pred']
+    pred2 = val2['pred']
+
+    d = resp.get_epoch_bounds('PreStimSilence')
+    PreStimSilence = np.mean(np.diff(d))
+    d = resp.get_epoch_bounds('PostStimSilence')
+    PostStimSilence = np.mean(np.diff(d))
+
+    epoch_regex = "^STIM_"
+    stim_epochs = ep.epoch_names_matching(resp.epochs, epoch_regex)
+
+    r = resp.as_matrix(stim_epochs)
+    s = stim.as_matrix(stim_epochs)
+    repcount = np.sum(np.isfinite(r[:, :, 0, 0]), axis=1)
+    max_rep_id, = np.where(repcount == np.max(repcount))
+
+    # keep a max of two stimuli
+    stim_ids = max_rep_id[:2]
+    # stim_count = len(stim_ids)
+    # print(max_rep_id)
+
+    # stim_i=max_rep_id[-1]
+    # print("Max rep stim={} ({})".format(stim_i, stim_epochs[stim_i]))
+
+    p1 = pred1.as_matrix(stim_epochs)
+    p2 = pred2.as_matrix(stim_epochs)
+
+    ms1 = ctx1['modelspecs'][0]
+    ms2 = ctx2['modelspecs'][0]
+    r_test1 = ms1[0]['meta']['r_test']
+    r_test2 = ms2[0]['meta']['r_test']
+
+    stim_i = stim_ids[0]
+    _r = r[stim_i, :, 0, :]
+    # t = np.arange(_r.shape[-1]) / resp.fs - PreStimSilence - 0.5/resp.fs
+    fs = resp.fs
+
+    if ax0 is not None:
+        nplt.timeseries_from_vectors(
+                [s[stim_i, 0, 0, :], s[max_rep_id[-1], 0, 1, :]],
+                fs=fs, time_offset=PreStimSilence, ax=ax0,
+                title="{}".format(stim_epochs[stim_i]))
+        ax_remove_box(ax0)
+
+    lg = ("{:.3f}".format(r_test2), "{:.3f}".format(r_test1), 'act')
+    nplt.timeseries_from_vectors(
+            [np.nanmean(_r, axis=0), p1[stim_i, 0, 0, :],
+             p2[stim_i, 0, 0, :]] * fs,
+            ylabel=cellid, legend=lg,
+            fs=fs, time_offset=PreStimSilence, ax=ax)
+    ax_remove_box(ax)
+
+    return ax
 
 
 def scatter_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
