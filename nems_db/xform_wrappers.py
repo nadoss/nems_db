@@ -107,7 +107,7 @@ def generate_recording_uri(cellid, batch, loadkey):
                             'pupil_median': 2})
 
     elif loader.startswith('nostim'):
-        pattern = re.compile(r'^nostim\.(\d{1,})(\w*)?$')
+        pattern = re.compile(r'^nostim\.fs(\d{1,})([a-zA-Z\.]*)?$')
         parsed = re.match(pattern, loader)
         fs = parsed.group(1)
         ops = parsed.group(2)
