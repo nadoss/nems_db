@@ -95,33 +95,33 @@ def generate_recording_uri(cellid, batch, loader):
                    'chancount': 18, 'pupil': True, 'stim': True,
                    'pupil_deblink': True, 'pupil_median': 2}
 
-    elif (loader.startswith("nostim200pup") or loader.startswith("psth200pup")
-          or loader.startswith("psths200pup")):
+    elif (loader.startswith("nostim.fs200.pup") or loader.startswith("psth.fs200.pup")
+          or loader.startswith("psths.fs200.pup")):
         options = {'rasterfs': 200, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': True, 'stim': False,
                    'pupil_deblink': 1, 'pupil_median': 0.5}
 
-    elif loader.startswith("nostim10pup") or loader.startswith("psth10pup"):
+    elif loader.startswith("nostim.fs10.pup") or loader.startswith("psth.fs10.pup"):
         options = {'rasterfs': 10, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': True, 'stim': False,
                    'pupil_deblink': True, 'pupil_median': 2}
 
-    elif (loader.startswith("nostim20pup") or loader.startswith("psth20pup")
-          or loader.startswith("psths20pup")
+    elif (loader.startswith("nostim.fs20.pup") or loader.startswith("psth.fs20.pup")
+          or loader.startswith("psths.fs20.pup")
           or loader.startswith("evt20pup")):
         options = {'rasterfs': 20, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': True, 'stim': False,
                    'pupil_deblink': 1, 'pupil_median': 0.5}
         
-    elif (loader.startswith("nostim5pup") or loader.startswith("psth5pup")
-          or loader.startswith("psths5pup")
-          or loader.startswith("evt5pup")):
+    elif (loader.startswith("nostim.fs5.pup") or loader.startswith("psth.fs5.pup")
+          or loader.startswith("psths.fs5.pup")
+          or loader.startswith("evt.fs5.pup")):
         options = {'rasterfs': 5, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': True, 'stim': False,
                    'pupil_deblink': 1, 'pupil_median': 0.5} 
 
-    elif (loader.startswith("nostim20") or loader.startswith("psth20")
-          or loader.startswith("psthm20") or loader.startswith("psths20")):
+    elif (loader.startswith("nostim.fs20") or loader.startswith("psth.fs20")
+          or loader.startswith("psthm.fs20") or loader.startswith("psths.fs20")):
         options = {'rasterfs': 20, 'stimfmt': 'parm',
                    'chancount': 0, 'pupil': False, 'stim': False}
 
