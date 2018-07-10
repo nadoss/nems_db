@@ -15,8 +15,9 @@ import nems_db.xform_wrappers as nw
 import nems.plots.api as nplt
 import nems.xforms as xforms
 import nems.epoch as ep
+import nems_lbhb.plots as lplt
 
-font_size=12
+font_size=8
 params = {'legend.fontsize': font_size,
           'figure.figsize': (8, 6),
           'axes.labelsize': font_size,
@@ -25,7 +26,6 @@ params = {'legend.fontsize': font_size,
           'ytick.labelsize': font_size,
           'pdf.fonttype': 42,
           'ps.fonttype': 42}
-
 plt.rcParams.update(params)
 
 line_colors = {'actual_psth': (0,0,0),
@@ -69,13 +69,14 @@ fill_colors = {'actual_psth': (.8,.8,.8),
 
 
 def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
-              hist_range=[-1, 1], title='modelname/batch',
+              hist_range=[-1, 1], title=None,
               highlight=None):
     """
     beta1, beta2 are T x 1 vectors
     scatter plot comparing beta1 vs. beta2
     histograms of marginals
     """
+
     beta1 = np.array(beta1)
     beta2 = np.array(beta2)
 
@@ -85,6 +86,9 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     if highlight is not None:
         highlight = np.array(highlight)
         highlight = highlight[nncells]
+
+    if title is None:
+        title="n={}/{}".format(np.sum(highlight),len(highlight))
 
     # exclude cells without prepassive
     outcells = ((beta1 > hist_range[1]) | (beta1 < hist_range[0]) |
@@ -97,8 +101,8 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     beta2[beta2 < hist_range[0]] = hist_range[0]
 
     if highlight is None:
-        set1 = goodcells
-        set2 = goodcells * 0
+        set1 = goodcells.astype(bool)
+        set2 = (1-goodcells).astype(bool)
     else:
         highlight = np.array(highlight)
         set1 = np.logical_and(goodcells, (highlight))
@@ -106,7 +110,7 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
 
     fh = plt.figure(figsize=(8, 6))
 
-    plt.subplot(2, 2, 3)
+    ax = plt.subplot(2, 2, 3)
     plt.plot(np.array(hist_range), np.array([0, 0]), 'k--')
     plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
     plt.plot(np.array(hist_range), np.array(hist_range), 'k--')
@@ -114,13 +118,16 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     plt.plot(beta1[set2], beta2[set2], '.', color='lightgray')
     plt.plot(beta1[set1], beta2[set1], 'k.')
     plt.axis('equal')
-    plt.axis('tight')
+    plt.ylim(hist_range)
+    plt.xlim(hist_range)
+    #plt.axis('tight')
 
     plt.xlabel(n1)
     plt.ylabel(n2)
     plt.title(title)
+    lplt.ax_remove_box(ax)
 
-    plt.subplot(2, 2, 1)
+    ax = plt.subplot(2, 2, 1)
     plt.hist([beta1[set1], beta1[set2]], bins=hist_bins, range=hist_range,
              histtype='bar', stacked=True,
              color=['black','lightgray'])
@@ -128,6 +135,7 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
               format(np.mean(beta1[goodcells]),
                      np.mean(np.abs(beta1[goodcells]))))
     plt.xlabel(n1)
+    lplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 2, 4)
     plt.hist([beta2[set1], beta2[set2]], bins=hist_bins, range=hist_range,
@@ -137,6 +145,7 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
               format(np.mean(beta2[goodcells]),
                      np.mean(np.abs(beta2[goodcells]))))
     plt.xlabel(n2)
+    lplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 2, 2)
 #    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1]),
@@ -154,6 +163,7 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     plt.ylabel('difference')
 
     plt.tight_layout()
+    lplt.ax_remove_box(ax)
 
     old_title=fh.canvas.get_window_title()
     fh.canvas.set_window_title(old_title+': '+title)
@@ -422,37 +432,6 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
     pred_mod_full_norm = pred_mod_full / (state_std +
                                           (state_std == 0).astype(float))
 
-#    pred_mod = np.zeros([len(factors), 2])
-#    pred_mod_full = np.zeros([len(factors), 2])
-#    resp_mod_full = np.zeros([len(factors), 1])
-#    for i, f in enumerate(factors):
-#        elif f == 'each_passive':
-#            # special case, find all state vars that start with "FILE_"
-#            tv=[]
-#            for v in state_var_list:
-#                if v.startswith('FILE_'):
-#                    tv.append(v)
-#
-#            mod2_p0b = np.zeros(len(tv))
-#            mod2_pb0 = np.zeros(len(tv))
-#            mod2_pb = np.zeros(len(tv))
-#            for j, var in enumerate(tv):
-#                # actual response modulation index for each state var
-#                resp_mod_full[i] = state_mod_index(val, epoch='REFERENCE',
-#                             psth_name='resp', state_sig=var)
-#
-#                mod2_p0b[j] = state_mod_index(val, epoch='REFERENCE',
-#                             psth_name='pred_p0b', state_sig=var)
-#                mod2_pb0[j] = state_mod_index(val, epoch='REFERENCE',
-#                             psth_name='pred_pb0', state_sig=var)
-#                mod2_pb[j] = state_mod_index(val, epoch='REFERENCE',
-#                             psth_name='pred', state_sig=var)
-#
-#            pred_mod[i] = np.array([np.mean(np.abs(mod2_pb-mod2_p0b)),
-#                                    np.mean(np.abs(mod2_pb-mod2_pb0))])
-#            pred_mod_full[i] = np.array([np.mean(np.abs(mod2_pb0)),
-#                                         np.mean(np.abs(mod2_p0b))])
-
     if 'each_passive' in factors:
         psth_names_ctl = ["pred_p0b"]
         factors.remove('each_passive')
@@ -474,6 +453,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
     ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
     ax.set_ylabel("{} r={:.3f}".format(factor0,
                   ctx_p0b0['modelspecs'][0][0]['meta']['r_test']))
+    lplt.ax_remove_box(ax)
 
     for i, var in enumerate(factors[1:]):
         if var.startswith('FILE_'):
@@ -489,19 +469,20 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
                                        colors=state_colors[i])
         if i == 0:
             ax.set_ylabel("Control model")
-            if ax.legend_:
-                ax.legend_.remove()
             ax.set_title("{} ctl r={:.3f}"
                          .format(varlbl.lower(),
                                  ctx_p0b['modelspecs'][0][0]['meta']['r_test']),
-                         fontsize=8)
+                         fontsize=6)
         else:
             ax.yaxis.label.set_visible(False)
             ax.set_title("{} ctl r={:.3f}"
                          .format(varlbl.lower(),
                                  ctx_pb0['modelspecs'][0][0]['meta']['r_test']),
-                         fontsize=8)
+                         fontsize=6)
+        if ax.legend_:
+            ax.legend_.remove()
         ax.xaxis.label.set_visible(False)
+        lplt.ax_remove_box(ax)
 
         ax = plt.subplot(3, col_count, col_count*2+i+1)
         nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
@@ -524,7 +505,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
         ax.set_title("r={:.3f} rawmod={:.3f} umod={:.3f}"
                      .format(ctx_pb['modelspecs'][0][0]['meta']['r_test'],
                              pred_mod_full_norm[i+1][j], pred_mod_norm[i+1][j]),
-                     fontsize=8)
+                     fontsize=6)
 
         if var == 'active':
             ax.legend(('pas', 'act'))
@@ -534,6 +515,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
             ax.legend(('act+post', 'pre'))
         elif var.startswith('FILE_'):
             ax.legend(('this', 'others'))
+        lplt.ax_remove_box(ax)
 
     plt.tight_layout()
 
@@ -595,10 +577,10 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301,
     # modelname_p0b = loader + "20pup0beh_stategain3_" + fitter
     # modelname_pb0 = loader + "20pupbeh0_stategain3_" + fitter
     # modelname_pb = loader + "20pupbeh_stategain3_" + fitter
-    modelname_p0b0 = loader + "-st.pup0.beh0_" + basemodel + "_" + fitter
-    modelname_p0b = loader + "-st.pup0.beh_" + basemodel + "_" + fitter
-    modelname_pb0 = loader + "-st.pup.beh0_" + basemodel + "_" + fitter
-    modelname_pb = loader + "-st.pup.beh_" + basemodel + "_" + fitter
+    modelname_p0b0 = loader + "-ld-st.pup0.beh0-ref-" + basemodel + "_" + fitter
+    modelname_p0b = loader + "-ld-st.pup0.beh-ref-" + basemodel + "_" + fitter
+    modelname_pb0 = loader + "-ld-st.pup.beh0-ref-" + basemodel + "_" + fitter
+    modelname_pb = loader + "-ld-st.pup.beh-ref-" + basemodel + "_" + fitter
 
     factor0 = "baseline"
     factor1 = "pupil"
@@ -662,10 +644,10 @@ def ppas_model_plot(cellid='TAR010c-06-1', batch=301,
     """
 
     # psth.fs20-st.pup0.pas0-pas_stategain.N_basic.st.nf10
-    modelname_p0b0 = loader + "-st.pup0.pas0-pas_" + basemodel + "_" + fitter
-    modelname_p0b = loader + "-st.pup0.pas-pas_" + basemodel + "_" + fitter
-    modelname_pb0 = loader + "-st.pup.pas0-pas_" + basemodel + "_" + fitter
-    modelname_pb = loader + "-st.pup.pas-pas_" + basemodel + "_" + fitter
+    modelname_p0b0 = loader + "-ld-st.pup0.pas0-ref-pas-" + basemodel + "_" + fitter
+    modelname_p0b = loader + "-ld-st.pup0.pas-ref-pas-" + basemodel + "_" + fitter
+    modelname_pb0 = loader + "-ld-st.pup.pas0-ref-pas-" + basemodel + "_" + fitter
+    modelname_pb = loader + "-ld-st.pup.pas-ref-pas-" + basemodel + "_" + fitter
 
     factor0 = "baseline"
     factor1 = "pupil"

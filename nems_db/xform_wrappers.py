@@ -107,14 +107,14 @@ def generate_recording_uri(cellid, batch, loadkey):
                             'pupil_median': 2})
 
     elif loader.startswith('nostim'):
-        pattern = re.compile(r'^nostim\.(\d{1,})(\w*)?$')
+        pattern = re.compile(r'^nostim\.fs(\d{1,})([a-zA-Z\.]*)?$')
         parsed = re.match(pattern, loader)
         fs = parsed.group(1)
         ops = parsed.group(2)
         pupil = ('pup' in ops)
 
         options.update(_parm_helper(fs, pupil))
-        
+
     elif loader.startswith('ns'):
         pattern = re.compile(r'^ns\.fs(\d{1,})')
         parsed = re.match(pattern, loader)
@@ -122,7 +122,7 @@ def generate_recording_uri(cellid, batch, loadkey):
         pupil = ('pup' in loadkey)
 
         options.update(_parm_helper(fs, pupil))
-        
+
     elif loader.startswith('psth'):
         pattern = re.compile(r'^psth\.fs(\d{1,})([a-zA-Z0-9\.]*)?$')
         parsed = re.match(pattern, loader)
