@@ -1516,7 +1516,8 @@ def baphy_load_multichannel_recording(**options):
     options['pupil_median'] = int(options.get('pupil_median', 1))
     options['stim'] = int(options.get('stim', False))
     options['runclass'] = options.get('runclass', None)
-
+    options['recache'] = options.get('recache', False)
+    
     # TODO - this really should be smarter - pad with Nans or something...
     # For the time being...
     # If rawids are not specificed, will only load cellids that are stable across
@@ -1550,49 +1551,25 @@ def baphy_load_multichannel_recording(**options):
     meta_data_files = glob.glob(search_str+'*'+'.json')
     cache_exists=None
 
-    temp_options = options.copy()
-    temp_options['cellid'] = cellids
+    options['cellid'] = cellids
     for mdf in meta_data_files:
         with open(mdf,'r') as fp:
             x = json.load(fp)
-        if x == temp_options:
+        if x == options and options['recache'] == False:
             full_rec_meta = mdf
             full_rec_uri = mdf.split('.')[0:-1][0]+'.tgz'
             print('Found cached recording, returning {0}'.format(full_rec_uri))
             cache_exists = True
             continue
 
-    if cache_exists is None:
-        for i, cellid in enumerate(cellids):
-            options['cellid'] = cellid
-            rec_uri = baphy_data_path(**options)
-            rec = Recording.load(rec_uri)
+    if cache_exists is None or options['recache'] == True:
+        
+        rec_uri = baphy_data_path(**options)
+        rec = Recording.load(rec_uri)
+        
+        rec['resp']  = rec['resp'].rasterize()
 
-            # build full response matrix
-            if i == 0:
-                resp = np.zeros((len(cellids), rec['resp'].rasterize().shape[1]))
-                resp[i,:] = rec['resp'].rasterize().as_continuous()
-            else:
-                resp[i,:] = rec['resp'].rasterize().as_continuous()
-
-        # create the signal, assign channels, add to recording, cache
-        full_resp_signal = rec['resp'].rasterize()._modified_copy(resp)
-        full_resp_signal.chans = cellids
-
-        # make sure all signals are rasterized before storing in newrec
-        sig = dict()
-        for s in rec.signals.keys():
-            if isinstance(rec[s], nems.signal.PointProcess) and s != 'resp':
-                sig[s] = rec[s].rasterize()
-            else:
-                sig[s] = rec[s]
-
-        newrec = Recording(sig)
-        newrec.add_signal(full_resp_signal)
-        # cache recording
-        newrec.save(full_rec_uri)
-        # cache meta data about loading
-        options['cellid'] = cellids
+        rec.save(full_rec_uri)
 
         with open(full_rec_meta,'w') as fp:
             json.dump(options, fp)
