@@ -1489,8 +1489,8 @@ def baphy_load_multichannel_recording(**options):
     TESTING - CRH 6/29/2018
     Meant to function as a wrapper around baphy_data_path. Will find all cellids
     matching the batch and site specified (and rawids if given). Then, will
-    load their individual recordings and build a multi-channel recording from
-    this and cache it and return the recording uri.
+    load all cells for this batch/rawids at this site, then
+    cache it and return the recording uri.
     The cache will also save a json file containing all the options information
     for the recording. If the recording has been loaded before with the same
     cellids and options, it will just be re-loaded from cache.
@@ -1539,7 +1539,6 @@ def baphy_load_multichannel_recording(**options):
         cellids = cellids
     else:
         raise ValueError("what's going on?")
-
 
     unique_id = str(datetime.datetime.now()).split('.')[0].replace(' ', '-')
     full_rec_uri = '/auto/users/hellerc/recordings/'+str(batch)+'/'+site+'_'+unique_id+'.tgz'
