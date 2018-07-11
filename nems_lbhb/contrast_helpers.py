@@ -8,15 +8,12 @@ from nems.utils import find_module
 from nems import signal
 
 log = logging.getLogger(__name__)
-# TODO: Move init_logsig here?
 
 
 def static_to_dynamic(modelspec):
     '''
     Changes bounds on contrast model to allow for dynamic modulation
     of the logistic sigmoid output nonlinearity.
-    Also sets initial phi values ctwc and ctfir equal to the fitted
-    values for wc and fir.
     '''
     modelspec = copy.deepcopy(modelspec)
     logsig_idx = find_module('logistic_sigmoid', modelspec)
@@ -29,8 +26,10 @@ def static_to_dynamic(modelspec):
             'shift_mod': (None, None), 'kappa_mod': (None, None)
             })
 
-    modelspec[ctwc_idx]['phi'] = copy.deepcopy(modelspec[wc_idx]['phi'])
-    modelspec[ctfir_idx]['phi'] = copy.deepcopy(modelspec[fir_idx]['phi'])
+    # TODO: Do this or not? Doesn't look like it was done in paper,
+    #       but makes sense. So maybe save til later. Also, absolute value?
+#    modelspec[ctwc_idx]['phi'] = copy.deepcopy(modelspec[wc_idx]['phi'])
+#    modelspec[ctfir_idx]['phi'] = copy.deepcopy(modelspec[fir_idx]['phi'])
 
     return modelspec
 

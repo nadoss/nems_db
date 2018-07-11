@@ -89,6 +89,7 @@ def generate_recording_uri(cellid, batch, loadkey):
     # remove any preprocessing keywords in the loader string.
     loader = loadkey.split("-")[0]
     log.info('loader=%s',loader)
+
     if loader.startswith('ozgf'):
         pattern = re.compile(r'^ozgf\.fs(\d{1,})\.ch(\d{1,})([a-zA-Z\.]*)$')
         parsed = re.match(pattern, loader)
