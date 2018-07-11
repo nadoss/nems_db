@@ -230,19 +230,31 @@ def quick_pred_comp(cellid, batch, modelname1, modelname2, ax=None):
     # t = np.arange(_r.shape[-1]) / resp.fs - PreStimSilence - 0.5/resp.fs
     fs = resp.fs
 
+    ds = 2
+
     if ax0 is not None:
         nplt.timeseries_from_vectors(
-                [s[stim_i, 0, 0, :], s[max_rep_id[-1], 0, 1, :]],
+                [s[stim_i, 0, 0, :], s[stim_i, 0, 1, :]],
                 fs=fs, time_offset=PreStimSilence, ax=ax0,
                 title="{}".format(stim_epochs[stim_i]))
         ax_remove_box(ax0)
 
     lg = ("{:.3f}".format(r_test2), "{:.3f}".format(r_test1), 'act')
+
+    mr = np.nanmean(_r, axis=0) * fs
+    pred1 = p1[stim_i, 0, 0, :] * fs
+    pred2 = p2[stim_i, 0, 0, :] * fs
+    if ds > 1:
+        mr = np.mean(np.reshape(mr, [-1, 2]), axis=1)
+        pred1 = np.mean(np.reshape(pred1, [-1, 2]), axis=1)
+        pred2 = np.mean(np.reshape(pred2, [-1, 2]), axis=1)
+
     nplt.timeseries_from_vectors(
-            [np.nanmean(_r, axis=0), p1[stim_i, 0, 0, :],
-             p2[stim_i, 0, 0, :]] * fs,
+            [mr, pred1, pred2] ,
             ylabel=cellid, legend=lg,
-            fs=fs, time_offset=PreStimSilence, ax=ax)
+            fs=int(fs/ds), time_offset=PreStimSilence, ax=ax)
+    yl=ax.get_ylim()
+    plt.ylim([yl[0], yl[1]*2])
     ax_remove_box(ax)
 
     return ax
