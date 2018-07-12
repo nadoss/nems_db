@@ -153,8 +153,21 @@ def generate_recording_uri(cellid, batch, loadkey):
     else:
         raise ValueError('unknown loader string: %s' % loader)
 
-    # recording_uri = get_recording_uri(cellid, batch, options)\
-    recording_uri = get_recording_file(cellid, batch, options)
+    # check for use of new loading key (ldb - load baphy) - recording_uri
+    # will point towards cached recording holding all stable cells at that site/batch
+    # else will load the rec_uri for the single cell specified in fn args
+    if 'ldb' in loadkey:
+        options['batch'] = batch
+        options['recache'] = False
+        if type(cellid) is not list:
+            cellid = [cellid]
+        if  re.search(r'\d+$', cellid[0]) == None:
+            options['site']=cellid[0]
+        else:
+            options['site'] = cellid[0][:-5]
+        recording_uri = nb.baphy_load_multichannel_recording(**options) 
+    else:
+        recording_uri = get_recording_file(cellid, batch, options)
 
     return recording_uri
 

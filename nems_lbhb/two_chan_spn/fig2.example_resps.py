@@ -59,11 +59,12 @@ outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
 if 0:
     #cellid="por077a-c1"
     cellid = "por074b-d2"
-    fh = lplt.compare_model_preds(cellid, batch, modelname1, modelname2);
-    xf1, ctx1 = lplt.get_model_preds(cellid, batch, modelname1)
-    xf2, ctx2 = lplt.get_model_preds(cellid, batch, modelname2)
-    nplt.diagnostic(ctx2);
-    # fh.savefig(outpath + "fig1_model_preds_" + cellid + ".pdf")
+    fh, ctx2 = lplt.compare_model_preds(cellid, batch, modelname1, modelname2);
+    #xf1, ctx1 = lplt.get_model_preds(cellid, batch, modelname1)
+    #xf2, ctx2 = lplt.get_model_preds(cellid, batch, modelname2)
+    #nplt.diagnostic(ctx2);
+
+    fh.savefig(outpath + "fig1_model_preds_" + cellid + ".pdf")
 
 
 elif 0:
@@ -87,7 +88,7 @@ else:
 
             lplt.quick_pred_comp(cellid,batch,modelname1,modelname2,
                                  ax=(ax0,ax))
-            ax.get_xaxis().set_visible(False)
+            ax0.get_xaxis().set_visible(False)
         else:
             ax = plt.subplot(rowcount,colcount,i)
 

@@ -25,6 +25,8 @@ import nems.signal
 import nems.recording
 import nems_db.db as db
 from nems.recording import Recording
+from nems.recording import load_recording
+
 
 # TODO: Replace catch-all `except:` statements with except SpecificError,
 #       or add some other way to help with debugging them.
@@ -1391,9 +1393,10 @@ def baphy_load_recording_nonrasterized(cellid=None, batch=None, **options):
 
         if options['stim']:
             # accumulate dictionaries
+            # CRH replaced cellid w/ site (for when cellid is list)
             t_stim = nems.signal.TiledSignal(
                     data=stim_dict, fs=options['rasterfs'], name='stim',
-                    epochs=event_times, recording=cellid
+                    epochs=event_times, recording=site
                     )
 
             if i == 0:
@@ -1480,6 +1483,7 @@ def baphy_data_path(cellid=None, batch=None, **options):
         #          options['cellid'], options['batch'], options
         #          )
         rec = baphy_load_recording_nonrasterized(**options)
+        print(rec.name)
         rec.save(data_file)
 
     return data_file
@@ -1490,8 +1494,8 @@ def baphy_load_multichannel_recording(**options):
     TESTING - CRH 6/29/2018
     Meant to function as a wrapper around baphy_data_path. Will find all cellids
     matching the batch and site specified (and rawids if given). Then, will
-    load their individual recordings and build a multi-channel recording from
-    this and cache it and return the recording uri.
+    load all cells for this batch/rawids at this site, then
+    cache it and return the recording uri.
     The cache will also save a json file containing all the options information
     for the recording. If the recording has been loaded before with the same
     cellids and options, it will just be re-loaded from cache.
@@ -1517,7 +1521,8 @@ def baphy_load_multichannel_recording(**options):
     options['pupil_median'] = int(options.get('pupil_median', 1))
     options['stim'] = int(options.get('stim', False))
     options['runclass'] = options.get('runclass', None)
-
+    options['recache'] = options.get('recache', False)
+    
     # TODO - this really should be smarter - pad with Nans or something...
     # For the time being...
     # If rawids are not specificed, will only load cellids that are stable across
@@ -1540,7 +1545,6 @@ def baphy_load_multichannel_recording(**options):
     else:
         raise ValueError("what's going on?")
 
-
     unique_id = str(datetime.datetime.now()).split('.')[0].replace(' ', '-')
     full_rec_uri = '/auto/users/hellerc/recordings/'+str(batch)+'/'+site+'_'+unique_id+'.tgz'
     full_rec_meta = full_rec_uri.split('.')[0:-1][0]+'.json'
@@ -1551,60 +1555,70 @@ def baphy_load_multichannel_recording(**options):
     meta_data_files = glob.glob(search_str+'*'+'.json')
     cache_exists=None
 
-    temp_options = options.copy()
-    temp_options['cellid'] = cellids
+    options['cellid'] = cellids
+    t_options = options.copy()
+    # t_options just so that recache field doesn't mess up caching system check (CRH)
+    if 'recache' in t_options:
+        del t_options['recache']
     for mdf in meta_data_files:
         with open(mdf,'r') as fp:
             x = json.load(fp)
-        if x == temp_options:
-            full_rec_meta = mdf
-            full_rec_uri = mdf.split('.')[0:-1][0]+'.tgz'
-            print('Found cached recording, returning {0}'.format(full_rec_uri))
-            cache_exists = True
-            continue
-
-    if cache_exists is None:
-        for i, cellid in enumerate(cellids):
-            options['cellid'] = cellid
-            rec_uri = baphy_data_path(**options)
-            rec = Recording.load(rec_uri)
-
-            # build full response matrix
-            if i == 0:
-                resp = np.zeros((len(cellids), rec['resp'].rasterize().shape[1]))
-                resp[i,:] = rec['resp'].rasterize().as_continuous()
+        if x == t_options:
+            if options['recache'] == True:
+                print('Found cached recording with given options, deleting and regenerating...')
+                os.remove(mdf)
+                os.remove(mdf.split('.')[0:-1][0]+'.tgz')
             else:
-                resp[i,:] = rec['resp'].rasterize().as_continuous()
+                full_rec_meta = mdf
+                full_rec_uri = mdf.split('.')[0:-1][0]+'.tgz'
+                print('Found cached recording, returning {0}'.format(full_rec_uri))
+                cache_exists = True
+                continue
 
-        # create the signal, assign channels, add to recording, cache
-        full_resp_signal = rec['resp'].rasterize()._modified_copy(resp)
-        full_resp_signal.chans = cellids
+    if cache_exists is None or options['recache'] == True:
+        
+        print('No cache recording found. Calling baphy_data path to generate new rec')
+        rec_uri = baphy_data_path(**options)
+        rec = Recording.load(rec_uri)
+        
+        # rec['resp']  = rec['resp'].rasterize()
 
-        # make sure all signals are rasterized before storing in newrec
-        sig = dict()
-        for s in rec.signals.keys():
-            if isinstance(rec[s], nems.signal.PointProcess) and s != 'resp':
-                sig[s] = rec[s].rasterize()
-            else:
-                sig[s] = rec[s]
-
-        newrec = Recording(sig)
-        newrec.add_signal(full_resp_signal)
-        # cache recording
-        newrec.save(full_rec_uri)
-        # cache meta data about loading
-        options['cellid'] = cellids
+        rec.save(full_rec_uri)
 
         with open(full_rec_meta,'w') as fp:
-            json.dump(options, fp)
+            json.dump(t_options, fp)
 
         return full_rec_uri
 
     else:
         return full_rec_uri
 
+def load_recordings(recording_uri_list, cellid):
+    """
+    cellid can be single cell, or list of cells. Whatever it is, the cellids 
+    must exist in the resp channels of the recordings that are being loaded.
+    
+    crh - testing this for use w/ xforms... 7/11/2018
+    """
 
+    rec = load_recording(recording_uri_list[0])
+    other_recordings = [load_recording(uri) for uri in recording_uri_list[1:]]
+    if other_recordings:
+        rec.concatenate_recordings(other_recordings)
 
+    if type(cellid) is not list:
+        cellid = [cellid]
+    
+    # check to see if only a siteid was passed. If this is the case, load entire
+    # recording
+    if re.search(r'\d+$', cellid[0]) is None:
+        print('loading all cellids at site')
+        return {'rec': rec}
+    else:
+        print('extracting channels: {0}'.format(cellid))
+        r = rec['resp'].extract_channels(cellid)    
+        rec.add_signal(r)
+        return {'rec': rec}
 
 
 

@@ -24,19 +24,29 @@ import nems_db.db as nd
 import nems.plots.api as nplt
 from nems.utils import find_module
 
+plt.close('all')
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
 
-batch = 259
-#modelnames=["env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic",
-#            "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-stp.1-dexp.1_init-basic",
-#            "env.fs100-ld-sev_dlog.f-stp.2-fir.2x15-lvl.1-dexp.1_init-basic",
-#            "env.fs100-ld-sev_dlog.f-wc.2x2.c-stp.2-fir.2x15-lvl.1-dexp.1_init-basic",
-#            "env.fs100-ld-sev_dlog.f-wc.2x3.c-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"]
-modelnames=["env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-mt.shr-basic",
-            "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-stp.1-dexp.1_init-mt.shr-basic",
-            "env.fs100-ld-sev_dlog.f-stp.2-fir.2x15-lvl.1-dexp.1_init-mt.shr-basic",
-            "env.fs100-ld-sev_dlog.f-wc.2x2.c.n-stp.2-fir.2x15-lvl.1-dexp.1_init-mt.shr-basic",
-            "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-mt.shr-basic"]
+if 1:
+    batch = 259
+    #modelnames=["env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic",
+    #            "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-stp.1-dexp.1_init-basic",
+    #            "env.fs100-ld-sev_dlog.f-stp.2-fir.2x15-lvl.1-dexp.1_init-basic",
+    #            "env.fs100-ld-sev_dlog.f-wc.2x2.c-stp.2-fir.2x15-lvl.1-dexp.1_init-basic",
+    #            "env.fs100-ld-sev_dlog.f-wc.2x3.c-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"]
+    modelnames=["env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-mt.shr-basic",
+                "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-stp.1-dexp.1_init-mt.shr-basic",
+                "env.fs100-ld-sev_dlog.f-stp.2-fir.2x15-lvl.1-dexp.1_init-mt.shr-basic",
+                "env.fs100-ld-sev_dlog.f-wc.2x2.c.n-stp.2-fir.2x15-lvl.1-dexp.1_init-mt.shr-basic",
+                "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-mt.shr-basic"]
+    fileprefix="fig5.SPN"
+elif 1:
+    batch = 271
+    modelnames = ["ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15_init-basic",
+                  "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15_init-basic"]
+    fileprefix="fig9.NAT"
+
+xc_range = [-0.05, 1.1]
 
 df = nd.batch_comp(batch,modelnames,stat='r_ceiling')
 df_r = nd.batch_comp(batch,modelnames,stat='r_test')
@@ -57,8 +67,10 @@ improvedcells = (beta2-se2 > beta1+se1)
 # test for signficant prediction at all
 goodcells = ((beta2 > se2*3) | (beta1 > se1*3))
 
-fh1 = stateplots.beta_comp(beta1, beta2, n1='LN STRF', n2='RW STP STRF',
-                           hist_range=[-.1, 1.1], highlight=improvedcells)
+fh1 = stateplots.beta_comp(beta1[goodcells], beta2[goodcells],
+                           n1='LN STRF', n2='RW STP STRF',
+                           hist_range=xc_range,
+                           highlight=improvedcells[goodcells])
 
 fh2 = plt.figure(figsize=(3, 3))
 m = np.array(df.loc[goodcells].median()[modelnames])
@@ -79,6 +91,8 @@ for i in range(len(modelnames)-1):
     s, p = ss.wilcoxon(d1, d2)
     plt.text(i+0.5, m[i+1]+0.03, "{:.1e}".format(p), ha='center', fontsize=6)
 
+plt.xticks(np.arange(len(m)),np.round(m,3))
+
 batchstr = str(batch)
-fh1.savefig(outpath + "fig5.pred_scatter_batch"+batchstr+".pdf")
-fh2.savefig(outpath + "fig5.pred_sum_bar_batch"+batchstr+".pdf")
+fh1.savefig(outpath + fileprefix + ".pred_scatter_batch"+batchstr+".pdf")
+fh2.savefig(outpath + fileprefix + ".pred_sum_bar_batch"+batchstr+".pdf")
