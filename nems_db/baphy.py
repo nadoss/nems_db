@@ -1392,9 +1392,10 @@ def baphy_load_recording_nonrasterized(cellid=None, batch=None, **options):
 
         if options['stim']:
             # accumulate dictionaries
+            # CRH replaced cellid w/ site (for when cellid is list)
             t_stim = nems.signal.TiledSignal(
                     data=stim_dict, fs=options['rasterfs'], name='stim',
-                    epochs=event_times, recording=cellid
+                    epochs=event_times, recording=site
                     )
 
             if i == 0:
@@ -1481,6 +1482,7 @@ def baphy_data_path(cellid=None, batch=None, **options):
         #          options['cellid'], options['batch'], options
         #          )
         rec = baphy_load_recording_nonrasterized(**options)
+        print(rec.name)
         rec.save(data_file)
 
     return data_file
@@ -1553,10 +1555,14 @@ def baphy_load_multichannel_recording(**options):
     cache_exists=None
 
     options['cellid'] = cellids
+    t_options = options.copy()
+    # t_options just so that recache field doesn't mess up caching system check (CRH)
+    if 'recache' in t_options:
+        del t_options['recache']
     for mdf in meta_data_files:
         with open(mdf,'r') as fp:
             x = json.load(fp)
-        if x == options:
+        if x == t_options:
             if options['recache'] == True:
                 print('Found cached recording with given options, deleting and regenerating...')
                 os.remove(mdf)
@@ -1570,6 +1576,7 @@ def baphy_load_multichannel_recording(**options):
 
     if cache_exists is None or options['recache'] == True:
         
+        print('No cache recording found. Calling baphy_data path to generate new rec')
         rec_uri = baphy_data_path(**options)
         rec = Recording.load(rec_uri)
         
@@ -1578,7 +1585,7 @@ def baphy_load_multichannel_recording(**options):
         rec.save(full_rec_uri)
 
         with open(full_rec_meta,'w') as fp:
-            json.dump(options, fp)
+            json.dump(t_options, fp)
 
         return full_rec_uri
 
