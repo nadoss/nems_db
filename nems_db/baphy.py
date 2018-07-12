@@ -25,6 +25,8 @@ import nems.signal
 import nems.recording
 import nems_db.db as db
 from nems.recording import Recording
+from nems.recording import load_recording
+
 
 # TODO: Replace catch-all `except:` statements with except SpecificError,
 #       or add some other way to help with debugging them.
@@ -1554,19 +1556,24 @@ def baphy_load_multichannel_recording(**options):
     for mdf in meta_data_files:
         with open(mdf,'r') as fp:
             x = json.load(fp)
-        if x == options and options['recache'] == False:
-            full_rec_meta = mdf
-            full_rec_uri = mdf.split('.')[0:-1][0]+'.tgz'
-            print('Found cached recording, returning {0}'.format(full_rec_uri))
-            cache_exists = True
-            continue
+        if x == options:
+            if options['recache'] == True:
+                print('Found cached recording with given options, deleting and regenerating...')
+                os.remove(mdf)
+                os.remove(mdf.split('.')[0:-1][0]+'.tgz')
+            else:
+                full_rec_meta = mdf
+                full_rec_uri = mdf.split('.')[0:-1][0]+'.tgz'
+                print('Found cached recording, returning {0}'.format(full_rec_uri))
+                cache_exists = True
+                continue
 
     if cache_exists is None or options['recache'] == True:
         
         rec_uri = baphy_data_path(**options)
         rec = Recording.load(rec_uri)
         
-        rec['resp']  = rec['resp'].rasterize()
+        # rec['resp']  = rec['resp'].rasterize()
 
         rec.save(full_rec_uri)
 
@@ -1578,8 +1585,32 @@ def baphy_load_multichannel_recording(**options):
     else:
         return full_rec_uri
 
+def load_recordings(recording_uri_list, cellid):
+    """
+    cellid can be single cell, or list of cells. Whatever it is, the cellids 
+    must exist in the resp channels of the recordings that are being loaded.
+    
+    crh - testing this for use w/ xforms... 7/11/2018
+    """
 
+    rec = load_recording(recording_uri_list[0])
+    other_recordings = [load_recording(uri) for uri in recording_uri_list[1:]]
+    if other_recordings:
+        rec.concatenate_recordings(other_recordings)
 
+    if type(cellid) is not list:
+        cellid = [cellid]
+    
+    # check to see if only a siteid was passed. If this is the case, load entire
+    # recording
+    if re.search(r'\d+$', cellid[0]) is None:
+        print('loading all cellids at site')
+        return {'rec': rec}
+    else:
+        print('extracting channels: {0}'.format(cellid))
+        r = rec['resp'].extract_channels(cellid)    
+        rec.add_signal(r)
+        return {'rec': rec}
 
 
 
