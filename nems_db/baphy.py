@@ -1592,7 +1592,7 @@ def baphy_load_multichannel_recording(**options):
     else:
         return full_rec_uri
 
-def load_recordings(recording_uri_list, cellid):
+def load_recordings(recording_uri_list, cellid, **context):
     """
     cellid can be single cell, or list of cells. Whatever it is, the cellids 
     must exist in the resp channels of the recordings that are being loaded.
