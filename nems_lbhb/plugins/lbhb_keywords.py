@@ -56,6 +56,29 @@ def ctlvl(kw):
     return m
 
 
+def dsig(kw):
+    '''
+    Note: these priors will typically be overwritten during initialization
+          based on the input signal.
+    '''
+    template = {
+        'fn': 'nems_lbhb.contrast_helpers.dynamic_sigmoid',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'c': 'ctpred'},
+        'prior': {'base': ('Exponential', {'beta': [0.1]}),
+                  'amplitude': ('Exponential', {'beta': [2.0]}),
+                  'shift': ('Normal', {'mean': [1.0], 'sd': [1.0]}),
+                  'kappa': ('Exponential', {'beta': [0.5]}),
+                  'base_mod': ('Exponential', {'beta': [0.1]}),
+                  'amplitude_mod': ('Exponential', {'beta': [2.0]}),
+                  'shift_mod': ('Normal', {'mean': [1.0], 'sd': [1.0]}),
+                  'kappa_mod': ('Exponential', {'beta': [0.5]})}
+        }
+
+    return template
+
+
 def _aliased_keyword(fn, kw):
     '''Forces the keyword fn to use the given kw. Used for implementing
     backwards compatibility with old keywords that did not follow the

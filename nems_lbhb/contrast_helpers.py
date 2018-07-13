@@ -6,37 +6,51 @@ from scipy.signal import convolve2d
 
 from nems.utils import find_module
 from nems import signal
+from nems.modules.nonlinearity import _logistic_sigmoid
+from nems.initializers import prefit_to_target, prefit_mod_subset
+from nems.analysis.api import fit_basic
+import nems.fitters.api
+import nems.metrics.api
+from nems import priors
 
 log = logging.getLogger(__name__)
 
 
-def static_to_dynamic(modelspec):
+def static_to_dynamic(modelspec, base=True, amplitude=True, shift=True,
+                      kappa=True):
     '''
     Changes bounds on contrast model to allow for dynamic modulation
     of the logistic sigmoid output nonlinearity.
+    They start off frozen at 0 to allow for fitting of initial
     '''
     modelspec = copy.deepcopy(modelspec)
-    logsig_idx = find_module('logistic_sigmoid', modelspec)
+    dsig_idx = find_module('dynamic_sigmoid', modelspec)
     wc_idx, ctwc_idx = find_module('weight_channels', modelspec,
                                    find_all_matches=True)
     fir_idx, ctfir_idx = find_module('fir', modelspec, find_all_matches=True)
 
-    modelspec[logsig_idx]['bounds'].update({
-            'base_mod': (None, None), 'amplitude_mod': (None, None),
-            'shift_mod': (None, None), 'kappa_mod': (None, None)
+    base_mod = (None, None) if base else (0, 0)
+    amplitude_mod = (None, None) if amplitude else (0, 0)
+    shift_mod = (None, None) if shift else (0, 0)
+    kappa_mod = (None, None) if kappa else (0, 0)
+
+    modelspec[dsig_idx]['bounds'].update({
+            'base_mod': base_mod, 'amplitude_mod': amplitude_mod,
+            'shift_mod': shift_mod, 'kappa_mod': kappa_mod,
             })
 
-    # TODO: Do this or not? Doesn't look like it was done in paper,
-    #       but makes sense. So maybe save til later. Also, absolute value?
+    # TODO: Do this or not?
 #    modelspec[ctwc_idx]['phi'] = copy.deepcopy(modelspec[wc_idx]['phi'])
 #    modelspec[ctfir_idx]['phi'] = copy.deepcopy(modelspec[fir_idx]['phi'])
 
     return modelspec
 
 
-def dynamic_logsig(modelspecs, IsReload=False, **context):
+def dynamic_logsig(modelspecs, base=True, amplitude=True, shift=True,
+                   kappa=True, IsReload=False, **context):
     if not IsReload:
-        dynamic_mspec = static_to_dynamic(modelspecs[0])
+        dynamic_mspec = static_to_dynamic(modelspecs[0], base, amplitude,
+                                          shift, kappa)
         return {'modelspecs': [dynamic_mspec]}
     else:
         return {'modelspecs': modelspecs}
@@ -112,3 +126,113 @@ def reset_single_recording(rec, est, val, IsReload=False, **context):
         if isinstance(val, list):
             val = val[0]
     return {'rec': rec, 'est': est, 'val': val}
+
+
+def dynamic_sigmoid(rec, i, o, c, base, amplitude, shift, kappa,
+                    base_mod=0, amplitude_mod=0, shift_mod=0,
+                    kappa_mod=0):
+    # TODO: Really this could be used with any signal, doesn't have to be
+    #       a contrast signal. So rename maybe?
+    contrast = rec[c].as_continuous()
+    for th0, th1 in zip([base, amplitude, shift, kappa],
+                        [base_mod, amplitude_mod, shift_mod, kappa_mod]):
+        if (th1 == 0) or (np.isnan(th1)):
+            # Save time if static
+            pass
+        else:
+            th0 = (contrast*th1 + th0)
+
+    fn = lambda x: _logistic_sigmoid(x, base, amplitude, shift, kappa)
+    return [rec[i].transform(fn, o)]
+
+
+def init_dsig(rec, modelspec):
+    '''
+    Initialization of priors for logistic_sigmoid,
+    based on process described in methods of Rabinowitz et al. 2014.
+    '''
+    # preserve input modelspec
+    modelspec = copy.deepcopy(modelspec)
+
+    dsig_idx = find_module('dynamic_sigmoid', modelspec)
+    if dsig_idx is None:
+        log.warning("No dsig module was found, can't initialize.")
+        return modelspec
+
+    pred = rec['pred'].as_continuous()
+    resp = rec['resp'].as_continuous()
+
+    mean_pred = np.nanmean(pred)
+    min_pred = np.nanmean(pred)-np.nanstd(pred)*3
+    max_pred = np.nanmean(pred)+np.nanstd(pred)*3
+    pred_range = max_pred - min_pred
+    min_resp = max(np.nanmean(resp)-np.nanstd(resp)*3, 0)  # must be >= 0
+
+    max_resp = np.nanmean(resp)+np.nanstd(resp)*3
+    resp_range = max_resp - min_resp
+
+    # Rather than setting a hard value for initial phi,
+    # set the prior distributions and let the fitter/analysis
+    # decide how to use it.
+    base0 = min_resp + 0.05*(resp_range)
+    amplitude0 = resp_range
+    shift0 = mean_pred
+    kappa0 = pred_range
+    log.info("Initial   base,amplitude,shift,kappa=({}, {}, {}, {})"
+             .format(base0, amplitude0, shift0, kappa0))
+
+    base = ('Exponential', {'beta': base0})
+    amplitude = ('Exponential', {'beta': amplitude0})
+    shift = ('Normal', {'mean': shift0, 'sd': pred_range})
+    kappa = ('Exponential', {'beta': kappa0})
+    force_zero = ('Uniform', {'lower': 0.0, 'upper': 0.0})
+
+    modelspec[dsig_idx]['prior'] = {
+            'base': base, 'amplitude': amplitude, 'shift': shift,
+            'kappa': kappa, 'base_mod': base,
+            'amplitude_mod': amplitude, 'shift_mod': shift,
+            'kappa_mod': kappa,
+            }
+
+    modelspec[dsig_idx]['bounds'] = {
+            'base': (1e-15, None), #'base_mod': (0.0, 0.0),
+            'amplitude': (1e-15, None), #'amplitude_mod': (0.0, 0.0),
+            'shift': (None, None), #'shift_mod': (0.0, 0.0),
+            'kappa': (1e-15, None), #'kappa_mod': (0.0, 0.0),
+            }
+
+    return modelspec
+
+
+def init_contrast_model(est, modelspecs, tolerance=10**-5.5, max_iter=1000,
+                        fitter='scipy_minimize', metric='nmse', **context):
+    modelspec = copy.deepcopy(modelspecs[0])
+    fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
+    fitter_fn = getattr(nems.fitters.api, fitter)
+    metric_fn = lambda d: getattr(nems.metrics.api, metric)(d, 'pred', 'resp')
+
+    # fit without STP module first (if there is one)
+    modelspec = prefit_to_target(est, modelspec, fit_basic,
+                                 target_module='levelshift',
+                                 extra_exclude=['stp'],
+                                 fitter=fitter_fn,
+                                 metric=metric_fn,
+                                 fit_kwargs=fit_kwargs)
+
+    # then initialize the STP module (if there is one)
+    for i, m in enumerate(modelspec):
+        if 'stp' in m['fn']:
+            m = priors.set_mean_phi([m])[0]  # Init phi for module
+            modelspec[i] = m
+            break
+
+    log.info("initializing priors and bounds for dsig ...\n")
+    modelspec = init_dsig(est, modelspec)
+    modelspec = prefit_mod_subset(
+            est, modelspec, fit_basic,
+            fit_set=['dynamic_sigmoid'],
+            fitter=fitter_fn,
+            metric=metric_fn,
+            fit_kwargs=fit_kwargs)
+
+    return {'modelspecs': [modelspec]}
