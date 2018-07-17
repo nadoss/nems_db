@@ -237,7 +237,7 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
     plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
     plt.plot(np.array(hist_range), np.array(hist_range), 'k--')
     plt.plot(beta1[set1], beta2[set1], 'k.', picker=3)
-    plt.plot(beta1[set2], beta2[set2], '.', color='lightgray')
+    plt.plot(beta1[set2], beta2[set2], '.', color='lightgray', picker=3)
     plt.plot(beta1[outcells], beta2[outcells], '.', color='red')
     plt.axis('equal')
     plt.axis('tight')
@@ -246,7 +246,18 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
     plt.ylabel(n2)
     plt.title(title)
 
-    fh.canvas.mpl_connect('pick_event', lambda event: display_png(event, cellids[set1], folder))
+    def display_wrapper(event):
+        
+        if sum(set2)==0:
+            display_png(event, cellids[set1], folder)
+        elif event.mouseevent.button==1: 
+            print("Left-click detected, displaying from 'highlighted' cells")
+            display_png(event, cellids[set1], folder)
+        elif event.mouseevent.button==3:
+            print("Right-click detected, loading from 'non-highlighted' cells")
+            display_png(event, cellids[set2], folder)
+
+    fh.canvas.mpl_connect('pick_event', lambda event: display_wrapper(event))
     
     
     ax = plt.subplot(2, 2, 1)

@@ -33,6 +33,10 @@ for c in df['cellid']:
     else:
         highlight.append(0)
 
+# If highlight is NOT none, right-click to load figure for non-highlighted cells.
+# left-click to load highlighted cells.
+# If highlight is NONE, use left click for any cells
+
 fh = sp.beta_comp_from_folder(beta1=beta1, beta2=beta2, n1=n1, n2=n2, title=title,
                               hist_range=hist_range, folder=results_path, highlight=highlight)
 
