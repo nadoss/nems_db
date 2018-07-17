@@ -121,6 +121,8 @@ def st(loadkey, recording_uri):
             this_sig = ["pupil_bs"]
         elif l.startswith("pev"):
             this_sig = ["pupil_ev"]
+        elif l.startswith('pup_cd'):
+            this_sig = ["pupil_cd"]
         elif l.startswith("pas"):
             this_sig = ["each_passive"]
         else:
