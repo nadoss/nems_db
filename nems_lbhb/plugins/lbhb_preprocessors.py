@@ -109,6 +109,10 @@ def st(loadkey, recording_uri):
     for l in loadset:
         if l.startswith("beh"):
             this_sig = ["active"]
+        elif l.startswith('pupcdxpup'):
+            this_sig = ["pupil_cd_x_pupil"]
+        elif l.startswith('pupcd'):
+            this_sig = ["pupil_cd"]
         elif l.startswith("pup"):
             this_sig = ["pupil"]
         elif l.startswith("pxb"):
@@ -121,10 +125,6 @@ def st(loadkey, recording_uri):
             this_sig = ["pupil_bs"]
         elif l.startswith("pev"):
             this_sig = ["pupil_ev"]
-        elif l.startswith('pupcd'):
-            this_sig = ["pupil_cd"]
-        elif l.startswith('pupcdxpup'):
-            this_sig = ["pupil_cd_x_pupil"]
         elif l.startswith("pas"):
             this_sig = ["each_passive"]
         elif l.startswith("r1"):
