@@ -1324,6 +1324,7 @@ def baphy_load_recording_nonrasterized(cellid=None, batch=None, **options):
     # query database to find all baphy files that belong to this cell/batch
     d = db.get_batch_cell_data(batch=batch, cellid=site, label='parm',
                                rawid=options['rawid'])
+
     files = list(d['parm'])
     if len(files) == 0:
        raise ValueError('NarfData not found for cell {0}/batch {1}'.format(cellid,batch))

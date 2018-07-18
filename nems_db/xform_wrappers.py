@@ -89,8 +89,9 @@ def generate_recording_uri(cellid, batch, loadkey):
     # remove any preprocessing keywords in the loader string.
     loader = loadkey.split("-")[0]
     log.info('loader=%s',loader)
+
     if loader.startswith('ozgf'):
-        pattern = re.compile(r'^ozgf\.fs(\d{1,})\.ch(\d{1,})(\.\w*)?$')
+        pattern = re.compile(r'^ozgf\.fs(\d{1,})\.ch(\d{1,})([a-zA-Z\.]*)$')
         parsed = re.match(pattern, loader)
         # TODO: fs and chans useful for anything for the loader? They don't
         #       seem to be used here, only in the baphy-specific stuff.
@@ -232,7 +233,8 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
             log.info('Generating summary plot ...')
             xfspec.append(['nems.xforms.plot_summary', {}])
     else:
-        recording_uri = generate_recording_uri(cellid, batch, loadkey)
+        recording_uri = generate_recording_uri(cellid, batch,
+                                               loadkey.split('-')[0])
         xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta)
 
     # actually do the fit

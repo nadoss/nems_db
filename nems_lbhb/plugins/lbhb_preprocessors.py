@@ -21,6 +21,7 @@ def pas(loadkey, recording_uri):
 
     return xfspec
 
+
 def ref(kw):
     return [['nems.xforms.mask_all_but_correct_references', {}]]
 
@@ -149,7 +150,18 @@ def st(loadkey, recording_uri):
     return xfspec
 
 
-def hrc(load_key):
+def contrast(loadkey):
+    ops = loadkey.split('.')[1:]
+    kwargs = {}
+    for op in ops:
+        if op.startswith('ms'):
+            ms = op[2:].replace('d', '.')
+            kwargs['ms'] = float(ms)
+
+    return [['nems_lbhb.contrast_helpers.add_contrast', kwargs]]
+
+
+def hrc(load_key, recording_uri):
     """
     Mask only data during stimuli that were repeated 10 or greater times.
     hrc = high rep count
