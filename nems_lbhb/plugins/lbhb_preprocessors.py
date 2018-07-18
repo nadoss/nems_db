@@ -138,10 +138,15 @@ def st(loadkey, recording_uri):
     return xfspec
 
 
-def contrast(loadkey, recording_uri):
-    # TODO: currently handled in ozgf but should be removed from that
-    #       function once the est/val split and avg stim are separated as well.
-    return [['nems_lbhb.contrast_helpers.add_contrast', {}]]
+def contrast(loadkey):
+    ops = loadkey.split('.')[1:]
+    kwargs = {}
+    for op in ops:
+        if op.startswith('ms'):
+            ms = op[2:].replace('d', '.')
+            kwargs['ms'] = float(ms)
+
+    return [['nems_lbhb.contrast_helpers.add_contrast', kwargs]]
 
 
 def hrc(load_key, recording_uri):

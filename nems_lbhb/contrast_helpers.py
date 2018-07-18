@@ -151,8 +151,8 @@ def init_dsig(rec, modelspec):
     Initialization of priors for logistic_sigmoid,
     based on process described in methods of Rabinowitz et al. 2014.
     '''
-    # preserve input modelspec
-    modelspec = copy.deepcopy(modelspec)
+    # Shouldn't need to do this since calling function already copies
+    # modelspec = copy.deepcopy(modelspec)
 
     dsig_idx = find_module('dynamic_sigmoid', modelspec)
     if dsig_idx is None:
@@ -185,7 +185,7 @@ def init_dsig(rec, modelspec):
     amplitude = ('Exponential', {'beta': amplitude0})
     shift = ('Normal', {'mean': shift0, 'sd': pred_range})
     kappa = ('Exponential', {'beta': kappa0})
-    force_zero = ('Uniform', {'lower': 0.0, 'upper': 0.0})
+    #force_zero = ('Uniform', {'lower': 0.0, 'upper': 0.0})
 
     modelspec[dsig_idx]['prior'] = {
             'base': base, 'amplitude': amplitude, 'shift': shift,
@@ -200,6 +200,25 @@ def init_dsig(rec, modelspec):
             'shift': (None, None), #'shift_mod': (0.0, 0.0),
             'kappa': (1e-15, None), #'kappa_mod': (0.0, 0.0),
             }
+
+    return modelspec
+
+
+def dsig_phi_to_prior(modelspec):
+    dsig_idx = find_module('dynamic_sigmoid', modelspec)
+    dsig = modelspec[dsig_idx]
+
+    phi = dsig['phi']
+    b = phi['base']
+    a = phi['amplitude']
+    k = phi['kappa']
+    s = phi['shift']
+
+    p = dsig['prior']
+    p['base'][1]['beta'] = b
+    p['amplitude'][1]['beta'] = a
+    p['shift'][1]['mean'] = s  # Do anything to scale std?
+    p['kappa'][1]['beta'] = k
 
     return modelspec
 
@@ -234,5 +253,9 @@ def init_contrast_model(est, modelspecs, tolerance=10**-5.5, max_iter=1000,
             fitter=fitter_fn,
             metric=metric_fn,
             fit_kwargs=fit_kwargs)
+
+    # after prefitting contrast modules, update priors to reflect the
+    # prefit values so that random sample fits incorporate the prefit info.
+    modelspec = dsig_phi_to_prior(modelspec)
 
     return {'modelspecs': [modelspec]}
