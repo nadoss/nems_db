@@ -111,8 +111,10 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     fh = plt.figure(figsize=(8, 6))
 
     ax = plt.subplot(2, 2, 3)
-    plt.plot(np.array(hist_range), np.array([0, 0]), 'k--')
-    plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
+    #plt.plot(np.array(hist_range), np.array([0, 0]), 'k--')
+    #plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
+    plt.axvline(0, color='k', linestyle='--')
+    plt.axhline(0, color='k', linestyle='--')
     plt.plot(np.array(hist_range), np.array(hist_range), 'k--')
     plt.plot(beta1[outcells], beta2[outcells], '.', color='red')
     plt.plot(beta1[set2], beta2[set2], '.', color='lightgray')
@@ -189,12 +191,15 @@ def display_png(event, cellids, path):
 def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
                           n1='model1', n2='model2', hist_bins=20,
                           hist_range=[-1, 1], title='modelname/batch',
-                          folder=None):
+                          folder=None, highlight=None):
 
     if folder is None:
         raise ValueError('Must specify the results folder!')
     elif folder[-1] == '/':
         folder = folder[:-1]
+        
+    if highlight is not None:
+        highlight = np.array(highlight)
 
     results = pd.read_csv(folder+'/results.csv')
     cellids = results['cellid'].values
@@ -215,8 +220,15 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
     beta1[beta1 < hist_range[0]] = hist_range[0]
     beta2[beta2 > hist_range[1]] = hist_range[1]
     beta2[beta2 < hist_range[0]] = hist_range[0]
+    
+    if highlight is None:
+        set1 = goodcells.astype(bool)
+        set2 = (1-goodcells).astype(bool)
+    else:
+        highlight = np.array(highlight)
+        set1 = np.logical_and(goodcells, (highlight))
+        set2 = np.logical_and(goodcells, (1-highlight))
 
-    set1 = goodcells
 
     fh = plt.figure(figsize=(6, 6))
 
@@ -225,6 +237,7 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
     plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
     plt.plot(np.array(hist_range), np.array(hist_range), 'k--')
     plt.plot(beta1[set1], beta2[set1], 'k.', picker=3)
+    plt.plot(beta1[set2], beta2[set2], '.', color='lightgray', picker=3)
     plt.plot(beta1[outcells], beta2[outcells], '.', color='red')
     plt.axis('equal')
     plt.axis('tight')
@@ -233,42 +246,97 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
     plt.ylabel(n2)
     plt.title(title)
 
-    fh.canvas.mpl_connect('pick_event', lambda event: display_png(event, cellids[set1], folder))
+    def display_wrapper(event):
+        
+        if sum(set2)==0:
+            display_png(event, cellids[set1], folder)
+        elif event.mouseevent.button==1: 
+            print("Left-click detected, displaying from 'highlighted' cells")
+            display_png(event, cellids[set1], folder)
+        elif event.mouseevent.button==3:
+            print("Right-click detected, loading from 'non-highlighted' cells")
+            display_png(event, cellids[set2], folder)
 
-    plt.subplot(2, 2, 1)
-    plt.hist([beta1[set1]], bins=hist_bins, range=hist_range,
+    fh.canvas.mpl_connect('pick_event', lambda event: display_wrapper(event))
+    
+    
+    ax = plt.subplot(2, 2, 1)
+    plt.hist([beta1[set1], beta1[set2]], bins=hist_bins, range=hist_range,
              histtype='bar', stacked=True,
-             color=['black'])
+             color=['black','lightgray'])
     plt.title('mean={:.3f} abs={:.3f}'.
               format(np.mean(beta1[goodcells]),
                      np.mean(np.abs(beta1[goodcells]))))
     plt.xlabel(n1)
+    lplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 2, 4)
-    plt.hist([beta2[set1]], bins=hist_bins, range=hist_range,
+    plt.hist([beta2[set1], beta2[set2]], bins=hist_bins, range=hist_range,
              histtype='bar', stacked=True, orientation="horizontal",
-             color=['black'])
+             color=['black','lightgray'])
     plt.title('mean={:.3f} abs={:.3f}'.
               format(np.mean(beta2[goodcells]),
                      np.mean(np.abs(beta2[goodcells]))))
     plt.xlabel(n2)
+    lplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 2, 2)
-    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1])],
+    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1]),
+              beta2[set2]-beta1[set2] * np.sign(beta2[set2])],
              bins=hist_bins-1, range=[hist_range[0]/2,hist_range[1]/2],
              histtype='bar', stacked=True,
-             color=['black'])
+             color=['black','lightgray'])
+
+#    d=np.sort(np.sign(beta1[goodcells])*(beta2[goodcells]-beta1[goodcells]))
+#    plt.bar(np.arange(np.sum(goodcells)), d,
+#            color='black')
     plt.title('mean={:.3f} abs={:.3f}'.
               format(np.mean(beta2[goodcells]),
                      np.mean(np.abs(beta2[goodcells]))))
-    plt.xlabel('difference')
+    plt.ylabel('difference')
 
     plt.tight_layout()
+    lplt.ax_remove_box(ax)
 
     old_title=fh.canvas.get_window_title()
     fh.canvas.set_window_title(old_title+': '+title)
-
+    
     return fh
+
+#    plt.subplot(2, 2, 1)
+#    plt.hist([beta1[set1]], bins=hist_bins, range=hist_range,
+#             histtype='bar', stacked=True,
+#             color=['black'])
+#    plt.title('mean={:.3f} abs={:.3f}'.
+#              format(np.mean(beta1[goodcells]),
+#                     np.mean(np.abs(beta1[goodcells]))))
+#    plt.xlabel(n1)
+#
+#    ax = plt.subplot(2, 2, 4)
+#    plt.hist([beta2[set1]], bins=hist_bins, range=hist_range,
+#             histtype='bar', stacked=True, orientation="horizontal",
+#             color=['black'])
+#    plt.title('mean={:.3f} abs={:.3f}'.
+#              format(np.mean(beta2[goodcells]),
+#                     np.mean(np.abs(beta2[goodcells]))))
+#    plt.xlabel(n2)
+#
+#    ax = plt.subplot(2, 2, 2)
+#    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1])],
+#             bins=hist_bins-1, range=[hist_range[0]/2,hist_range[1]/2],
+#             histtype='bar', stacked=True,
+#             color=['black'])
+#    plt.title('mean={:.3f} abs={:.3f}'.
+#              format(np.mean(beta2[goodcells]),
+#                     np.mean(np.abs(beta2[goodcells]))))
+#    plt.xlabel('difference')
+#
+#    plt.tight_layout()
+#
+#    old_title=fh.canvas.get_window_title()
+#    fh.canvas.set_window_title(old_title+': '+title)
+
+
 
 
 def beta_comp_cols(g, b, n1='A', n2='B', hist_bins=20,
