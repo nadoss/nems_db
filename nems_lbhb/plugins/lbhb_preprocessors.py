@@ -113,6 +113,10 @@ def st(loadkey, recording_uri):
             this_sig = ["pupil_cd_x_pupil"]
         elif l.startswith('pupcd'):
             this_sig = ["pupil_cd"]
+        elif l.startswith('pupder'):
+            this_sig = ['pupil_der']
+        elif l.startswith('pxpd'):
+            this_sig = ['p_x_pd']
         elif l.startswith("pup"):
             this_sig = ["pupil"]
         elif l.startswith("pxb"):
