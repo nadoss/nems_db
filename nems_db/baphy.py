@@ -18,6 +18,7 @@ import sys
 import io
 import datetime
 import glob
+from math import isclose
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -408,6 +409,9 @@ def baphy_load_pupil_trace(pupilfilepath, exptevents, **options):
         dp = np.abs(np.diff(pupil_diameter, axis=0))
         blink = np.zeros(dp.shape)
         blink[dp > np.nanmean(dp) + 6*np.nanstd(dp)] = 1
+        # CRH add following line 7-19-2019 
+        # (blink should be = 1 if pupil_dia goes to 0)
+        blink[[isclose(p, 0, abs_tol=0.5) for p in pupil_diameter[:-1]]] = 1
         box = np.ones([fs_approximate]) / (fs_approximate)
         # print(blink.shape)
         blink = np.convolve(blink[:, 0], box, mode='same')
