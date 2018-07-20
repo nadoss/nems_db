@@ -110,6 +110,8 @@ def st(loadkey, recording_uri):
     for l in loadset:
         if l.startswith("beh"):
             this_sig = ["active"]
+        elif l.startswith('puppsd'):
+            this_sig = ["pupil_psd"]
         elif l.startswith('pupcdxpup'):
             this_sig = ["pupil_cd_x_pupil"]
         elif l.startswith('pupcd'):
