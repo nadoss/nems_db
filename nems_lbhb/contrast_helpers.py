@@ -226,6 +226,11 @@ def dsig_phi_to_prior(modelspec):
 def init_contrast_model(est, modelspecs, tolerance=10**-5.5, max_iter=1000,
                         fitter='scipy_minimize', metric='nmse', **context):
     modelspec = copy.deepcopy(modelspecs[0])
+    if not find_module('dynamic_sigmoid', modelspec):
+        new_ms = nems.initializers.prefit_LN(est, modelspec, tolerance=tolerance,
+                                             max_iter=max_iter)
+        return {'modelspecs': [new_ms]}
+
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
     fitter_fn = getattr(nems.fitters.api, fitter)
     metric_fn = lambda d: getattr(nems.metrics.api, metric)(d, 'pred', 'resp')
