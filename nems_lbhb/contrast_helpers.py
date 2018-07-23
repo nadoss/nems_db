@@ -16,42 +16,27 @@ from nems import priors
 log = logging.getLogger(__name__)
 
 
-def static_to_dynamic(modelspec, base=True, amplitude=True, shift=True,
-                      kappa=True):
+def _strf_to_contrast(modelspec):
     '''
-    Changes bounds on contrast model to allow for dynamic modulation
-    of the logistic sigmoid output nonlinearity.
-    They start off frozen at 0 to allow for fitting of initial
+    Copy prefitted WC and FIR phi values to contrast-based counterparts.
     '''
     modelspec = copy.deepcopy(modelspec)
-    dsig_idx = find_module('dynamic_sigmoid', modelspec)
     wc_idx, ctwc_idx = find_module('weight_channels', modelspec,
                                    find_all_matches=True)
     fir_idx, ctfir_idx = find_module('fir', modelspec, find_all_matches=True)
 
-    base_mod = (None, None) if base else (0, 0)
-    amplitude_mod = (None, None) if amplitude else (0, 0)
-    shift_mod = (None, None) if shift else (0, 0)
-    kappa_mod = (None, None) if kappa else (0, 0)
+    log.info("Updating contrast phi to match prefitted strf ...")
 
-    modelspec[dsig_idx]['bounds'].update({
-            'base_mod': base_mod, 'amplitude_mod': amplitude_mod,
-            'shift_mod': shift_mod, 'kappa_mod': kappa_mod,
-            })
-
-    # TODO: Do this or not?
-#    modelspec[ctwc_idx]['phi'] = copy.deepcopy(modelspec[wc_idx]['phi'])
-#    modelspec[ctfir_idx]['phi'] = copy.deepcopy(modelspec[fir_idx]['phi'])
+    modelspec[ctwc_idx]['phi'] = copy.deepcopy(modelspec[wc_idx]['phi'])
+    modelspec[ctfir_idx]['phi'] = copy.deepcopy(modelspec[fir_idx]['phi'])
 
     return modelspec
 
 
-def dynamic_logsig(modelspecs, base=True, amplitude=True, shift=True,
-                   kappa=True, IsReload=False, **context):
+def strf_to_contrast(modelspecs, IsReload=False, **context):
     if not IsReload:
-        dynamic_mspec = static_to_dynamic(modelspecs[0], base, amplitude,
-                                          shift, kappa)
-        return {'modelspecs': [dynamic_mspec]}
+        new_mspec = _strf_to_contrast(modelspecs[0])
+        return {'modelspecs': [new_mspec]}
     else:
         return {'modelspecs': modelspecs}
 
