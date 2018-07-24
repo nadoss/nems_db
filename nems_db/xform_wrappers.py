@@ -115,7 +115,6 @@ def generate_recording_uri(cellid, batch, loadkey):
         pupil = ('pup' in ops)
 
         options.update(_parm_helper(fs, pupil))
-        options.update({'recache': True})
 
     elif loader.startswith('ns'):
         pattern = re.compile(r'^ns\.fs(\d{1,})')
