@@ -1633,5 +1633,35 @@ def load_recordings(recording_uri_list, cellid, **context):
     return {'rec': rec}
 
 
+def get_kilosort_template(batch=None, cellid=None):
+    """
+    return the waveform template for the given cellid. only works for cellids
+    with the current naming scheme i.e. TAR017b-07-2. crh 2018-07-24
+    """
+    parmfile = db.get_batch_cell_data(batch=batch, cellid=cellid).T.values[0][0]
+    path = os.path.dirname(parmfile)+'/sorted/'
+    rootname = ('.').join([os.path.basename(parmfile).split('.')[0], 'spk.mat'])
+    spkfile = path+rootname
+    sortdata = scipy.io.loadmat(spkfile, chars_as_strings=True)
+    
+    try:
+        chan = int(cellid[-4:-2])
+        unit = int(cellid[-1:])
+        template = sortdata['sortinfo'][0][chan-1][0][0][unit-1][0]['Template'][chan-1,:]
+    except:
+        template=np.nan
+        
+    return template
 
-
+def get_kilosort_templates(batch=None):
+    """
+    Return dataframe containing the waveform template for every cellid in this 
+    batch. crh 2018-07-24
+    """
+    cellids = db.get_batch_cells(batch)['cellid']
+    df = pd.DataFrame(index=cellids, columns=['template'])
+    
+    for c in cellids:
+        df.loc[c]['template'] = get_kilosort_template(batch=batch, cellid=c)
+        
+    return df 
