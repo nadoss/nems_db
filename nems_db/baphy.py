@@ -19,6 +19,7 @@ import io
 import datetime
 import glob
 from math import isclose
+import copy
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -1617,28 +1618,19 @@ def load_recordings(recording_uri_list, cellid, **context):
     # recording
     if re.search(r'\d+$', cellid[0]) is None:
         print('loading all cellids at site')
-        for s in rec.signals.keys():
-            if np.any(np.isnan(rec[s]._data)):
-                log.info('Padding {0} with the last non-nan value'.format(s))
-                inds = ~np.isfinite(rec[s]._data)
-                arr = rec[s].as_continuous()
-                arr[0,inds] = arr[0,inds[0]-1]
-                rec[s] = rec[s]._modified_copy(arr)
-        return {'rec': rec}
     else:
         print('extracting channels: {0}'.format(cellid))
         r = rec['resp'].extract_channels(cellid)    
         rec.add_signal(r)
-        import copy
-        for s in rec.signals.keys():
-            if np.any(np.isnan(rec[s].as_continuous())):
-                log.info('Padding {0} with the last non-nan value'.format(s))
-                inds = ~np.isfinite(rec[s].as_continuous())
-                arr = copy.deepcopy(rec[s]).as_continuous()
-                arr[inds] = arr[~inds][-1]
-                rec[s] = rec[s]._modified_copy(arr)
         
-        return {'rec': rec}
+    if 'pupil' in rec.signals.keys() and np.any(np.isnan(rec['pupil'].as_continuous())):
+                log.info('Padding {0} with the last non-nan value'.format('pupil'))
+                inds = ~np.isfinite(rec['pupil'].as_continuous())
+                arr = copy.deepcopy(rec['pupil'].as_continuous())
+                arr[inds] = arr[~inds][-1]
+                rec['pupil'] = rec['pupil']._modified_copy(arr)
+        
+    return {'rec': rec}
 
 
 
