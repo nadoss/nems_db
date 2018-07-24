@@ -159,7 +159,7 @@ def generate_recording_uri(cellid, batch, loadkey):
     # else will load the rec_uri for the single cell specified in fn args
     if 'ldb' in loadkey:
         options['batch'] = batch
-        options['recache'] = False
+        options['recache'] = options.get('recache', False)
         if type(cellid) is not list:
             cellid = [cellid]
         if  re.search(r'\d+$', cellid[0]) == None:
