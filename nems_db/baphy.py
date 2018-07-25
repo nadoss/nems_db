@@ -410,7 +410,7 @@ def baphy_load_pupil_trace(pupilfilepath, exptevents, **options):
         dp = np.abs(np.diff(pupil_diameter, axis=0))
         blink = np.zeros(dp.shape)
         blink[dp > np.nanmean(dp) + 6*np.nanstd(dp)] = 1
-        # CRH add following line 7-19-2019 
+        # CRH add following line 7-19-2019
         # (blink should be = 1 if pupil_dia goes to 0)
         blink[[isclose(p, 0, abs_tol=0.5) for p in pupil_diameter[:-1]]] = 1
         box = np.ones([fs_approximate]) / (fs_approximate)
@@ -1527,7 +1527,7 @@ def baphy_load_multichannel_recording(**options):
     options['stim'] = int(options.get('stim', False))
     options['runclass'] = options.get('runclass', None)
     options['recache'] = options.get('recache', False)
-    
+
     # TODO - this really should be smarter - pad with Nans or something...
     # For the time being...
     # If rawids are not specificed, will only load cellids that are stable across
@@ -1581,11 +1581,11 @@ def baphy_load_multichannel_recording(**options):
                 continue
 
     if cache_exists is None or options['recache'] == True:
-        
+
         print('No cache recording found. Calling baphy_data path to generate new rec')
         rec_uri = baphy_data_path(**options)
         rec = Recording.load(rec_uri)
-        
+
         # rec['resp']  = rec['resp'].rasterize()
 
         rec.save(full_rec_uri)
@@ -1600,9 +1600,9 @@ def baphy_load_multichannel_recording(**options):
 
 def load_recordings(recording_uri_list, cellid, **context):
     """
-    cellid can be single cell, or list of cells. Whatever it is, the cellids 
+    cellid can be single cell, or list of cells. Whatever it is, the cellids
     must exist in the resp channels of the recordings that are being loaded.
-    
+
     crh - testing this for use w/ xforms... 7/11/2018
     """
 
@@ -1611,27 +1611,23 @@ def load_recordings(recording_uri_list, cellid, **context):
     if other_recordings:
         rec.concatenate_recordings(other_recordings)
 
-    if type(cellid) is not list:
+    if not isinstance(cellid, list):
         cellid = [cellid]
-    
+
     # check to see if only a siteid was passed. If this is the case, load entire
     # recording
     if re.search(r'\d+$', cellid[0]) is None:
         print('loading all cellids at site')
     else:
         print('extracting channels: {0}'.format(cellid))
-        r = rec['resp'].extract_channels(cellid)    
+        r = rec['resp'].extract_channels(cellid)
         rec.add_signal(r)
-        
+
     if 'pupil' in rec.signals.keys() and np.any(np.isnan(rec['pupil'].as_continuous())):
                 log.info('Padding {0} with the last non-nan value'.format('pupil'))
                 inds = ~np.isfinite(rec['pupil'].as_continuous())
                 arr = copy.deepcopy(rec['pupil'].as_continuous())
                 arr[inds] = arr[~inds][-1]
                 rec['pupil'] = rec['pupil']._modified_copy(arr)
-        
+
     return {'rec': rec}
-
-
-
-
