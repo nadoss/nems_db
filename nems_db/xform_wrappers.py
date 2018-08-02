@@ -87,7 +87,7 @@ def generate_recording_uri(cellid, batch, loadkey):
         return options
 
     # remove any preprocessing keywords in the loader string.
-    loader = loadkey.split("-")[0]
+    loader = nems.utils.escaped_split(loadkey, '-')[0]
     log.info('loader=%s',loader)
 
     if loader.startswith('ozgf'):
@@ -165,7 +165,7 @@ def generate_recording_uri(cellid, batch, loadkey):
             options['site']=cellid[0]
         else:
             options['site'] = cellid[0][:-5]
-        recording_uri = nb.baphy_load_multichannel_recording(**options) 
+        recording_uri = nb.baphy_load_multichannel_recording(**options)
     else:
         recording_uri = get_recording_file(cellid, batch, options)
 
@@ -202,16 +202,16 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
              cellid, int(batch))
 
     # Segment modelname for meta information
-    kws = modelname.split("_")
+    kws = nems.utils.escaped_split(modelname, '_')
     old = False
     if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')
                           and not kws[1].startswith('stategain.')):
         # Check if modelname uses old format.
         log.info("Using old modelname format ... ")
         old = True
-        modelspecname = '_'.join(kws[1:-1])
+        modelspecname = nems.utils.escaped_join(kws[1:-1], '_')
     else:
-        modelspecname = "-".join(kws[1:-1])
+        modelspecname = nems.utils.escaped_join(kws[1:-1], '-')
     loadkey = kws[0]
     fitkey = kws[-1]
 
@@ -233,8 +233,8 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
             log.info('Generating summary plot ...')
             xfspec.append(['nems.xforms.plot_summary', {}])
     else:
-        recording_uri = generate_recording_uri(cellid, batch,
-                                               loadkey.split('-')[0])
+        uri_key = nems.utils.escaped_split(loadkey, '-')[0]
+        recording_uri = generate_recording_uri(cellid, batch, uri_key)
         xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta)
 
     # actually do the fit
@@ -271,7 +271,7 @@ def load_model_baphy_xform(cellid, batch=271,
         modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
         eval_model=True):
 
-    kws = modelname.split("_")
+    kws = nems.utils.escaped_split(modelname, '_')
     old = False
     if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')
                           and not kws[1].startswith('stategain.')):
