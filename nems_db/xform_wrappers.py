@@ -58,7 +58,7 @@ def get_recording_uri(cellid, batch, options={}):
     return url
 
 
-def generate_recording_uri(cellid, batch, loadkey):
+def generate_recording_uri(cellid=None, batch=None, loadkey=None, siteid=None):
     """
     figure out filename (or eventually URI) of pre-generated
     NEMS-format recording for a given cell/batch/loader string
@@ -151,6 +151,9 @@ def generate_recording_uri(cellid, batch, loadkey):
 
     else:
         raise ValueError('unknown loader string: %s' % loader)
+
+    if siteid is not None:
+        options['siteid'] = siteid
 
     # recording_uri = get_recording_uri(cellid, batch, options)\
     recording_uri = get_recording_file(cellid, batch, options)

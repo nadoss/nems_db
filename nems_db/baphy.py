@@ -1317,7 +1317,13 @@ def baphy_load_recording_nonrasterized(**options):
     if batch is None:
         raise ValueError("must provide batch")
 
-    if cellid is not None:
+    if siteid is not None:
+        cell_list = ['all']
+        cellid = siteid+'%'
+        rec_name = siteid
+        options['cellid'] = 'all'
+
+    elif cellid is not None:
         cell_list = [cellid]
         siteid = cellid.split("-")[0]
         rec_name = cellid
@@ -1352,7 +1358,7 @@ def baphy_load_recording_nonrasterized(**options):
     d = db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm',
                                rawid=options['rawid'])
 
-    files = list(d['parm'])
+    files = list(set(list(d['parm'])))
     if len(files) == 0:
        raise ValueError('NarfData not found for cell {0}/batch {1}'.format(cellid,batch))
 
@@ -1469,7 +1475,12 @@ def baphy_data_path(**options):
 
     options['recache'] = options.get('recache', 0)
 
-    if (type(options['cellid']) == list) & (len(options["cellid"]) > 1):
+    if options['cellid'] is None and options.get('siteid') is not None:
+        siteid = options.get('siteid')
+        cellid = options.get('siteid')
+        options['cellid'] = siteid
+
+    elif (type(options['cellid']) == list) & (len(options["cellid"]) > 1):
         cellid = options['cellid'][0]
         siteid = cellid.split("-")[0]
     elif (type(options['cellid']) == list):
@@ -1527,6 +1538,8 @@ def baphy_load_multichannel_recording(**options):
     try:
         batch = options.get('batch')
         site = options.get('site')
+        if site is None:
+            site = options.get('siteid')
     except ValueError:
         raise ValueError("must provide site and batch parameters")
 

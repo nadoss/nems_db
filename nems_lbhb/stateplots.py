@@ -70,7 +70,7 @@ fill_colors = {'actual_psth': (.8,.8,.8),
 
 def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
               hist_range=[-1, 1], title=None,
-              highlight=None):
+              highlight=None, ax=None):
     """
     beta1, beta2 are T x 1 vectors
     scatter plot comparing beta1 vs. beta2
@@ -88,8 +88,10 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
         highlight = highlight[nncells]
 
     if title is None:
-        title="n={}/{}".format(np.sum(highlight),len(highlight))
-
+        if highlight is not None:
+            title="n={}/{}".format(np.sum(highlight),len(highlight))
+        else:
+            title="{} v {}".format(n1,n2)
     # exclude cells without prepassive
     outcells = ((beta1 > hist_range[1]) | (beta1 < hist_range[0]) |
                 (beta2 > hist_range[1]) | (beta2 < hist_range[0]))
@@ -108,9 +110,15 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
         set1 = np.logical_and(goodcells, (highlight))
         set2 = np.logical_and(goodcells, (1-highlight))
 
-    fh = plt.figure(figsize=(8, 6))
+    if ax is None:
+        fh = plt.figure(figsize=(8, 6))
 
-    ax = plt.subplot(2, 2, 3)
+        ax = plt.subplot(2, 2, 3)
+        exit_after_scatter=False
+    else:
+        plt.sca(ax)
+        exit_after_scatter=True
+
     plt.plot(np.array(hist_range), np.array([0, 0]), 'k--')
     plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
     plt.plot(np.array(hist_range), np.array(hist_range), 'k--')
@@ -122,10 +130,13 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     plt.xlim(hist_range)
     #plt.axis('tight')
 
-    plt.xlabel(n1)
-    plt.ylabel(n2)
+    plt.xlabel("{} (m={:.3f})".format(n1, np.mean(beta1[goodcells])))
+    plt.ylabel("{} (m={:.3f})".format(n2, np.mean(beta2[goodcells])))
     plt.title(title)
     lplt.ax_remove_box(ax)
+
+    if exit_after_scatter:
+        return plt.gcf()
 
     ax = plt.subplot(2, 2, 1)
     plt.hist([beta1[set1], beta1[set2]], bins=hist_bins, range=hist_range,
@@ -154,7 +165,8 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
 #             histtype='bar', stacked=True,
 #             color=['black','lightgray'])
 
-    d=np.sort(np.sign(beta1[goodcells])*(beta2[goodcells]-beta1[goodcells]))
+    # d = np.sort(np.sign(beta1[goodcells])*(beta2[goodcells]-beta1[goodcells]))
+    d = np.sort(beta2[goodcells] - beta1[goodcells])
     plt.bar(np.arange(np.sum(goodcells)), d,
             color='black')
     plt.title('mean={:.3f} abs={:.3f}'.
