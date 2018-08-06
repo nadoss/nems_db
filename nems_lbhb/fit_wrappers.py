@@ -254,11 +254,10 @@ def fit_population_iteratively(
         print("Fitting subsets with tol: %.2E fit_iter %d tol_iter %d" %
               (tol, fit_iter, tol_iter))
         fit_kwargs.update({'tolerance': tol, 'max_iter': fit_iter})
-        max_error_reduction = np.inf
         i = 0
+        error_reduction = np.inf
+        while (error_reduction >= tol) and (i < tol_iter):
 
-        while (max_error_reduction >= tol) and (i < tol_iter):
-            max_error_reduction = 0
             improved_modelspec = copy.deepcopy(modelspec)
             for s in range(slice_count):
                 print('Slice %d set %s' % (s, ",".join(fit_set_slice)))
@@ -276,14 +275,12 @@ def fit_population_iteratively(
                     fit_set=fit_set_all, fit_kwargs=fit_kwargs)
 
             new_error = metric(data)
-            error_reduction = error-new_error
+            error_reduction = error - new_error
             error = new_error
-            if error_reduction > max_error_reduction:
-                max_error_reduction = error_reduction
-            log.info("tol=%.2E, iter=%d/%d: max deltaE=%.6E",
-                     tol, i, tol_iter, max_error_reduction)
+            log.info("tol=%.2E, iter=%d/%d: deltaE=%.6E",
+                     tol, i, tol_iter, error_reduction)
             print("tol=%.2E, iter=%d/%d: max deltaE=%.6E" %
-                  (tol, i, tol_iter, max_error_reduction))
+                  (tol, i, tol_iter, error_reduction))
             i += 1
         log.info("Done with tol %.2E (i=%d, max_error_reduction %.7f)",
                  tol, i, error_reduction)

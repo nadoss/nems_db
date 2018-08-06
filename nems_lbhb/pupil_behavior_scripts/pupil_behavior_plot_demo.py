@@ -15,7 +15,7 @@ click event on scatter plot will load png for that cell
 import nems_lbhb.stateplots as sp
 import pandas as pd
 
-results_path = '/auto/users/svd/projects/pupil-behavior/pb_AC_301_psth.fs20_psthfr_sdexp.S_jk.nf10-init.st-basic'
+results_path = '/auto/users/svd/projects/pupil-behavior/pb_AC_301_psth.fs20.pup_psthfr_sdexp.S_jk.nf10-init.st-basic/'
 df = pd.read_csv(results_path+'/results.csv')
 
 beta1 = 'r_pup'
