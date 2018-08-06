@@ -107,6 +107,7 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
         m['phi'] = {}
         tmodelspec[i] = m
 
+    # generate temp recording with only resposnes of interest
     temp_rec = rec.copy()
     slice_chans = [temp_rec['resp'].chans[slice]]
     temp_rec['resp'] = temp_rec['resp'].extract_channels(slice_chans)
@@ -121,10 +122,12 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
         tmodelspec[0]['fn_kwargs']['i'] = 'stim'
         #print(tmodelspec)
     print(temp_rec.signals.keys())
-    if 'mask' in temp_rec.signals.keys():
-        print("Data len pre-mask: %d" % (temp_rec['mask'].shape[1]))
-        temp_rec = temp_rec.apply_mask()
-        print("Data len post-mask: %d" % (temp_rec['mask'].shape[1]))
+
+    # IS this mask necessary? Does it work?
+    #if 'mask' in temp_rec.signals.keys():
+    #    print("Data len pre-mask: %d" % (temp_rec['mask'].shape[1]))
+    #    temp_rec = temp_rec.apply_mask()
+    #    print("Data len post-mask: %d" % (temp_rec['mask'].shape[1]))
 
     # fit the subset of modules
     if metric is None:
