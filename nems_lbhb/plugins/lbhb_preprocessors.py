@@ -159,6 +159,9 @@ def contrast(loadkey):
         if op.startswith('ms'):
             ms = op[2:].replace('d', '.')
             kwargs['ms'] = float(ms)
+        elif op.startswith('pcnt'):
+            percentile = int(op[4:])
+            kwargs['percentile'] = percentile
 
     return [['nems_lbhb.contrast_helpers.add_contrast', kwargs]]
 
@@ -190,7 +193,7 @@ def psthfr(load_key):
 def rscsw(load_key, cellid, batch):
     """
     generate the signals for sliding window model. It's intended that these be
-    added to the state signal later on. Will call the sliding window 
+    added to the state signal later on. Will call the sliding window
     signal resp as if it's a normal nems encoding model. Little bit kludgy.
     CRH 2018-07-12
     """
@@ -202,10 +205,10 @@ def rscsw(load_key, cellid, batch):
         state_correction = False
     else:
         state_correction = True
-    
+
     xfspec = [['preprocessing_tools.make_rscsw_signals',
                    {'win_len': win_length,
-                    'state_correction': state_correction, 
+                    'state_correction': state_correction,
                     'cellid': cellid,
                     'batch': batch},
                    ['rec'], ['rec']]]

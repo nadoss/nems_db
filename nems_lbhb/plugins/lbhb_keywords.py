@@ -40,7 +40,6 @@ def ctfir(kw):
             'fn': 'nems.modules.fir.filter_bank',
             'fn_kwargs': {'i': 'ctpred', 'o': 'ctpred', 'bank_count': n_banks},
             'prior': {'coefficients': ('Exponential', p_coefficients)},
-            'bounds': {'coefficients': (1e-15, None)}
             }
 
     return template

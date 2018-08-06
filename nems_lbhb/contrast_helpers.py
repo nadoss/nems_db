@@ -42,7 +42,7 @@ def strf_to_contrast(modelspecs, IsReload=False, **context):
 
 
 def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
-                         bins=None):
+                         bins=None, percentile=50):
     '''
     Creates a new signal whose values represent the degree of variability
     in each channel of the source signal. Each value is based on the
@@ -77,18 +77,21 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     filt = np.concatenate((np.zeros([1, history+1]),
                            np.ones([1, history])), axis=1)
     contrast = convolve2d(array, filt, mode='same')
+    cutoff = np.nanpercentile(contrast, percentile)
+    rectified = np.where(contrast >= cutoff, 1, 0)
 
-    contrast_sig = source_signal._modified_copy(contrast)
+    contrast_sig = source_signal._modified_copy(rectified)
     rec[name] = contrast_sig
 
     return rec
 
 
-def add_contrast(rec, name='contrast', source_name='stim',
+def add_contrast(rec, name='contrast', source_name='stim', percentile=50,
                  ms=500, bins=None, IsReload=False, **context):
     '''xforms wrapper for make_contrast_signal'''
     rec_with_contrast = make_contrast_signal(
-            rec, name=name, source_name=source_name, ms=ms, bins=bins
+            rec, name=name, source_name=source_name, ms=ms, bins=bins,
+            percentile=percentile,
             )
     return {'rec': rec_with_contrast}
 
@@ -113,33 +116,30 @@ def reset_single_recording(rec, est, val, IsReload=False, **context):
 def dynamic_sigmoid(rec, i, o, c, base, amplitude, shift, kappa,
                     base_mod=0, amplitude_mod=0, shift_mod=0,
                     kappa_mod=0):
+
     # TODO: Really this could be used with any signal, doesn't have to be
     #       a contrast signal. So rename maybe?
     contrast = rec[c].as_continuous()
+
     if np.isnan(base_mod):
         b = base
     else:
         b = base+base_mod*contrast
+
     if np.isnan(amplitude_mod):
         a = amplitude
     else:
         a = amplitude+amplitude_mod*contrast
+
     if np.isnan(shift_mod):
         s = shift
     else:
         s = shift+shift_mod*contrast
+
     if np.isnan(kappa_mod):
         k = kappa
     else:
         k = kappa+kappa_mod*contrast
-
-#    for th0, th1 in zip([base, amplitude, shift, kappa],
-#                        [base_mod, amplitude_mod, shift_mod, kappa_mod]):
-#        if (th1 == 0) or (np.isnan(th1)):
-#            # Save time if static
-#            pass
-#        else:
-#            th0 = (contrast*th1 + th0)
 
     fn = lambda x: _logistic_sigmoid(x, b, a, s, k)
     return [rec[i].transform(fn, o)]
