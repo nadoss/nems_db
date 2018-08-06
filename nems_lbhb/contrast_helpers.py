@@ -87,13 +87,10 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
 def add_contrast(rec, name='contrast', source_name='stim',
                  ms=500, bins=None, IsReload=False, **context):
     '''xforms wrapper for make_contrast_signal'''
-    if not IsReload:
-        rec_with_contrast = make_contrast_signal(
-                rec, name=name, source_name=source_name, ms=ms, bins=bins
-                )
-        return {'rec': rec_with_contrast}
-    else:
-        return {'rec': rec}
+    rec_with_contrast = make_contrast_signal(
+            rec, name=name, source_name=source_name, ms=ms, bins=bins
+            )
+    return {'rec': rec_with_contrast}
 
 
 def reset_single_recording(rec, est, val, IsReload=False, **context):
@@ -119,15 +116,32 @@ def dynamic_sigmoid(rec, i, o, c, base, amplitude, shift, kappa,
     # TODO: Really this could be used with any signal, doesn't have to be
     #       a contrast signal. So rename maybe?
     contrast = rec[c].as_continuous()
-    for th0, th1 in zip([base, amplitude, shift, kappa],
-                        [base_mod, amplitude_mod, shift_mod, kappa_mod]):
-        if (th1 == 0) or (np.isnan(th1)):
-            # Save time if static
-            pass
-        else:
-            th0 = (contrast*th1 + th0)
+    if np.isnan(base_mod):
+        b = base
+    else:
+        b = base+base_mod*contrast
+    if np.isnan(amplitude_mod):
+        a = amplitude
+    else:
+        a = amplitude+amplitude_mod*contrast
+    if np.isnan(shift_mod):
+        s = shift
+    else:
+        s = shift+shift_mod*contrast
+    if np.isnan(kappa_mod):
+        k = kappa
+    else:
+        k = kappa+kappa_mod*contrast
 
-    fn = lambda x: _logistic_sigmoid(x, base, amplitude, shift, kappa)
+#    for th0, th1 in zip([base, amplitude, shift, kappa],
+#                        [base_mod, amplitude_mod, shift_mod, kappa_mod]):
+#        if (th1 == 0) or (np.isnan(th1)):
+#            # Save time if static
+#            pass
+#        else:
+#            th0 = (contrast*th1 + th0)
+
+    fn = lambda x: _logistic_sigmoid(x, b, a, s, k)
     return [rec[i].transform(fn, o)]
 
 
@@ -208,8 +222,12 @@ def dsig_phi_to_prior(modelspec):
     return modelspec
 
 
-def init_contrast_model(est, modelspecs, tolerance=10**-5.5, max_iter=1000,
+def init_contrast_model(est, modelspecs, IsReload=False,
+                        tolerance=10**-5.5, max_iter=1000,
                         fitter='scipy_minimize', metric='nmse', **context):
+    if IsReload:
+        return {}
+
     modelspec = copy.deepcopy(modelspecs[0])
     if not find_module('dynamic_sigmoid', modelspec):
         new_ms = nems.initializers.prefit_LN(est, modelspec, tolerance=tolerance,
