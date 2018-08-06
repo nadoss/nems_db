@@ -6,7 +6,7 @@ Created on Tue Jul  3 15:59:40 2018
 @author: hellerc
 """
 
-''' 
+'''
 Demo plotting pupil-behavior results from fit results folder
 click event on scatter plot will load png for that cell
 '''
@@ -14,7 +14,8 @@ click event on scatter plot will load png for that cell
 
 import nems_lbhb.stateplots as sp
 
-results_path = '/auto/users/svd/projects/pupil-behavior/pb_AC_307_psth_basic-nf'
+results_path = '/auto/users/svd/projects/pupil-behavior/ppas_AC_301_psth.fs20_psthfr_sdexp.S_jk.nf10-init.st-basic'
+
 beta1 = 'r_pup'
 beta2 = 'r_beh'
 n1 = 'pupil'

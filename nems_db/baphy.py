@@ -1318,10 +1318,11 @@ def baphy_load_recording_nonrasterized(**options):
         raise ValueError("must provide batch")
 
     if siteid is not None:
-        cell_list = ['all']
-        cellid = siteid+'%'
+        celldata = db.get_batch_cells(batch=batch, cellid=siteid)
+        cell_list = list(celldata['cellid'])
+        cellid = cell_list[0]
         rec_name = siteid
-        options['cellid'] = 'all'
+        options['cellid'] = cell_list
 
     elif cellid is not None:
         cell_list = [cellid]
@@ -1337,7 +1338,7 @@ def baphy_load_recording_nonrasterized(**options):
         cell_list = list(celldata['cellid'])
         cellid = cell_list[0]
         rec_name = siteid
-        options['cellid'] = 'all'
+        options['cellid'] = cell_list
 
     # set default options if missing
     options['rasterfs'] = int(options.get('rasterfs', 100))

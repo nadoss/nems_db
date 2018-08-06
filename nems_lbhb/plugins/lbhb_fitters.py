@@ -63,7 +63,7 @@ def popiter(fitkey):
                {'module_sets': module_sets, 'fitter': fitter,
                 'tolerances': tolerances, 'tol_iter': tol_iter,
                 'fit_iter': fit_iter},
-                ['rec','modelspecs'],
+                ['est','modelspecs'],
                 ['modelspecs']]]
 
     return xfspec

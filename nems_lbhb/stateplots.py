@@ -464,7 +464,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
                                state_colors=[s[1] for s in state_colors])
     ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
     ax.set_ylabel("{} r={:.3f}".format(factor0,
-                  ctx_p0b0['modelspecs'][0][0]['meta']['r_test']))
+                  ctx_p0b0['modelspecs'][0][0]['meta']['r_test'][0]))
     lplt.ax_remove_box(ax)
 
     for i, var in enumerate(factors[1:]):
@@ -483,13 +483,13 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
             ax.set_ylabel("Control model")
             ax.set_title("{} ctl r={:.3f}"
                          .format(varlbl.lower(),
-                                 ctx_p0b['modelspecs'][0][0]['meta']['r_test']),
+                                 ctx_p0b['modelspecs'][0][0]['meta']['r_test'][0]),
                          fontsize=6)
         else:
             ax.yaxis.label.set_visible(False)
             ax.set_title("{} ctl r={:.3f}"
                          .format(varlbl.lower(),
-                                 ctx_pb0['modelspecs'][0][0]['meta']['r_test']),
+                                 ctx_pb0['modelspecs'][0][0]['meta']['r_test'][0]),
                          fontsize=6)
         if ax.legend_:
             ax.legend_.remove()
@@ -515,7 +515,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
             j=1
 
         ax.set_title("r={:.3f} rawmod={:.3f} umod={:.3f}"
-                     .format(ctx_pb['modelspecs'][0][0]['meta']['r_test'],
+                     .format(ctx_pb['modelspecs'][0][0]['meta']['r_test'][0],
                              pred_mod_full_norm[i+1][j], pred_mod_norm[i+1][j]),
                      fontsize=6)
 
@@ -537,22 +537,22 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
              'state_vars': state_var_list,
              'factors': factors,
              'r_test': np.array([
-                     ctx_p0b0['modelspecs'][0][0]['meta']['r_test'],
-                     ctx_p0b['modelspecs'][0][0]['meta']['r_test'],
-                     ctx_pb0['modelspecs'][0][0]['meta']['r_test'],
-                     ctx_pb['modelspecs'][0][0]['meta']['r_test']
+                     ctx_p0b0['modelspecs'][0][0]['meta']['r_test'][0],
+                     ctx_p0b['modelspecs'][0][0]['meta']['r_test'][0],
+                     ctx_pb0['modelspecs'][0][0]['meta']['r_test'][0],
+                     ctx_pb['modelspecs'][0][0]['meta']['r_test'][0]
                      ]),
              'se_test': np.array([
-                     ctx_p0b0['modelspecs'][0][0]['meta']['se_test'],
-                     ctx_p0b['modelspecs'][0][0]['meta']['se_test'],
-                     ctx_pb0['modelspecs'][0][0]['meta']['se_test'],
-                     ctx_pb['modelspecs'][0][0]['meta']['se_test']
+                     ctx_p0b0['modelspecs'][0][0]['meta']['se_test'][0],
+                     ctx_p0b['modelspecs'][0][0]['meta']['se_test'][0],
+                     ctx_pb0['modelspecs'][0][0]['meta']['se_test'][0],
+                     ctx_pb['modelspecs'][0][0]['meta']['se_test'][0]
                      ]),
              'r_floor': np.array([
-                     ctx_p0b0['modelspecs'][0][0]['meta']['r_floor'],
-                     ctx_p0b['modelspecs'][0][0]['meta']['r_floor'],
-                     ctx_pb0['modelspecs'][0][0]['meta']['r_floor'],
-                     ctx_pb['modelspecs'][0][0]['meta']['r_floor']
+                     ctx_p0b0['modelspecs'][0][0]['meta']['r_floor'][0],
+                     ctx_p0b['modelspecs'][0][0]['meta']['r_floor'][0],
+                     ctx_pb0['modelspecs'][0][0]['meta']['r_floor'][0],
+                     ctx_pb['modelspecs'][0][0]['meta']['r_floor'][0]
                      ]),
              'pred_mod': pred_mod.T,
              'pred_mod_full': pred_mod_full.T,
