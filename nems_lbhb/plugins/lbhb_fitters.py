@@ -3,6 +3,14 @@ from nems.plugins.default_fitters import iter
 from nems.utils import escaped_split
 
 
+def strfct(fitkey):
+    return [['nems_lbhb.contrast_helpers.strf_to_contrast', {}]]
+
+
+def srec(fitkey):
+    return [['nems_lbhb.contrast_helpers.reset_single_recording', {}]]
+
+
 def _aliased_fitter(fn, fitkey):
     '''Forces the keyword fn to use the given fitkey. Used for implementing
     backwards compatibility with old keywords that did not follow the
@@ -21,6 +29,7 @@ def _aliased_fitter(fn, fitkey):
 
 
 fitjk01 = _aliased_fitter(basic, 'basic.nf5.epREFERENCE')
+
 
 def popiter(fitkey):
     '''

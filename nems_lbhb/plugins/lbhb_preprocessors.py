@@ -21,6 +21,7 @@ def pas(loadkey, recording_uri):
 
     return xfspec
 
+
 def ref(kw):
     return [['nems.xforms.mask_all_but_correct_references', {}]]
 
@@ -76,6 +77,16 @@ def st(loadkey, recording_uri):
     for l in loadset:
         if l.startswith("beh"):
             this_sig = ["active"]
+        elif l.startswith('puppsd'):
+            this_sig = ["pupil_psd"]
+        elif l.startswith('pupcdxpup'):
+            this_sig = ["pupil_cd_x_pupil"]
+        elif l.startswith('pupcd'):
+            this_sig = ["pupil_cd"]
+        elif l.startswith('pupder'):
+            this_sig = ['pupil_der']
+        elif l.startswith('pxpd'):
+            this_sig = ['p_x_pd']
         elif l.startswith("pup"):
             this_sig = ["pupil"]
         elif l.startswith("pxb"):
@@ -90,6 +101,10 @@ def st(loadkey, recording_uri):
             this_sig = ["pupil_ev"]
         elif l.startswith("pas"):
             this_sig = ["each_passive"]
+        elif l.startswith("r1"):
+            this_sig = ["r1"]
+        elif l.startswith("r2"):
+            this_sig = ["r2"]
         else:
             raise ValueError("unknown signal code %s for state variable initializer", l)
 
@@ -104,6 +119,17 @@ def st(loadkey, recording_uri):
     return xfspec
 
 
+def contrast(loadkey):
+    ops = loadkey.split('.')[1:]
+    kwargs = {}
+    for op in ops:
+        if op.startswith('ms'):
+            ms = op[2:].replace('d', '.')
+            kwargs['ms'] = float(ms)
+
+    return [['nems_lbhb.contrast_helpers.add_contrast', kwargs]]
+
+
 def hrc(load_key, recording_uri):
     """
     Mask only data during stimuli that were repeated 10 or greater times.
@@ -116,7 +142,7 @@ def hrc(load_key, recording_uri):
     return xfspec
 
 
-def psthfr(load_key, recording_uri):
+def psthfr(load_key):
     """
     Generate psth from resp
     """
@@ -127,6 +153,30 @@ def psthfr(load_key, recording_uri):
                    {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
     return xfspec
 
+
+def rscsw(load_key, cellid, batch):
+    """
+    generate the signals for sliding window model. It's intended that these be
+    added to the state signal later on. Will call the sliding window 
+    signal resp as if it's a normal nems encoding model. Little bit kludgy.
+    CRH 2018-07-12
+    """
+    pattern = re.compile(r'^rscsw\.wl(\d{1,})\.sc(\d{1,})')
+    parsed = re.match(pattern, load_key)
+    win_length = parsed.group(1)
+    state_correction = parsed.group(2)
+    if state_correction == 0:
+        state_correction = False
+    else:
+        state_correction = True
+    
+    xfspec = [['preprocessing_tools.make_rscsw_signals',
+                   {'win_len': win_length,
+                    'state_correction': state_correction, 
+                    'cellid': cellid,
+                    'batch': batch},
+                   ['rec'], ['rec']]]
+    return xfspec
 
 # TODO: Maybe can keep splitep and avgep as one thing?
 #       Would they ever be done separately?
