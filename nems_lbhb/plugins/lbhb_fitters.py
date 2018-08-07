@@ -71,9 +71,10 @@ def popiter(fitkey):
     xfspec = [['nems_lbhb.fit_wrappers.fit_population_iteratively',
                {'module_sets': module_sets, 'fitter': fitter,
                 'tolerances': tolerances, 'tol_iter': tol_iter,
-                'fit_iter': fit_iter},
-                ['est','modelspecs'],
-                ['modelspecs']]]
+                'fit_iter': fit_iter}]]
+
+    #            ['est', 'modelspecs', 'IsReload'],
+    #            ['modelspecs']]]
 
     return xfspec
 

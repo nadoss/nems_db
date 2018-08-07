@@ -121,7 +121,7 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
         tmodelspec = tmodelspec[first_idx:]
         tmodelspec[0]['fn_kwargs']['i'] = 'stim'
         #print(tmodelspec)
-    print(temp_rec.signals.keys())
+    #print(temp_rec.signals.keys())
 
     # IS this mask necessary? Does it work?
     #if 'mask' in temp_rec.signals.keys():
@@ -130,28 +130,37 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
     #    print("Data len post-mask: %d" % (temp_rec['mask'].shape[1]))
 
     # fit the subset of modules
-    if metric is None:
-        tmodelspec = analysis_function(temp_rec, tmodelspec, fitter=fitter,
-                                       fit_kwargs=fit_kwargs)[0]
+    temp_rec = ms.evaluate(temp_rec, tmodelspec)
+    error_before = metric(temp_rec)
+
+    tmodelspec = analysis_function(temp_rec, tmodelspec, fitter=fitter,
+                                   metric=metric, fit_kwargs=fit_kwargs)[0]
+
+    temp_rec = ms.evaluate(temp_rec, tmodelspec)
+    error_after = metric(temp_rec)
+    dError = error_before - error_after
+    if dError < 0:
+        print("dError (%.6f - %.6f) = %.6f worse. not updating modelspec"
+              % (error_before, error_after, dError))
     else:
-        tmodelspec = analysis_function(temp_rec, tmodelspec, fitter=fitter,
-                                       metric=metric, fit_kwargs=fit_kwargs)[0]
+        print("dError (%.6f - %.6f) = %.6f better. updating modelspec"
+              % (error_before, error_after, dError))
 
-    # reassemble the full modelspec with updated phi values from tmodelspec
-    for i, mod_idx in enumerate(fit_idx):
-        m = copy.deepcopy(modelspec[mod_idx])
-        # need to have phi in place
-        if not m.get('phi'):
-            log.info('Intializing phi for module %d (%s)', mod_idx, m['fn'])
-            m = priors.set_mean_phi([m])[0]  # Inits phi
-        for key, value in tmodelspec[mod_idx - first_idx]['phi'].items():
-#            print(key)
-#            print(m['phi'][key].shape)
-#            print(sliceinfo[i][key])
-#            print(value)
-            m['phi'][key][sliceinfo[i][key], :] = value
+        # reassemble the full modelspec with updated phi values from tmodelspec
+        for i, mod_idx in enumerate(fit_idx):
+            m = copy.deepcopy(modelspec[mod_idx])
+            # need to have phi in place
+            if not m.get('phi'):
+                log.info('Intializing phi for module %d (%s)', mod_idx, m['fn'])
+                m = priors.set_mean_phi([m])[0]  # Inits phi
+            for key, value in tmodelspec[mod_idx - first_idx]['phi'].items():
+    #            print(key)
+    #            print(m['phi'][key].shape)
+    #            print(sliceinfo[i][key])
+    #            print(value)
+                m['phi'][key][sliceinfo[i][key], :] = value
 
-        modelspec[mod_idx] = m
+            modelspec[mod_idx] = m
 
     return modelspec
 
@@ -165,7 +174,7 @@ def fit_population_iteratively(
         metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
         metaname='fit_basic', fit_kwargs={},
         module_sets=None, invert=False, tolerances=None, tol_iter=50,
-        fit_iter=10,
+        fit_iter=10, IsReload=False, **context
         ):
     '''
     Required Arguments:
@@ -208,6 +217,9 @@ def fit_population_iteratively(
 #                    module_sets.append([i])
 #        log.info('Fit sets: %s', module_sets)
 
+    if IsReload:
+        return {}
+
     modelspec = modelspecs[0]
     data = est.copy()
 
@@ -229,7 +241,7 @@ def fit_population_iteratively(
 
     # apply mask to remove invalid portions of signals and allow fit to
     # only evaluate the model on the valid portion of the signals
-    #if 'mask' in data.signals.keys():
+    # if 'mask' in data.signals.keys():
     #    log.info("Data len pre-mask: %d", data['mask'].shape[1])
     #    data = data.apply_mask()
     #    log.info("Data len post-mask: %d", data['mask'].shape[1])
@@ -247,18 +259,24 @@ def fit_population_iteratively(
     error = np.inf
 
     slice_count = data['resp'].shape[0]
-
+    step_size = 0.1
     for tol in tolerances:
         log.info("Fitting subsets with tol: %.2E fit_iter %d tol_iter %d",
                  tol, fit_iter, tol_iter)
         print("Fitting subsets with tol: %.2E fit_iter %d tol_iter %d" %
               (tol, fit_iter, tol_iter))
-        fit_kwargs.update({'tolerance': tol, 'max_iter': fit_iter})
+        cd_kwargs = fit_kwargs.copy()
+        cd_kwargs.update({'tolerance': tol, 'max_iter': fit_iter,
+                           'step_size': step_size})
+        sp_kwargs = fit_kwargs.copy()
+        sp_kwargs.update({'tolerance': tol, 'max_iter': fit_iter})
+
         i = 0
         error_reduction = np.inf
         while (error_reduction >= tol) and (i < tol_iter):
 
             improved_modelspec = copy.deepcopy(modelspec)
+            cc = 0
             for s in range(slice_count):
                 print('Slice %d set %s' % (s, ",".join(fit_set_slice)))
                 improved_modelspec = fit_population_slice(
@@ -267,12 +285,17 @@ def fit_population_iteratively(
                         analysis_function=analysis.fit_basic,
                         metric=metric,
                         fitter=coordinate_descent,
-                        fit_kwargs=fit_kwargs)
+                        fit_kwargs=cd_kwargs)
 
-            improved_modelspec = init.prefit_mod_subset(
-                    data, improved_modelspec, analysis.fit_basic,
-                    metric=metric,
-                    fit_set=fit_set_all, fit_kwargs=fit_kwargs)
+                # every 5 units, update the spectral filters
+                cc += 1
+                if (cc % 5 == 0) or (cc == slice_count):
+                    print('Slice %d updating pop-wide parameters' % (s))
+                    improved_modelspec = init.prefit_mod_subset(
+                            data, improved_modelspec, analysis.fit_basic,
+                            metric=metric,
+                            fit_set=fit_set_all,
+                            fit_kwargs=sp_kwargs)
 
             new_error = metric(data)
             error_reduction = error - new_error
@@ -282,10 +305,15 @@ def fit_population_iteratively(
             print("tol=%.2E, iter=%d/%d: max deltaE=%.6E" %
                   (tol, i, tol_iter, error_reduction))
             i += 1
+            if error_reduction > 0:
+                modelspec = improved_modelspec
+
         log.info("Done with tol %.2E (i=%d, max_error_reduction %.7f)",
                  tol, i, error_reduction)
         print("Done with tol %.2E (i=%d, max_error_reduction %.7f)" %
                  (tol, i, error_reduction))
+
+        step_size *= 0.5
 
     elapsed_time = (time.time() - start_time)
 
@@ -296,5 +324,5 @@ def fit_population_iteratively(
     ms.set_modelspec_metadata(improved_modelspec, 'fit_time', elapsed_time)
     results = [copy.deepcopy(improved_modelspec)]
 
-    return results
+    return {'modelspecs': results}
 

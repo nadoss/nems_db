@@ -1324,7 +1324,16 @@ def baphy_load_recording_nonrasterized(**options):
     if batch is None:
         raise ValueError("must provide batch")
 
-    if siteid is not None:
+    if type(cellid) is list:
+        cell_list = cellid
+
+    if cell_list is not None:
+        cellid = cell_list[0]
+        siteid = cellid.split("-")[0]
+        rec_name = siteid
+        options['cellid'] = cell_list
+
+    elif siteid is not None:
         celldata = db.get_batch_cells(batch=batch, cellid=siteid)
         cell_list = list(celldata['cellid'])
         cellid = cell_list[0]
@@ -1335,12 +1344,9 @@ def baphy_load_recording_nonrasterized(**options):
         cell_list = [cellid]
         siteid = cellid.split("-")[0]
         rec_name = cellid
-    elif cell_list is not None:
-        cellid = cell_list[0]
-        siteid = cellid.split("-")[0]
-        rec_name = siteid
-        options['cellid'] = cell_list
+
     else:
+        raise ValueError("Does this ever execute?")
         celldata = db.get_batch_cells(batch=batch, cellid=siteid)
         cell_list = list(celldata['cellid'])
         cellid = cell_list[0]
@@ -1477,27 +1483,25 @@ def baphy_load_recording_nonrasterized(**options):
 
 def baphy_data_path(**options):
     """
-    cellid and batch can be fields in options or provided explicitly
-
-    TODO: include options['site'] for multichannel recordings
+    required entries in options dictionary:
+        cellid: string or list
+            string can be a valid cellid or siteid
+            list is a list of cellids from a single(?) site
+        batch: integer
+        rasterfs
+        stimfmt
+        chancount
     """
 
     options['recache'] = options.get('recache', 0)
 
-    if options['cellid'] is None and options.get('siteid') is not None:
-        siteid = options.get('siteid')
-        cellid = options.get('siteid')
-        options['cellid'] = siteid
+    # three ways to select cells
+    cellid = options.get('cellid', None)
+    if type(cellid) is list:
+        cellid = cellid[0].split("-")[0]
 
-    elif (type(options['cellid']) == list) & (len(options["cellid"]) > 1):
-        cellid = options['cellid'][0]
-        siteid = cellid.split("-")[0]
-    elif (type(options['cellid']) == list):
-        cellid = options['cellid'][0]
-        siteid = cellid
-    else:
-        cellid = options['cellid']
-        siteid = cellid
+    elif cellid is None and options.get('siteid') is not None:
+        cellid = options.get('siteid')
 
     if options['stimfmt'] in ['envelope', 'parm']:
         log.info("Setting chancount=0 for stimfmt=%s", options['stimfmt'])
@@ -1508,13 +1512,13 @@ def baphy_data_path(**options):
        (options.get('rasterfs') is None) or \
        (options.get('stimfmt') is None) or \
        (options.get('chancount') is None):
-        raise ValueError(
-                   "cellid,batch,rasterfs,stimfmt,chancount options required")
+        raise ValueError("cellid,batch,rasterfs,stimfmt,chancount options required")
 
+    # TODO : base filename on siteid/cellid plus hash from JSON-ized options
     data_path = ("/auto/data/nems_db/recordings/{0}/{1}{2}_fs{3}/"
                  .format(options["batch"], options['stimfmt'],
                          options["chancount"], options["rasterfs"]))
-    data_file = data_path + siteid + '.tgz'
+    data_file = data_path + cellid + '.tgz'
 
     log.info(data_file)
     log.info(options)
@@ -1636,6 +1640,7 @@ def baphy_load_multichannel_recording(**options):
     else:
         return full_rec_uri
 
+
 def load_recordings(recording_uri_list, cellid, **context):
     """
     cellid can be single cell, or list of cells. Whatever it is, the cellids
@@ -1690,6 +1695,7 @@ def get_kilosort_template(batch=None, cellid=None):
         template=np.nan
 
     return template
+
 
 def get_kilosort_templates(batch=None):
     """
