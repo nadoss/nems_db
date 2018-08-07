@@ -468,65 +468,68 @@ def update_results_table(modelspec, preview=None,
     db_tables = Tables()
     NarfResults = db_tables['NarfResults']
     session = Session()
+    cellids = modelspec[0]['meta'].get('cellids',
+                       [modelspec[0]['meta']['cellid']])
 
-    cellid = modelspec[0]['meta']['cellid']
-    batch = modelspec[0]['meta']['batch']
-    modelname = modelspec[0]['meta']['modelname']
+    for cellid in cellids:
+        batch = modelspec[0]['meta']['batch']
+        modelname = modelspec[0]['meta']['modelname']
 
-    r = (
-        session.query(NarfResults)
-        .filter(NarfResults.cellid == cellid)
-        .filter(NarfResults.batch == batch)
-        .filter(NarfResults.modelname == modelname)
-        .first()
-    )
-    collist = ['%s' % (s) for s in NarfResults.__table__.columns]
-    attrs = [s.replace('NarfResults.', '') for s in collist]
-    removals = [
-        'id', 'lastmod'
-    ]
-    for col in removals:
-        attrs.remove(col)
+        r = (
+            session.query(NarfResults)
+            .filter(NarfResults.cellid == cellid)
+            .filter(NarfResults.batch == batch)
+            .filter(NarfResults.modelname == modelname)
+            .first()
+        )
+        collist = ['%s' % (s) for s in NarfResults.__table__.columns]
+        attrs = [s.replace('NarfResults.', '') for s in collist]
+        removals = [
+            'id', 'lastmod'
+        ]
+        for col in removals:
+            attrs.remove(col)
 
-    if not r:
-        r = NarfResults()
-        if preview:
-            r.figurefile = preview
-        r.username = username
-        r.public = 1
-        if not labgroup == 'SPECIAL_NONE_FLAG':
-            try:
-                if not labgroup in r.labgroup:
-                    r.labgroup += ', %s' % labgroup
-            except TypeError:
-                # if r.labgroup is none, can't check if user.labgroup is in it
-                r.labgroup = labgroup
-        fetch_meta_data(modelspec, r, attrs)
-        session.add(r)
-    else:
-        if preview:
-            r.figurefile = preview
-        # TODO: This overrides any existing username or labgroup assignment.
-        #       Is this the desired behavior?
-        r.username = username
-        r.public=1
-        if not labgroup == 'SPECIAL_NONE_FLAG':
-            try:
-                if not labgroup in r.labgroup:
-                    r.labgroup += ', %s' % labgroup
-            except TypeError:
-                # if r.labgroup is none, can't check if labgroup is in it
-                r.labgroup = labgroup
-        fetch_meta_data(modelspec, r, attrs)
+        if not r:
+            r = NarfResults()
+            if preview:
+                r.figurefile = preview
+            r.username = username
+            r.public = 1
+            if not labgroup == 'SPECIAL_NONE_FLAG':
+                try:
+                    if not labgroup in r.labgroup:
+                        r.labgroup += ', %s' % labgroup
+                except TypeError:
+                    # if r.labgroup is none, can't check if user.labgroup is in it
+                    r.labgroup = labgroup
+            fetch_meta_data(modelspec, r, attrs, cellid)
+            session.add(r)
+        else:
+            if preview:
+                r.figurefile = preview
+            # TODO: This overrides any existing username or labgroup assignment.
+            #       Is this the desired behavior?
+            r.username = username
+            r.public=1
+            if not labgroup == 'SPECIAL_NONE_FLAG':
+                try:
+                    if not labgroup in r.labgroup:
+                        r.labgroup += ', %s' % labgroup
+                except TypeError:
+                    # if r.labgroup is none, can't check if labgroup is in it
+                    r.labgroup = labgroup
+            fetch_meta_data(modelspec, r, attrs, cellid)
+        r.cellid = cellid
+        session.commit()
+        results_id = r.id
 
-    session.commit()
-    results_id = r.id
     session.close()
 
     return results_id
 
 
-def fetch_meta_data(modelspec, r, attrs):
+def fetch_meta_data(modelspec, r, attrs, cellid=None):
     """Assign attributes from model fitter object to NarfResults object.
 
     Arguments:
@@ -563,12 +566,13 @@ def fetch_meta_data(modelspec, r, attrs):
         #    k = a.replace('test', 'val')
         #else:
         #    k = a
-        v=_fetch_attr_value(modelspec, a, default)
+        v=_fetch_attr_value(modelspec, a, default, cellid)
         setattr(r, a, v)
         log.debug("modelspec: meta {0}={1}".format(a,v))
 
 
-def _fetch_attr_value(modelspec, k, default=0.0):
+
+def _fetch_attr_value(modelspec, k, default=0.0, cellid=None):
     """Return the value of key 'k' of modelspec[0]['meta'], or default."""
 
     # if modelspec[0]['meta'][k] is a string, return it.
@@ -576,25 +580,28 @@ def _fetch_attr_value(modelspec, k, default=0.0):
     # otherwise, just get the value. Then convert to scalar if np data type.
     # or if key doesn't exist at all, return the default value.
     if k in modelspec[0]['meta']:
-        if modelspec[0]['meta'][k]:
-            if not isinstance(modelspec[0]['meta'][k], str):
-                try:
+        v = modelspec[0]['meta'][k]
+        if not isinstance(v, str):
+            try:
+                if cellid is not None and type(v==list):
+                    cellids = modelspec[0]['meta']['cellids']
+                    i = [index for index, value in enumerate(cellids) if value == cellid]
+                    v = modelspec[0]['meta'][k][i[0]]
+                else:
                     v = modelspec[0]['meta'][k][0]
-                except BaseException:
-                    v = modelspec[0]['meta'][k]
-                finally:
-                    try:
-                        v = np.asscalar(v)
-                        if np.isnan(v):
-                            log.warning("value for %s, converting to 0.0 to avoid errors when"
-                                        " saving to mysql", k)
-                            v = 0.0
-                    except BaseException:
-                        pass
-            else:
+            except BaseException:
                 v = modelspec[0]['meta'][k]
+            finally:
+                try:
+                    v = np.asscalar(v)
+                    if np.isnan(v):
+                        log.warning("value for %s, converting to 0.0 to avoid errors when"
+                                    " saving to mysql", k)
+                        v = 0.0
+                except BaseException:
+                    pass
         else:
-            v = default
+            v = modelspec[0]['meta'][k]
     else:
         v = default
 
@@ -910,9 +917,9 @@ def get_wft(cellid=None):
     if d.values[0][0] is None:
         print('no waveform type information for {0}'.format(cellid))
         return -1
-    
+
     wft = json.loads(d.values[0][0])
     ## 1 is fast spiking, 0 is regular spiking
     celltype = wft['wft_celltype']
-    
+
     return celltype

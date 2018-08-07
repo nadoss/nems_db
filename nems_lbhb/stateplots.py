@@ -70,7 +70,7 @@ fill_colors = {'actual_psth': (.8,.8,.8),
 
 def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
               hist_range=[-1, 1], title=None,
-              highlight=None):
+              highlight=None, ax=None):
     """
     beta1, beta2 are T x 1 vectors
     scatter plot comparing beta1 vs. beta2
@@ -88,8 +88,10 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
         highlight = highlight[nncells]
 
     if title is None:
-        title="n={}/{}".format(np.sum(highlight),len(highlight))
-
+        if highlight is not None:
+            title="n={}/{}".format(np.sum(highlight),len(highlight))
+        else:
+            title="{} v {}".format(n1,n2)
     # exclude cells without prepassive
     outcells = ((beta1 > hist_range[1]) | (beta1 < hist_range[0]) |
                 (beta2 > hist_range[1]) | (beta2 < hist_range[0]))
@@ -108,13 +110,21 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
         set1 = np.logical_and(goodcells, (highlight))
         set2 = np.logical_and(goodcells, (1-highlight))
 
-    fh = plt.figure(figsize=(8, 6))
+    if ax is None:
+        fh = plt.figure(figsize=(8, 6))
+
+        ax = plt.subplot(2, 2, 3)
+        exit_after_scatter=False
+    else:
+        plt.sca(ax)
+        exit_after_scatter=True
 
     ax = plt.subplot(2, 2, 3)
     #plt.plot(np.array(hist_range), np.array([0, 0]), 'k--')
     #plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
     plt.axvline(0, color='k', linestyle='--')
     plt.axhline(0, color='k', linestyle='--')
+
     plt.plot(np.array(hist_range), np.array(hist_range), 'k--')
     plt.plot(beta1[outcells], beta2[outcells], '.', color='red')
     plt.plot(beta1[set2], beta2[set2], '.', color='lightgray')
@@ -124,10 +134,13 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     plt.xlim(hist_range)
     #plt.axis('tight')
 
-    plt.xlabel(n1)
-    plt.ylabel(n2)
+    plt.xlabel("{} (m={:.3f})".format(n1, np.mean(beta1[goodcells])))
+    plt.ylabel("{} (m={:.3f})".format(n2, np.mean(beta2[goodcells])))
     plt.title(title)
     lplt.ax_remove_box(ax)
+
+    if exit_after_scatter:
+        return plt.gcf()
 
     ax = plt.subplot(2, 2, 1)
     plt.hist([beta1[set1], beta1[set2]], bins=hist_bins, range=hist_range,
@@ -156,7 +169,8 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
 #             histtype='bar', stacked=True,
 #             color=['black','lightgray'])
 
-    d=np.sort(np.sign(beta1[goodcells])*(beta2[goodcells]-beta1[goodcells]))
+    # d = np.sort(np.sign(beta1[goodcells])*(beta2[goodcells]-beta1[goodcells]))
+    d = np.sort(beta2[goodcells] - beta1[goodcells])
     plt.bar(np.arange(np.sum(goodcells)), d,
             color='black')
     plt.title('mean={:.3f} abs={:.3f}'.
@@ -197,7 +211,7 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
         raise ValueError('Must specify the results folder!')
     elif folder[-1] == '/':
         folder = folder[:-1]
-        
+
     if highlight is not None:
         highlight = np.array(highlight)
 
@@ -220,7 +234,7 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
     beta1[beta1 < hist_range[0]] = hist_range[0]
     beta2[beta2 > hist_range[1]] = hist_range[1]
     beta2[beta2 < hist_range[0]] = hist_range[0]
-    
+
     if highlight is None:
         set1 = goodcells.astype(bool)
         set2 = (1-goodcells).astype(bool)
@@ -247,10 +261,10 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
     plt.title(title)
 
     def display_wrapper(event):
-        
+
         if sum(set2)==0:
             display_png(event, cellids[set1], folder)
-        elif event.mouseevent.button==1: 
+        elif event.mouseevent.button==1:
             print("Left-click detected, displaying from 'highlighted' cells")
             display_png(event, cellids[set1], folder)
         elif event.mouseevent.button==3:
@@ -258,8 +272,8 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
             display_png(event, cellids[set2], folder)
 
     fh.canvas.mpl_connect('pick_event', lambda event: display_wrapper(event))
-    
-    
+
+
     ax = plt.subplot(2, 2, 1)
     plt.hist([beta1[set1], beta1[set2]], bins=hist_bins, range=hist_range,
              histtype='bar', stacked=True,
@@ -300,7 +314,7 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
 
     old_title=fh.canvas.get_window_title()
     fh.canvas.set_window_title(old_title+': '+title)
-    
+
     return fh
 
 #    plt.subplot(2, 2, 1)
@@ -520,7 +534,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
                                state_colors=[s[1] for s in state_colors])
     ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
     ax.set_ylabel("{} r={:.3f}".format(factor0,
-                  ctx_p0b0['modelspecs'][0][0]['meta']['r_test']))
+                  ctx_p0b0['modelspecs'][0][0]['meta']['r_test'][0]))
     lplt.ax_remove_box(ax)
 
     for i, var in enumerate(factors[1:]):
@@ -539,13 +553,13 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
             ax.set_ylabel("Control model")
             ax.set_title("{} ctl r={:.3f}"
                          .format(varlbl.lower(),
-                                 ctx_p0b['modelspecs'][0][0]['meta']['r_test']),
+                                 ctx_p0b['modelspecs'][0][0]['meta']['r_test'][0]),
                          fontsize=6)
         else:
             ax.yaxis.label.set_visible(False)
             ax.set_title("{} ctl r={:.3f}"
                          .format(varlbl.lower(),
-                                 ctx_pb0['modelspecs'][0][0]['meta']['r_test']),
+                                 ctx_pb0['modelspecs'][0][0]['meta']['r_test'][0]),
                          fontsize=6)
         if ax.legend_:
             ax.legend_.remove()
@@ -571,7 +585,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
             j=1
 
         ax.set_title("r={:.3f} rawmod={:.3f} umod={:.3f}"
-                     .format(ctx_pb['modelspecs'][0][0]['meta']['r_test'],
+                     .format(ctx_pb['modelspecs'][0][0]['meta']['r_test'][0],
                              pred_mod_full_norm[i+1][j], pred_mod_norm[i+1][j]),
                      fontsize=6)
 
@@ -593,22 +607,22 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
              'state_vars': state_var_list,
              'factors': factors,
              'r_test': np.array([
-                     ctx_p0b0['modelspecs'][0][0]['meta']['r_test'],
-                     ctx_p0b['modelspecs'][0][0]['meta']['r_test'],
-                     ctx_pb0['modelspecs'][0][0]['meta']['r_test'],
-                     ctx_pb['modelspecs'][0][0]['meta']['r_test']
+                     ctx_p0b0['modelspecs'][0][0]['meta']['r_test'][0],
+                     ctx_p0b['modelspecs'][0][0]['meta']['r_test'][0],
+                     ctx_pb0['modelspecs'][0][0]['meta']['r_test'][0],
+                     ctx_pb['modelspecs'][0][0]['meta']['r_test'][0]
                      ]),
              'se_test': np.array([
-                     ctx_p0b0['modelspecs'][0][0]['meta']['se_test'],
-                     ctx_p0b['modelspecs'][0][0]['meta']['se_test'],
-                     ctx_pb0['modelspecs'][0][0]['meta']['se_test'],
-                     ctx_pb['modelspecs'][0][0]['meta']['se_test']
+                     ctx_p0b0['modelspecs'][0][0]['meta']['se_test'][0],
+                     ctx_p0b['modelspecs'][0][0]['meta']['se_test'][0],
+                     ctx_pb0['modelspecs'][0][0]['meta']['se_test'][0],
+                     ctx_pb['modelspecs'][0][0]['meta']['se_test'][0]
                      ]),
              'r_floor': np.array([
-                     ctx_p0b0['modelspecs'][0][0]['meta']['r_floor'],
-                     ctx_p0b['modelspecs'][0][0]['meta']['r_floor'],
-                     ctx_pb0['modelspecs'][0][0]['meta']['r_floor'],
-                     ctx_pb['modelspecs'][0][0]['meta']['r_floor']
+                     ctx_p0b0['modelspecs'][0][0]['meta']['r_floor'][0],
+                     ctx_p0b['modelspecs'][0][0]['meta']['r_floor'][0],
+                     ctx_pb0['modelspecs'][0][0]['meta']['r_floor'][0],
+                     ctx_pb['modelspecs'][0][0]['meta']['r_floor'][0]
                      ]),
              'pred_mod': pred_mod.T,
              'pred_mod_full': pred_mod_full.T,
