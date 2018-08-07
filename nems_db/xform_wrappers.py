@@ -34,9 +34,9 @@ log = logging.getLogger(__name__)
 
 def get_recording_file(cellid, batch, options={}):
 
-    # options["batch"] = batch
-    # options["cellid"] = cellid
-    uri = nb.baphy_data_path(cellid, batch, **options)
+    options["batch"] = batch
+    options["cellid"] = cellid
+    uri = nb.baphy_data_path(**options)
 
     return uri
 
@@ -58,8 +58,14 @@ def get_recording_uri(cellid, batch, options={}):
     return url
 
 
-def generate_recording_uri(cellid, batch, loadkey):
+def generate_recording_uri(cellid=None, batch=None, loadkey=None, siteid=None):
     """
+    required parameters (passed through to nb.baphy_data_path):
+        cellid: string or list
+            string can be a valid cellid or siteid
+            list is a list of cellids from a single(?) site
+        batch: integer
+
     figure out filename (or eventually URI) of pre-generated
     NEMS-format recording for a given cell/batch/loader string
 
@@ -153,21 +159,26 @@ def generate_recording_uri(cellid, batch, loadkey):
     else:
         raise ValueError('unknown loader string: %s' % loader)
 
+    if siteid is not None:
+        options['siteid'] = siteid
+
     # check for use of new loading key (ldb - load baphy) - recording_uri
-    # will point towards cached recording holding all stable cells at that site/batch
+    # will point towards cached recording holding all stable cells at that
+    # site/batch
     # else will load the rec_uri for the single cell specified in fn args
     if 'ldb' in loadkey:
         options['batch'] = batch
         options['recache'] = options.get('recache', False)
         if type(cellid) is not list:
             cellid = [cellid]
-        if  re.search(r'\d+$', cellid[0]) == None:
-            options['site']=cellid[0]
+        if re.search(r'\d+$', cellid[0]) is None:
+            options['site'] = cellid[0]
         else:
             options['site'] = cellid[0][:-5]
         recording_uri = nb.baphy_load_multichannel_recording(**options)
     else:
         recording_uri = get_recording_file(cellid, batch, options)
+        #recording_uri = get_recording_uri(cellid, batch, options)
 
     return recording_uri
 
@@ -262,6 +273,72 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     # save in database as well
     if saveInDB:
         # TODO : db results finalized?
+        nd.update_results_table(modelspecs[0])
+
+    return savepath
+
+
+def fit_pop_model_xforms_baphy(cellid, batch, modelname, saveInDB=False):
+    """
+    Fits a NEMS population model using baphy data
+    """
+
+    log.info("Preparing pop model: ({0},{1},{2})".format(
+            cellid, batch, modelname))
+
+    # Segment modelname for meta information
+    kws = modelname.split("_")
+    modelspecname = "-".join(kws[1:-1])
+
+    loadkey = kws[0]
+    fitkey = kws[-1]
+    if type(cellid) is list:
+        disp_cellid="_".join(cellid)
+    else:
+        disp_cellid=cellid
+
+    meta = {'batch': batch, 'cellid': disp_cellid, 'modelname': modelname,
+            'loader': loadkey, 'fitkey': fitkey,
+            'modelspecname': modelspecname,
+            'username': 'nems', 'labgroup': 'lbhb', 'public': 1,
+            'githash': os.environ.get('CODEHASH', ''),
+            'recording': loadkey}
+
+    uri_key = nems.utils.escaped_split(loadkey, '-')[0]
+    recording_uri = generate_recording_uri(cellid, batch, uri_key)
+
+    # pass cellid information to xforms so that loader knows which cells
+    # to load from recording_uri
+    xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta,
+                                        xforms_kwargs={'cellid': cellid})
+
+    # actually do the fit
+    ctx, log_xf = xforms.evaluate(xfspec)
+
+    # save some extra metadata
+    modelspecs = ctx['modelspecs']
+
+    destination = '/auto/data/nems_db/results/{0}/{1}/{2}/'.format(
+            batch, disp_cellid, ms.get_modelspec_longname(modelspecs[0]))
+    modelspecs[0][0]['meta']['modelpath'] = destination
+    modelspecs[0][0]['meta']['figurefile'] = destination+'figure.0000.png'
+    modelspecs[0][0]['meta'].update(meta)
+
+    # extra thing to save for pop model
+    modelspecs[0][0]['meta']['cellids'] = ctx['val'][0]['resp'].chans
+
+    # save results
+    log.info('Saving modelspec(s) to {0} ...'.format(destination))
+    save_data = xforms.save_analysis(destination,
+                                     recording=ctx['rec'],
+                                     modelspecs=modelspecs,
+                                     xfspec=xfspec,
+                                     figures=ctx['figures'],
+                                     log=log_xf)
+    savepath = save_data['savepath']
+
+    if saveInDB:
+        # save in database as well
         nd.update_results_table(modelspecs[0])
 
     return savepath
