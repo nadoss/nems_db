@@ -60,11 +60,20 @@ def dsig(kw):
     Note: these priors will typically be overwritten during initialization
           based on the input signal.
     '''
+    ops = kw.split('.')[1:]
+    eq = 'logsig'
+    for op in ops:
+        if op in ['logsig', 'l']:
+            eq = 'logsig'
+        elif op in ['dexp', 'd']:
+            eq = 'dexp'
+
     template = {
         'fn': 'nems_lbhb.contrast_helpers.dynamic_sigmoid',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
-                      'c': 'ctpred'},
+                      'c': 'ctpred',
+                      'eq': eq},
         'prior': {'base': ('Exponential', {'beta': [0.1]}),
                   'amplitude': ('Exponential', {'beta': [2.0]}),
                   'shift': ('Normal', {'mean': [1.0], 'sd': [1.0]}),

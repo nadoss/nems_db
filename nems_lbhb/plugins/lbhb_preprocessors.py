@@ -129,6 +129,8 @@ def contrast(loadkey):
         elif op.startswith('pcnt'):
             percentile = int(op[4:])
             kwargs['percentile'] = percentile
+        elif op == 'n':
+            kwargs['normalize'] = True
 
     return [['nems_lbhb.contrast_helpers.add_contrast', kwargs]]
 
