@@ -175,9 +175,34 @@ def init_dsig(rec, modelspec):
 
     if modelspec[dsig_idx]['fn_kwargs'].get('eq', '') in \
             ['dexp', 'd', 'double_exponential']:
-        return _init_double_exponential(rec, modelspec, dsig_idx)
+        modelspec = _init_double_exponential(rec, modelspec, dsig_idx)
     else:
-        return _init_logistic_sigmoid(rec, modelspec, dsig_idx)
+        modelspec = _init_logistic_sigmoid(rec, modelspec, dsig_idx)
+
+    # TODO: This doesn't seem to help so far, but might want to revisit
+    #       later. Currently just fitting all parameters together.
+    # Start with modulation forced to 0, then release bounds after prefit.
+#    modelspec[dsig_idx]['bounds'] = {
+#            'amplitude_mod': (0, 0),
+#            'base_mod': (0, 0),
+#            'kappa_mod': (0, 0),
+#            'shift_mod': (0, 0),
+#            }
+
+    return modelspec
+
+
+def remove_dsig_bounds(modelspec):
+    dsig_idx = find_module('dynamic_sigmoid', modelspec)
+    if dsig_idx is None:
+        log.warning("No dsig module was found, can't initialize.")
+        return modelspec
+    modelspec = copy.deepcopy(modelspec)
+    modelspec[dsig_idx]['bounds'].update({
+            'amplitude_mod': (None, None), 'base_mod': (None, None),
+            'kappa_mod': (None, None), 'shift_mod': (None, None)
+            })
+    return modelspec
 
 
 def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
@@ -238,7 +263,7 @@ def _init_double_exponential(rec, modelspec, target_i):
     for i, m in enumerate(fit_portion):
         if not m.get('phi', None):
             m = priors.set_mean_phi([m])[0]
-            modelspec[i] = m
+            fit_portion[i] = m
 
     ms.fit_mode_on(fit_portion)
     rec = ms.evaluate(rec, fit_portion)
@@ -279,11 +304,11 @@ def _init_double_exponential(rec, modelspec, target_i):
         predrange = 2 / (np.max(pred) - np.min(pred) + 1)
         kappa[i, 0] = np.log(predrange)
 
-    modelspec[target_i]['prior'] = {
+    modelspec[target_i]['phi'] = {
             'base': base, 'amplitude': amp, 'shift': shift,
-            'kappa': kappa, 'base_mod': base,
-            'amplitude_mod': amp, 'shift_mod': shift,
-            'kappa_mod': kappa,
+            'kappa': kappa, 'base_mod': 0,
+            'amplitude_mod': 0, 'shift_mod': 0,
+            'kappa_mod': 0,
             }
 
     return modelspec
@@ -347,6 +372,9 @@ def init_contrast_model(est, modelspecs, IsReload=False,
             fitter=fitter_fn,
             metric=metric_fn,
             fit_kwargs=fit_kwargs)
+
+    # TODO: only necessary if we start initializing bounds at 0 again.
+    #modelspec = remove_dsig_bounds(modelspec)
 
     # after prefitting contrast modules, update priors to reflect the
     # prefit values so that random sample fits incorporate the prefit info.
