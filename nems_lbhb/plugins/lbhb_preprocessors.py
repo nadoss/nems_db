@@ -105,6 +105,8 @@ def st(loadkey, recording_uri):
             this_sig = ["r1"]
         elif l.startswith("r2"):
             this_sig = ["r2"]
+        elif l.startswith('ttp'):
+            this_sig = ['hit_trials','miss_trials']
         else:
             raise ValueError("unknown signal code %s for state variable initializer", l)
 
@@ -157,7 +159,7 @@ def psthfr(load_key):
 def rscsw(load_key, cellid, batch):
     """
     generate the signals for sliding window model. It's intended that these be
-    added to the state signal later on. Will call the sliding window 
+    added to the state signal later on. Will call the sliding window
     signal resp as if it's a normal nems encoding model. Little bit kludgy.
     CRH 2018-07-12
     """
@@ -169,10 +171,10 @@ def rscsw(load_key, cellid, batch):
         state_correction = False
     else:
         state_correction = True
-    
+
     xfspec = [['preprocessing_tools.make_rscsw_signals',
                    {'win_len': win_length,
-                    'state_correction': state_correction, 
+                    'state_correction': state_correction,
                     'cellid': cellid,
                     'batch': batch},
                    ['rec'], ['rec']]]

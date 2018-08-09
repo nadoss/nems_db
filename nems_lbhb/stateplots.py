@@ -119,7 +119,6 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
         plt.sca(ax)
         exit_after_scatter=True
 
-    ax = plt.subplot(2, 2, 3)
     #plt.plot(np.array(hist_range), np.array([0, 0]), 'k--')
     #plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
     plt.axvline(0, color='k', linestyle='--')

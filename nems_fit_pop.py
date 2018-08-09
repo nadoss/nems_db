@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
 # This script runs nems_main.fit_single_model from the command line
+import os
+import sys
 
+import nems
 import nems_db.xform_wrappers as nw
 import nems.xform_helper as xhelp
 import nems.xforms as xforms
 import nems.modelspec as ms
 
 import nems.utils
-import sys
-import os
-
 import logging
 log = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ except Exception as e:
     db_exists = False
 
 if __name__ == '__main__':
-
+    os.chdir("/tmp")
     queueid = os.environ.get('QUEUEID', 0)
 
     if queueid:
@@ -42,7 +42,7 @@ if __name__ == '__main__':
     modelname = sys.argv[3]
 
     # savefile = nw.fit_model_xforms_baphy(cellid,batch,modelname,saveInDB=True)
-    savefile = nw.fit_pop_model_xforms_baphy(siteid, batch, modelname, saveInDB=False)
+    savefile = nw.fit_pop_model_xforms_baphy(siteid, batch, modelname, saveInDB=True)
 
     log.info("Done with fit.")
 

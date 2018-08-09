@@ -120,7 +120,16 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None, siteid=None):
         ops = parsed.group(2)
         pupil = ('pup' in ops)
 
+    elif loader.startswith('parm'):
+        pattern = re.compile(r'^parm\.fs(\d{1,})([a-zA-Z\.]*)?$')
+        parsed = re.match(pattern, loader)
+        fs = parsed.group(1)
+        ops = parsed.group(2)
+        pupil = ('pup' in ops)
+
         options.update(_parm_helper(fs, pupil))
+        options['stimfmt'] = 'parm'
+        options['stim'] = True
 
     elif loader.startswith('ns'):
         pattern = re.compile(r'^ns\.fs(\d{1,})')
