@@ -271,7 +271,7 @@ def update_models():
     # to a list of model names.
     # Then add any additional models specified in extraModels, and add
     # model_lists from extraAnalyses.
-    if modeltree:
+    if modeltree and modeltree[0]:
         model_list = _get_models(modeltree[0])
         extraModels = [m for m in extraModels if
                        (m not in model_list and m.strip() != '')]
