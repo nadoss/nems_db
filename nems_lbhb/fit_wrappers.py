@@ -9,7 +9,7 @@ Created on Fri Aug  3 10:37:31 2018
 import copy
 import numpy as np
 import time
-import logging
+import random
 
 import nems.priors as priors
 import nems.modelspec as ms
@@ -22,7 +22,9 @@ from nems.analysis.cost_functions import basic_cost
 import nems.fitters.mappers
 import nems.metrics.api
 import nems.modelspec as ms
+from nems.utils import find_module
 
+import logging
 log = logging.getLogger(__name__)
 
 
@@ -51,9 +53,17 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
     if fit_set is None:
         raise ValueError("fit_set list of module indices must be specified")
 
+    if type(fit_set[0]) is int:
+        fit_idx = fit_set
+    else:
+        fit_idx = []
+        for i, m in enumerate(modelspec):
+            for fn in fit_set:
+                if fn in m['fn']:
+                    fit_idx.append(i)
+
     # identify any excluded modules and take them out of temp modelspec
     # that will be fit here
-    fit_idx = []
     tmodelspec = []
     sliceinfo = []
     for i, m in enumerate(modelspec):
@@ -63,33 +73,30 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
             log.info('Intializing phi for module %d (%s)', i, m['fn'])
             m = priors.set_mean_phi([m])[0]  # Inits phi
 
-        for fn in fit_set:
-            if fn in m['fn']:
-                fit_idx.append(i)
+        if i in fit_idx:
+            s = {}
+            for key, value in m['phi'].items():
+                log.debug('Slicing %d (%s) key %s chan %d for fit',
+                          i, m['fn'], key, slice)
 
-                s = {}
-                for key, value in m['phi'].items():
-                    log.debug('Slicing %d (%s) key %s chan %d for fit',
-                              i, fn, key, slice)
+                # keep only sliced channel(s)
+                if 'bank_count' in m['fn_kwargs'].keys():
+                    bank_count = m['fn_kwargs']['bank_count']
+                    filters_per_bank = int(value.shape[0] / bank_count)
+                    slices = np.arange(slice*filters_per_bank,
+                                       (slice+1)*filters_per_bank)
+                    m['phi'][key] = value[slices, ...]
+                    s[key] = slices
+                    m['fn_kwargs']['bank_count'] = 1
+                elif value.shape[0] == slice_count:
+                    m['phi'][key] = value[[slice], ...]
+                    s[key] = [slice]
+                else:
+                    raise ValueError("Not sure how to slice %s %s",
+                                     m['fn'], key)
 
-                    # keep only sliced channel(s)
-                    if 'bank_count' in m['fn_kwargs'].keys():
-                        bank_count = m['fn_kwargs']['bank_count']
-                        filters_per_bank = int(value.shape[0] / bank_count)
-                        slices = np.arange(slice*filters_per_bank,
-                                           (slice+1)*filters_per_bank)
-                        m['phi'][key] = value[slices, ...]
-                        s[key] = slices
-                        m['fn_kwargs']['bank_count'] = 1
-                    elif value.shape[0] == slice_count:
-                        m['phi'][key] = value[[slice], ...]
-                        s[key] = [slice]
-                    else:
-                        raise ValueError("Not sure how to slice %s %s",
-                                         m['fn'], key)
-
-                # record info about how sliced this module parameter
-                sliceinfo.append(s)
+            # record info about how sliced this module parameter
+            sliceinfo.append(s)
 
         tmodelspec.append(m)
 #    print(sliceinfo)
@@ -115,7 +122,7 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
     # remove initial modules
     first_idx = fit_idx[0]
     if first_idx > 0:
-        print('firstidx {}'.format(first_idx))
+        #print('firstidx {}'.format(first_idx))
         temp_rec = ms.evaluate(temp_rec, tmodelspec, stop=first_idx)
         temp_rec['stim'] = temp_rec['pred'].copy()
         tmodelspec = tmodelspec[first_idx:]
@@ -140,10 +147,10 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
     error_after = metric(temp_rec)
     dError = error_before - error_after
     if dError < 0:
-        print("dError (%.6f - %.6f) = %.6f worse. not updating modelspec"
+        log.info("dError (%.6f - %.6f) = %.6f worse. not updating modelspec"
               % (error_before, error_after, dError))
     else:
-        print("dError (%.6f - %.6f) = %.6f better. updating modelspec"
+        log.info("dError (%.6f - %.6f) = %.6f better. updating modelspec"
               % (error_before, error_after, dError))
 
         # reassemble the full modelspec with updated phi values from tmodelspec
@@ -220,21 +227,24 @@ def fit_population_iteratively(
     if IsReload:
         return {}
 
-    modelspec = modelspecs[0]
+    modelspec = copy.deepcopy(modelspecs[0])
     data = est.copy()
 
-    mod_set = [m['fn'] for m in modelspec]
+    bank_mod=find_module('filter_bank', modelspec, find_all_matches=True)
+    wc_mod=find_module('weight_channels', modelspec, find_all_matches=True)
 
-    fit_set_all = []
-    fit_set_slice = []
-    pre_bank = True
-    for m in mod_set:
-        if 'filter_bank' in m:
-            pre_bank = False
-        if pre_bank:
-            fit_set_all.append(m)
-        else:
-            fit_set_slice.append(m)
+    if len(wc_mod)==2:
+        fit_set_all = list(range(wc_mod[1]))
+        fit_set_slice = list(range(wc_mod[1], len(modelspec)))
+        if bank_mod:
+            # provice a trivial non-zero intial condition for each
+            # channel of the filterbank
+            modelspec[bank_mod[0]]['prior']['coefficients'][1]['mean'][:,1] = 0.1
+    elif len(bank_mod)==1:
+        fit_set_all = list(range(bank_mod[0]))
+        fit_set_slice = list(range(bank_mod[0],len(modelspec)))
+    else:
+        raise ValueError("Can't figure out how to split all and slices")
 
     if tolerances is None:
         tolerances = [1e-6]
@@ -277,8 +287,11 @@ def fit_population_iteratively(
 
             improved_modelspec = copy.deepcopy(modelspec)
             cc = 0
-            for s in range(slice_count):
-                print('Slice %d set %s' % (s, ",".join(fit_set_slice)))
+            slist = list(range(slice_count))
+            #random.shuffle(slist)
+
+            for s in slist:
+                log.info('Slice %d set %s' % (s, fit_set_slice))
                 improved_modelspec = fit_population_slice(
                         data, improved_modelspec, slice=s,
                         fit_set=fit_set_slice,
@@ -289,7 +302,9 @@ def fit_population_iteratively(
 
                 # every 5 units, update the spectral filters
                 cc += 1
-                if (cc % 5 == 0) or (cc == slice_count):
+                # if (cc % 8 == 0) or (cc == slice_count):
+                if (cc == slice_count):
+                    log.info('Slice %d updating pop-wide parameters', s)
                     print('Slice %d updating pop-wide parameters' % (s))
                     improved_modelspec = init.prefit_mod_subset(
                             data, improved_modelspec, analysis.fit_basic,
@@ -297,6 +312,7 @@ def fit_population_iteratively(
                             fit_set=fit_set_all,
                             fit_kwargs=sp_kwargs)
 
+            data = ms.evaluate(data, improved_modelspec)
             new_error = metric(data)
             error_reduction = error - new_error
             error = new_error
@@ -313,7 +329,7 @@ def fit_population_iteratively(
         print("Done with tol %.2E (i=%d, max_error_reduction %.7f)" %
                  (tol, i, error_reduction))
 
-        step_size *= 0.5
+        step_size *= 0.25
 
     elapsed_time = (time.time() - start_time)
 

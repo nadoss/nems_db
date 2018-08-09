@@ -105,6 +105,8 @@ def st(loadkey, recording_uri):
             this_sig = ["r1"]
         elif l.startswith("r2"):
             this_sig = ["r2"]
+        elif l.startswith('ttp'):
+            this_sig = ['hit_trials','miss_trials']
         else:
             raise ValueError("unknown signal code %s for state variable initializer", l)
 

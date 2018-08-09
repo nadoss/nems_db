@@ -1341,9 +1341,15 @@ def baphy_load_recording_nonrasterized(**options):
         options['cellid'] = cell_list
 
     elif cellid is not None:
-        cell_list = [cellid]
         siteid = cellid.split("-")[0]
-        rec_name = cellid
+        if siteid==cellid:
+            celldata = db.get_batch_cells(batch=batch, cellid=siteid)
+            cell_list = list(celldata['cellid'])
+            cellid = cell_list[0]
+            rec_name = siteid
+            options['cellid'] = cell_list
+        else:
+            rec_name = cellid
 
     else:
         raise ValueError("Does this ever execute?")
