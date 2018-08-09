@@ -7,7 +7,8 @@ from scipy.signal import convolve2d
 import nems.modelspec as ms
 from nems.utils import find_module
 from nems import signal
-from nems.modules.nonlinearity import _logistic_sigmoid, _double_exponential
+from nems.modules.nonlinearity import (_logistic_sigmoid, _double_exponential,
+                                       _dlog)
 from nems.initializers import prefit_to_target, prefit_mod_subset
 from nems.analysis.api import fit_basic
 import nems.fitters.api
@@ -43,7 +44,8 @@ def strf_to_contrast(modelspecs, IsReload=False, **context):
 
 
 def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
-                         bins=None, percentile=50, normalize=False):
+                         dlog=False, bins=None, percentile=50,
+                         normalize=False):
     '''
     Creates a new signal whose values represent the degree of variability
     in each channel of the source signal. Each value is based on the
@@ -61,6 +63,12 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
             raise TypeError("signal with key {} was not a RasterizedSignal"
                             " and could not be converted to one."
                             .format(source_name))
+
+    if dlog:
+        log.info("Applying dlog transformation to stimulus prior to "
+                 "contrast calculation.")
+        fn = lambda x: _dlog(x, -1)
+        source_signal = source_signal.transform(fn)
 
     array = source_signal.as_continuous().copy()
 
@@ -93,11 +101,12 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
 
 
 def add_contrast(rec, name='contrast', source_name='stim', percentile=50,
-                 ms=500, bins=None, normalize=False, IsReload=False, **context):
+                 ms=500, bins=None, normalize=False, dlog=False,
+                 IsReload=False, **context):
     '''xforms wrapper for make_contrast_signal'''
     rec_with_contrast = make_contrast_signal(
             rec, name=name, source_name=source_name, ms=ms, bins=bins,
-            percentile=percentile, normalize=normalize,
+            percentile=percentile, normalize=normalize, dlog=dlog,
             )
     return {'rec': rec_with_contrast}
 
@@ -192,6 +201,20 @@ def init_dsig(rec, modelspec):
     return modelspec
 
 
+def freeze_dsig_statics(modelspec):
+    modelspec = copy.deepcopy(modelspec)
+    dsig_idx = find_module('dynamic_sigmoid', modelspec)
+    if dsig_idx is None:
+        log.warning("No dsig module was found, can't initialize.")
+        return modelspec
+
+    p = modelspec[dsig_idx]['phi']
+    frozen_bounds = {k: (v, v) for k, v in p.items()}
+    modelspec[dsig_idx]['bounds'].update(frozen_bounds)
+
+    return modelspec
+
+
 def remove_dsig_bounds(modelspec):
     dsig_idx = find_module('dynamic_sigmoid', modelspec)
     if dsig_idx is None:
@@ -199,8 +222,14 @@ def remove_dsig_bounds(modelspec):
         return modelspec
     modelspec = copy.deepcopy(modelspec)
     modelspec[dsig_idx]['bounds'].update({
-            'amplitude_mod': (None, None), 'base_mod': (None, None),
-            'kappa_mod': (None, None), 'shift_mod': (None, None)
+            'base': (1e-15, None),
+            'amplitude': (1e-15, None),
+            'shift': (None, None),
+            'kappa': (1e-15, None),
+            'amplitude_mod': (None, None),
+            'base_mod': (None, None),
+            'kappa_mod': (None, None),
+            'shift_mod': (None, None)
             })
     return modelspec
 
@@ -233,6 +262,10 @@ def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
     shift = ('Normal', {'mean': shift0, 'sd': pred_range})
     kappa = ('Exponential', {'beta': kappa0})
 
+    # TODO: Forcing mods to start at 0 wasn't working very well, but
+    #       maybe try just Normal(0, 1) or something?
+    #       Does seem odd to set these like this, b/c it makes the model
+    #       start off with pretty big modulators some times.
     modelspec[dsig_idx]['prior'] = {
             'base': base, 'amplitude': amplitude, 'shift': shift,
             'kappa': kappa, 'base_mod': base,
@@ -315,6 +348,7 @@ def _init_double_exponential(rec, modelspec, target_i):
 
 
 def dsig_phi_to_prior(modelspec):
+    modelspec = copy.deepcopy(modelspec)
     dsig_idx = find_module('dynamic_sigmoid', modelspec)
     dsig = modelspec[dsig_idx]
 
@@ -341,8 +375,8 @@ def init_contrast_model(est, modelspecs, IsReload=False,
 
     modelspec = copy.deepcopy(modelspecs[0])
     if not find_module('dynamic_sigmoid', modelspec):
-        new_ms = nems.initializers.prefit_LN(est, modelspec, tolerance=tolerance,
-                                             max_iter=max_iter)
+        new_ms = nems.initializers.prefit_LN(est, modelspec, max_iter=max_iter,
+                                             tolerance=tolerance)
         return {'modelspecs': [new_ms]}
 
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
@@ -374,10 +408,21 @@ def init_contrast_model(est, modelspecs, IsReload=False,
             fit_kwargs=fit_kwargs)
 
     # TODO: only necessary if we start initializing bounds at 0 again.
-    #modelspec = remove_dsig_bounds(modelspec)
+    # Unlock bonds on modulators, then freeze values for statics,
+    # then prefit modulators only, then unlock everything again.
+#    modelspec = remove_dsig_bounds(modelspec)
+#    modelspec = freeze_dsig_statics(modelspec)
+#    modelspec = prefit_mod_subset(
+#            est, modelspec, fit_basic,
+#            fit_set=['dynamic_sigmoid'],
+#            fitter=fitter_fn,
+#            metric=metric_fn,
+#            fit_kwargs=fit_kwargs)
+#    modelspec = remove_dsig_bounds(modelspec)
 
     # after prefitting contrast modules, update priors to reflect the
     # prefit values so that random sample fits incorporate the prefit info.
     modelspec = dsig_phi_to_prior(modelspec)
 
-    return {'modelspecs': [modelspec]}
+    return {'modelspecs': [modelspec],
+            'est': est}

@@ -131,6 +131,8 @@ def contrast(loadkey):
             kwargs['percentile'] = percentile
         elif op == 'n':
             kwargs['normalize'] = True
+        elif op == 'dlog':
+            kwargs['dlog'] = True
 
     return [['nems_lbhb.contrast_helpers.add_contrast', kwargs]]
 
