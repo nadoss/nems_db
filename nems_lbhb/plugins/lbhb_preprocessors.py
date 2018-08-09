@@ -128,6 +128,13 @@ def contrast(loadkey):
         if op.startswith('ms'):
             ms = op[2:].replace('d', '.')
             kwargs['ms'] = float(ms)
+        elif op.startswith('pcnt'):
+            percentile = int(op[4:])
+            kwargs['percentile'] = percentile
+        elif op == 'n':
+            kwargs['normalize'] = True
+        elif op == 'dlog':
+            kwargs['dlog'] = True
 
     return [['nems_lbhb.contrast_helpers.add_contrast', kwargs]]
 

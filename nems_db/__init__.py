@@ -28,7 +28,13 @@ def load_config():
             os.utime(db_path, None)
         log.info("No db_settings.py found in configs directory,"
                  " generating blank file ... ")
-        from nems_db.configs import settings
+        try:
+            from nems_db.configs import settings
+        except ImportError:
+            # if it still doesn't work, file wasn't created correctly
+            # (known issue on MacOS), so just leave settings as a blank object
+            log.info("Could not create settings.py in configs directory ...")
+            settings = object()
 
     cached_config = {}
     _init_settings(os.environ, defaults, settings, cached_config)

@@ -163,10 +163,10 @@
             </div><!-- batch row -->
         </div> <!-- analysis + batch col -->
 
-        <div class="col-xs-6" id="cellModelCol">
+        <div class="col-xs-7" id="cellModelCol">
 
             <div class="row" id="cellModelRow">
-                <div class="col-xs-3" id="cellCol">
+                <div class="col-xs-2" id="cellCol">
                     <div class="form-group" id="cellDiv">
                         <label>
                             Cell(s)
@@ -187,7 +187,7 @@
                     </div><!-- form-group-->
                 </div><!-- cell column -->
 
-                <div class='col-xs-9' id="modelCol">
+                <div class='col-xs-10' id="modelCol">
                     <div class="form-group" id="modelDiv">
                         <label for="modelSelector">
                             Model(s)
@@ -228,6 +228,15 @@
                                 data-toggle="modal"
                                 data-target="#fitOptionsModal">
                                     Fit Options
+                        </button>
+                    </div>
+                    <div class="input-group-btn">
+                        <button type="button"
+                                class="btn btn-default btn-xs"
+                                id="modelOptions"
+                                data-toggle="modal"
+                                data-target="#modelOptionsModal">
+                                    Model Options
                         </button>
                     </div>
                     <div class="input-group-btn">
@@ -388,7 +397,7 @@
         </div></div><!-- nested row and col for 1.5 width -->
 
         </div><!-- plot col -->
-        <div class='col-xs-2' id="linksCol" style="text-align: right !important;">
+        <div class='col-xs-1' id="linksCol" style="text-align: right !important;">
             <h4><a href="https://bitbucket.org/lbhb/nems" target="_blank">
             Source & Info</a></h4>
             <h4><a href="http://hyrax.ohsu.edu/celldb/celllist.php" target="_blank">
@@ -468,7 +477,7 @@
                 </a>
             </h4>
             -->
-
+            <!--
             <button type="button" class="btn-xs" id="sitemap" target="_blank"
                 style="float: right;">
                 Site Map
@@ -501,6 +510,7 @@
                     getselect.style.display = 'block'
                 {% endif %}
                 </script>
+            -->
             <button type="button" class="btn-xs" id="testSave" style="float: right;">
                 Save Selections
             </button>
@@ -862,6 +872,49 @@
                         </option>
                     {% endfor %}
                     </select>
+                </div><!-- body -->
+            </div><!--content -->
+        </div><!--dialog-->
+    </div><!--modal-->
+
+
+    <div class="modal" id="modelOptionsModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title"> Model List Options
+                    <button type="button" class="close" data-dismiss="modal"
+                    aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    </h3>
+                </div><!-- header -->
+                <div class="modal-body">
+                    <div class="container-fluid">
+                    <div class="form-group">
+
+                    <div class="row">
+                        <div class="col-xs-12">
+                        <div class="input-group">
+                        <span class="input-group-addon" id="extraModelsLabel">
+                                    Extra Models </span>
+                        <textarea form="modelOptionsEditor" name="extraModels" placeholder="ex: ld_wc.18x2-fir.2x15_basic, comma_separated_models" class="form-control"></textarea>
+                        </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-xs-12">
+                        <div class="input-group">
+                        <span class="input-group-addon" id="editFitLabel">
+                                    Extra Analyses </span>
+                        <textarea form="modelOptionsEditor" name="extraAnalyses" placeholder="ex: NEMS Fitters, comma separated names" class="form-control"></textarea>
+                        </div>
+                        </div>
+                    </div>
+
+                    </div><!-- form-group -->
+                    </div><!--container-->
                 </div><!-- body -->
             </div><!--content -->
         </div><!--dialog-->
