@@ -126,6 +126,8 @@ $(document).ready(function(){
             this.code_hash = '';
             this.exec_path = '';
             this.script_path = '';
+            this.extra_models = '';
+            this.extra_analyses = '';
         }
     }
 
@@ -181,7 +183,7 @@ $(document).ready(function(){
     }
 
     function assign_selections(){
-        $("#tagFilters").val(saved_selections.tags).change();
+        $("#tagFilters").val(saved_selections.tags);
         $("#statusFilters").val(saved_selections.status).change();
 
         $("#codeHash").val(saved_selections.code_hash);
@@ -215,7 +217,9 @@ $(document).ready(function(){
         // temporary solution but not great since time to finish ajax calls might
         // be longer in some cases.
         //setTimeout(function(){ wait_on_analysis = false; }, 3000);
-        $("#analysisSelector").val(saved_selections.analysis).change();
+        $("#analysisSelector").val(saved_selections.analysis);
+        $("[name='extraModels']").val(saved_selections.extra_models);
+        $("[name='extraAnalyses']").val(saved_selections.extra_analyses).change();
 
         $("#scriptPath").val(saved_selections.script_path).change();
         $("#execPath").val(saved_selections.exec_path).change();
@@ -269,6 +273,14 @@ $(document).ready(function(){
 
     $("#execPath").change(function(){
         saved_selections.exec_path = $(this).val();
+    });
+
+    $("[name='extraModels']").change(function(){
+        saved_selections.extra_models = $(this).val();
+    });
+
+    $("[name='extraAnalyses']").change(function(){
+        saved_selections.extra_analyses = $(this).val();
     });
 
     // snri, snr and iso handled in their own section since they aren't DOM elements
@@ -332,10 +344,14 @@ $(document).ready(function(){
 
 
     $("#analysisSelector").change(updateBatchModel);
+    $("[name='extraModels']").change(updateBatchModel);
+    $("[name='extraAnalyses']").change(updateBatchModel);
 
     function updateBatchModel(){
         // if analysis selection changes, get the value selected
         var aSelected = $("#analysisSelector").val();
+        var extraModels = $("[name='extraModels']").val();
+        var extraAnalyses = $("[name='extraAnalyses']").val();
 
         // pass the value to '/update_batch' in nemsweb.py
         // get back associated batchnum and change batch selector to match
@@ -358,7 +374,8 @@ $(document).ready(function(){
         // also pass analysis value to 'update_models' in nemsweb.py
         $.ajax({
             url: $SCRIPT_ROOT + '/update_models',
-            data: { aSelected:aSelected },
+            data: { aSelected:aSelected, extraModels:extraModels,
+                    extraAnalyses:extraAnalyses},
             type: 'GET',
             success: function(data){
                 if (data.modellist.length === 0){
