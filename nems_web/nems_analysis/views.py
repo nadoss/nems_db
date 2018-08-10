@@ -520,13 +520,13 @@ def update_analysis_details():
             if (col == 'id') or (col == 'status'):
                 detailsHTML += """
                     <p><strong>%s</strong>: %s</p>
-                    """ % (col, results.get_value(0, col))
-                    # Use a header + paragraph for everything else
+                    """ % (col, results[col].iat[0])
+            # Use a header + paragraph for everything else
             else:
                 detailsHTML += """
                     <h5><strong>%s</strong>:</h5>
                     <p>%s</p>
-                    """%(col, results.get_value(0, col))
+                    """ % (col, results[col].iat[0])
 
     session.close()
 
