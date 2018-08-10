@@ -88,11 +88,28 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     contrast = convolve2d(array, filt, mode='same')
 
     if normalize:
+        # Map raw values to range 0 - 1
         contrast /= np.max(np.abs(contrast), axis=0)
         rectified = contrast
+
+#    elif rab:
+#        # Binary high/low contrast based on range and std of sound level
+#        # within each window (from Rabinowiz et al)
+#        for hz in array:
+#            for t in hz:
+#                my_history = stim_array[hz][t-history:t]
+#                half-width = np.max(my_history) - np.min(my_history)
+#                std = np.std(my_history)
+#                if half-width > 30 and std > 5:
+#                    contrast[hz][t] = 1
+#                else:
+#                    contrast[hz][t] = 0
+
     else:
+        # Binary high/low contrast based on percentile cutoff.
+        # 50th percentile by default.
         cutoff = np.nanpercentile(contrast, percentile)
-        rectified = np.where(contrast >= cutoff, 1, 0)
+        rectified = np.where(contrast >= cutoff, 1, 0)\
 
     contrast_sig = source_signal._modified_copy(rectified)
     rec[name] = contrast_sig
@@ -235,6 +252,24 @@ def remove_dsig_bounds(modelspec):
 
 
 def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
+
+    if dsig_idx == len(modelspec):
+        fit_portion = modelspec
+    else:
+        fit_portion = modelspec[:dsig_idx]
+
+    # generate prediction from module preceeding dexp
+
+    # HACK
+    for i, m in enumerate(fit_portion):
+        if not m.get('phi', None):
+            m = priors.set_mean_phi([m])[0]
+            fit_portion[i] = m
+
+    ms.fit_mode_on(fit_portion)
+    rec = ms.evaluate(rec, fit_portion)
+    ms.fit_mode_off(fit_portion)
+
     pred = rec['pred'].as_continuous()
     resp = rec['resp'].as_continuous()
 

@@ -215,8 +215,8 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
 
         queueids.append(job.id)
         messages.append(message)
+        session.commit()
 
-    session.commit()
     session.close()
     return zip(queueids, messages)
 
