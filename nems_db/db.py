@@ -2,18 +2,20 @@ import os
 import subprocess
 import datetime
 import sys
+import logging
+import itertools
+import json
+
 import pandas as pd
 import numpy as np
-import logging
-import nems_db.util
 from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.automap import automap_base
 import pandas.io.sql as psql
-import json
+
+import nems_db.util
 
 log = logging.getLogger(__name__)
-
 __ENGINE__ = None
 
 
@@ -78,6 +80,7 @@ def _get_db_uri():
 
 ###### Functions that access / manipulate the job queue. #######
 
+
 def enqueue_models(celllist, batch, modellist, force_rerun=False,
                    user="nems", codeHash="master", jerbQuery='',
                    executable_path=None, script_path=None):
@@ -119,173 +122,103 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
 
     Returns:
     --------
-    pass_fail : list
-        List of strings indicating success or failure for each job that
-        was supposed to be queued.
+    (queueids, messages) : list
+        Returns a tuple of the tQueue id and results message for each
+        job that was either updated in or added to the queue.
 
     See Also:
     ---------
-    . : enqueue_single_model
     Narf_Analysis : enqueue_models_callback
 
     """
-    # Not yet ready for testing - still need to coordinate the supporting
-    # functions with the model queuer.
     session = Session()
-
-    pass_fail = []
-    for model in modellist:
-        for cell in celllist:
-            queueid, message = enqueue_single_model(
-                cell, batch, model, force_rerun=force_rerun, user=user,
-                session=session, codeHash=codeHash, jerbQuery=jerbQuery,
-                executable_path=executable_path, script_path=script_path
-            )
-            if queueid:
-                pass_fail.append(
-                    '\n queueid: {0},'
-                    '\n message: {1}'
-                    .format(queueid, message)
-                )
-            else:
-                pass_fail.append(
-                    '\nFailure: {0}, {1}, {2}'
-                    .format(cell, batch, model)
-                )
-
-    # Can return pass_fail instead if prefer to do something with it in views
-    log.info('\n'.join(pass_fail))
-
-    session.close()
-    return
-
-
-def _enqueue_single_model(cellid, batch, modelname, user=None,
-                         session=None, force_rerun=False, codeHash="master",
-                         jerbQuery='',
-                         executable_path=None, script_path=None):
-    """
-
-    currently just a wrapper for internal function enqueue_single_model
-    TODO delete this and just use public function.
-    """
-    enqueue_single_model(cellid, batch, modelname, user,
-                          session, force_rerun, codeHash, jerbQuery,
-                          executable_path, script_path)
-
-
-def enqueue_single_model(
-        cellid, batch, modelname, user=None,
-        session=None,
-        force_rerun=False, codeHash="master", jerbQuery='',
-        executable_path=None, script_path=None):
-    """
-    Adds one model to the queue to be fitted for a single cell/batch
-
-    Inputs:
-    -------
-    if executable_path is None:
-        executable_path = "/home/nems/anaconda3/bin/python"
-    if script_path is None:
-        script_path = "/home/nems/nems_db/nems_fit_single.py"
-
-    Returns:
-    --------
-    queueid : int
-        id (primary key) that was assigned to the new tQueue entry, or -1.
-    message : str
-        description of the action taken, to be reported to the console by
-        the calling enqueue_models function.
-    """
-    if session is None:
-        session = Session()
-
     db_tables = Tables()
     NarfResults = db_tables['NarfResults']
     tQueue = db_tables['tQueue']
 
-    if executable_path is None:
-        executable_path = "/home/nems/anaconda3/bin/python"
-
-    if script_path is None:
-        script_path = "/home/nems/nems_db/nems_fit_single.py"
-
-    commandPrompt = ("{0} {1} {2} {3} {4}"
-                     .format(executable_path, script_path,
-                             cellid, batch, modelname)
-                     )
-
-    note = "%s/%s/%s" % (cellid, batch, modelname)
-
-    result = (session.query(NarfResults)
-              .filter(NarfResults.cellid == cellid)
-              .filter(NarfResults.batch == batch)
-              .filter(NarfResults.modelname == modelname)
-              .first()
-              )
-    if result and not force_rerun:
-        log.info("Entry in NarfResults already exists for: %s, skipping.\n",
-                 note)
-        return -1, 'skip'
-
-    # query tQueue to check if entry with same cell/batch/model already exists
-    qdata = (
-        session.query(tQueue)
-        .filter(tQueue.note == note)
-        .first()
-    )
-
-    job = None
-    message = None
-
-    if qdata and (int(qdata.complete) <= 0):
-        # TODO:
-        # incomplete entry for note already exists, skipping
-        # update entry with same note? what does this accomplish?
-        # moves it back into queue maybe?
-        message = "Incomplete entry for: %s exists, skipping.\n" % note
-        job = qdata
-    elif qdata and (int(qdata.complete) == 2):
-        # TODO:
-        # dead queue entry for note exists, resetting
-        # update complete and progress status each to 0
-        # what does this do? doesn't look like the sql is sent right away,
-        # instead gets assigned to [res,r]
-        message = "Dead queue entry for: %s exists, resetting.\n" % note
-        qdata.complete = 0
-        qdata.progress = 0
-        job = qdata
-        job.codeHash = codeHash
-        # update command prompt incase a new executable or script path
-        # has been provided.
-        job.commandPrompt = commandPrompt
-    elif qdata and (int(qdata.complete) == 1):
-        # TODO:
-        # resetting existing queue entry for note
-        # update complete and progress status each to 0
-        # same as above, what does this do?
-        message = "Resetting existing queue entry for: %s\n" % note
-        qdata.complete = 0
-        qdata.progress = 0
-        job = qdata
-        # update codeHash on re-run
-        job.codeHash = codeHash
-        # update command prompt incase a new executable or script path
-        # has been provided.
-        job.commandPrompt = commandPrompt
-    else:
-        # result must not have existed, or status value was greater than 2
-        # add new entry
-        message = "Adding job to queue for: %s\n" % note
-        job = _add_model_to_queue(
-            commandPrompt, note, user, codeHash, jerbQuery
+    existing_results = psql.read_sql_query(
+            session.query(NarfResults.cellid, NarfResults.modelname,
+                          NarfResults.batch)
+            .filter(NarfResults.cellid.in_(celllist))
+            .filter(NarfResults.batch == batch)
+            .filter(NarfResults.modelname.in_(modellist))
+            .statement,
+            session.bind
             )
-        session.add(job)
+
+    # Convert to list of tuples b/c product object only useable once.
+    combined = [(c, b, m) for c, b, m in
+                itertools.product(celllist, [batch], modellist)]
+
+    if not force_rerun:
+        removals = [r for r in existing_results.itertuples()]
+        combined = [t for t in combined if t not in removals]
+
+    notes = ['%s/%s/%s' % (c, b, m) for c, b, m in combined]
+    commandPrompts = ["%s %s %s %s %s" % (executable_path, script_path,
+                                          c, b, m)
+                      for c, b, m in combined]
+
+    queue_data = (
+            session.query(tQueue)
+            .filter(tQueue.note.in_(notes))
+            .all()
+            )
+
+    queueids = []
+    messages = []
+    for note, commandPrompt in zip(notes, commandPrompts):
+        # TODO: find a way to avoid this nested loop?
+        #       but should be faster than doing nested queries at least.
+        exists = False
+        for i, qdata in enumerate(queue_data):
+            if qdata.note == note:
+                exists = True
+                queue_data.pop(i)
+                break
+
+        if exists and (int(qdata.complete) <= 0):
+            # incomplete entry for note already exists, skipping
+            message = "Incomplete entry for: %s exists, skipping.\n" % note
+            job = qdata
+        elif exists and (int(qdata.complete) == 2):
+            # dead queue entry for note exists, resetting
+            # update complete and progress status each to 0
+            message = "Dead queue entry for: %s exists, resetting.\n" % note
+            qdata.complete = 0
+            qdata.progress = 0
+            job = qdata
+            job.codeHash = codeHash
+            # update command prompt incase a new executable or script path
+            # has been provided.
+            job.commandPrompt = commandPrompt
+        elif exists and (int(qdata.complete) == 1):
+            # resetting existing queue entry for note
+            # update complete and progress status each to 0
+            message = "Resetting existing queue entry for: %s\n" % note
+            qdata.complete = 0
+            qdata.progress = 0
+            job = qdata
+            # update codeHash on re-run
+            job.codeHash = codeHash
+            # update command prompt incase a new executable or script path
+            # has been provided.
+            job.commandPrompt = commandPrompt
+        else:
+            # result must not have existed, or status value was greater than 2
+            # add new entry
+            message = "Adding job to queue for: %s\n" % note
+            job = _add_model_to_queue(
+                commandPrompt, note, user, codeHash, jerbQuery
+                )
+            session.add(job)
+
+        queueids.append(job.id)
+        messages.append(message)
 
     session.commit()
-    queueid = job.id
-
-    return queueid, message
+    session.close()
+    return zip(queueids, messages)
 
 
 def _add_model_to_queue(commandPrompt, note, user, codeHash, jerbQuery,
@@ -923,3 +856,217 @@ def get_wft(cellid=None):
     celltype = wft['wft_celltype']
 
     return celltype
+
+
+# TODO
+# Old enqueu_models function, remove this once new version
+# is tested a bit more.
+
+#def enqueue_models(celllist, batch, modellist, force_rerun=False,
+#                   user="nems", codeHash="master", jerbQuery='',
+#                   executable_path=None, script_path=None):
+#    """Call enqueue_single_model for every combination of cellid and modelname
+#    contained in the user's selections.
+#
+#    for each cellid in celllist and modelname in modellist, will create jobs
+#    that execute this command on a cluster machine:
+#
+#    <executable_path> <script_path> <cellid> <batch> <modelname>
+#
+#    e.g.:
+#    /home/nems/anaconda3/bin/python /home/nems/nems/fit_single_model.py \
+#       TAR010c-18-1 271 ozgf100ch18_dlog_wcg18x1_stp1_fir1x15_lvl1_dexp1_basic
+#
+#    Arguments:
+#    ----------
+#    celllist : list
+#        List of cellid selections made by user.
+#    batch : string
+#        batch number selected by user.
+#    modellist : list
+#        List of modelname selections made by user.
+#    force_rerun : boolean (default=False)
+#        If true, models will be fit even if a result already exists.
+#        If false, models with existing results will be skipped.
+#    user : string (default="nems")
+#        Typically the login name of the user who owns the job
+#    codeHash : string (default="master")
+#        Git hash string identifying a commit for the specific version of the
+#        code repository that should be used to run the model fit.
+#        Can also accept the name of a branch.
+#    jerbQuery : dict
+#        Dict that will be used by 'jerb find' to locate matching jerbs
+#    executable_path : string (defaults to nems' python3 executable)
+#        Path to executable python (or other command line program)
+#    script_path : string (defaults to nems' copy of nems/nems_fit_single.py)
+#        First parameter to pass to executable
+#
+#    Returns:
+#    --------
+#    pass_fail : list
+#        List of strings indicating success or failure for each job that
+#        was supposed to be queued.
+#
+#    See Also:
+#    ---------
+#    . : enqueue_single_model
+#    Narf_Analysis : enqueue_models_callback
+#
+#    """
+#    # Not yet ready for testing - still need to coordinate the supporting
+#    # functions with the model queuer.
+#    session = Session()
+#
+#    pass_fail = []
+#    for model in modellist:
+#        for cell in celllist:
+#            queueid, message = enqueue_single_model(
+#                cell, batch, model, force_rerun=force_rerun, user=user,
+#                session=session, codeHash=codeHash, jerbQuery=jerbQuery,
+#                executable_path=executable_path, script_path=script_path
+#            )
+#            if queueid:
+#                pass_fail.append(
+#                    '\n queueid: {0},'
+#                    '\n message: {1}'
+#                    .format(queueid, message)
+#                )
+#            else:
+#                pass_fail.append(
+#                    '\nFailure: {0}, {1}, {2}'
+#                    .format(cell, batch, model)
+#                )
+#
+#    # Can return pass_fail instead if prefer to do something with it in views
+#    log.info('\n'.join(pass_fail))
+#
+#    session.close()
+#    return
+#
+#
+#def _enqueue_single_model(cellid, batch, modelname, user=None,
+#                         session=None, force_rerun=False, codeHash="master",
+#                         jerbQuery='',
+#                         executable_path=None, script_path=None):
+#    """
+#
+#    currently just a wrapper for internal function enqueue_single_model
+#    TODO delete this and just use public function.
+#    """
+#    enqueue_single_model(cellid, batch, modelname, user,
+#                          session, force_rerun, codeHash, jerbQuery,
+#                          executable_path, script_path)
+#
+#
+#def enqueue_single_model(
+#        cellid, batch, modelname, user=None,
+#        session=None,
+#        force_rerun=False, codeHash="master", jerbQuery='',
+#        executable_path=None, script_path=None):
+#    """
+#    Adds one model to the queue to be fitted for a single cell/batch
+#
+#    Inputs:
+#    -------
+#    if executable_path is None:
+#        executable_path = "/home/nems/anaconda3/bin/python"
+#    if script_path is None:
+#        script_path = "/home/nems/nems_db/nems_fit_single.py"
+#
+#    Returns:
+#    --------
+#    queueid : int
+#        id (primary key) that was assigned to the new tQueue entry, or -1.
+#    message : str
+#        description of the action taken, to be reported to the console by
+#        the calling enqueue_models function.
+#    """
+#    if session is None:
+#        session = Session()
+#
+#    db_tables = Tables()
+#    NarfResults = db_tables['NarfResults']
+#    tQueue = db_tables['tQueue']
+#
+#    if executable_path is None:
+#        executable_path = "/home/nems/anaconda3/bin/python"
+#
+#    if script_path is None:
+#        script_path = "/home/nems/nems_db/nems_fit_single.py"
+#
+#    commandPrompt = ("{0} {1} {2} {3} {4}"
+#                     .format(executable_path, script_path,
+#                             cellid, batch, modelname)
+#                     )
+#
+#    note = "%s/%s/%s" % (cellid, batch, modelname)
+#
+#    result = (session.query(NarfResults)
+#              .filter(NarfResults.cellid == cellid)
+#              .filter(NarfResults.batch == batch)
+#              .filter(NarfResults.modelname == modelname)
+#              .first()
+#              )
+#    if result and not force_rerun:
+#        log.info("Entry in NarfResults already exists for: %s, skipping.\n",
+#                 note)
+#        return -1, 'skip'
+#
+#    # query tQueue to check if entry with same cell/batch/model already exists
+#    qdata = (
+#        session.query(tQueue)
+#        .filter(tQueue.note == note)
+#        .first()
+#    )
+#
+#    job = None
+#    message = None
+#
+#    if qdata and (int(qdata.complete) <= 0):
+#        # TODO:
+#        # incomplete entry for note already exists, skipping
+#        # update entry with same note? what does this accomplish?
+#        # moves it back into queue maybe?
+#        message = "Incomplete entry for: %s exists, skipping.\n" % note
+#        job = qdata
+#    elif qdata and (int(qdata.complete) == 2):
+#        # TODO:
+#        # dead queue entry for note exists, resetting
+#        # update complete and progress status each to 0
+#        # what does this do? doesn't look like the sql is sent right away,
+#        # instead gets assigned to [res,r]
+#        message = "Dead queue entry for: %s exists, resetting.\n" % note
+#        qdata.complete = 0
+#        qdata.progress = 0
+#        job = qdata
+#        job.codeHash = codeHash
+#        # update command prompt incase a new executable or script path
+#        # has been provided.
+#        job.commandPrompt = commandPrompt
+#    elif qdata and (int(qdata.complete) == 1):
+#        # TODO:
+#        # resetting existing queue entry for note
+#        # update complete and progress status each to 0
+#        # same as above, what does this do?
+#        message = "Resetting existing queue entry for: %s\n" % note
+#        qdata.complete = 0
+#        qdata.progress = 0
+#        job = qdata
+#        # update codeHash on re-run
+#        job.codeHash = codeHash
+#        # update command prompt incase a new executable or script path
+#        # has been provided.
+#        job.commandPrompt = commandPrompt
+#    else:
+#        # result must not have existed, or status value was greater than 2
+#        # add new entry
+#        message = "Adding job to queue for: %s\n" % note
+#        job = _add_model_to_queue(
+#            commandPrompt, note, user, codeHash, jerbQuery
+#            )
+#        session.add(job)
+#
+#    session.commit()
+#    queueid = job.id
+#
+#    return queueid, message

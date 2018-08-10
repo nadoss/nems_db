@@ -262,15 +262,17 @@ def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
     shift = ('Normal', {'mean': shift0, 'sd': pred_range})
     kappa = ('Exponential', {'beta': kappa0})
 
+    mod = ('Normal', {'mean': 0, 'sd': 1})
+
     # TODO: Forcing mods to start at 0 wasn't working very well, but
     #       maybe try just Normal(0, 1) or something?
     #       Does seem odd to set these like this, b/c it makes the model
     #       start off with pretty big modulators some times.
     modelspec[dsig_idx]['prior'] = {
             'base': base, 'amplitude': amplitude, 'shift': shift,
-            'kappa': kappa, 'base_mod': base,
-            'amplitude_mod': amplitude, 'shift_mod': shift,
-            'kappa_mod': kappa,
+            'kappa': kappa,
+            'base_mod': mod, 'amplitude_mod': mod, 'shift_mod': mod,
+            'kappa_mod': mod,
             }
 
     modelspec[dsig_idx]['bounds'] = {
@@ -400,12 +402,12 @@ def init_contrast_model(est, modelspecs, IsReload=False,
 
     log.info("initializing priors and bounds for dsig ...\n")
     modelspec = init_dsig(est, modelspec)
-    modelspec = prefit_mod_subset(
-            est, modelspec, fit_basic,
-            fit_set=['dynamic_sigmoid'],
-            fitter=fitter_fn,
-            metric=metric_fn,
-            fit_kwargs=fit_kwargs)
+    modelspec = _prefit_contrast_modules(
+                    est, modelspec, fit_basic,
+                    fitter=fitter_fn,
+                    metric=metric_fn,
+                    fit_kwargs=fit_kwargs
+                    )
 
     # TODO: only necessary if we start initializing bounds at 0 again.
     # Unlock bonds on modulators, then freeze values for statics,
@@ -426,3 +428,54 @@ def init_contrast_model(est, modelspecs, IsReload=False,
 
     return {'modelspecs': [modelspec],
             'est': est}
+
+
+def _prefit_contrast_modules(rec, modelspec, analysis_function,
+                             fitter, metric=None, fit_kwargs={}):
+    # preserve input modelspec
+    modelspec = copy.deepcopy(modelspec)
+
+    # identify any excluded modules and take them out of temp modelspec
+    # that will be fit here
+    fit_idx = []
+    tmodelspec = []
+    fit_set = ['ctwc', 'ctfir', 'ctlvl', 'dsig']
+    for i, m in enumerate(modelspec):
+        m = copy.deepcopy(m)
+        for id in fit_set:
+            if id in m['id']:
+                fit_idx.append(i)
+                log.info('Found module %d (%s) for subset prefit', i, id)
+        tmodelspec.append(m)
+
+    if len(fit_idx) == 0:
+        log.info('No modules matching fit_set for subset prefit')
+        return modelspec
+
+    exclude_idx = np.setdiff1d(np.arange(0, len(modelspec)),
+                               np.array(fit_idx))
+    for i in exclude_idx:
+        m = tmodelspec[i]
+        if not m.get('phi'):
+            log.info('Intializing phi for module %d (%s)', i, m['fn'])
+            m = priors.set_mean_phi([m])[0]  # Inits phi
+
+        log.info('Freezing phi for module %d (%s)', i, m['fn'])
+
+        m['fn_kwargs'].update(m['phi'])
+        m['phi'] = {}
+        tmodelspec[i] = m
+
+    # fit the subset of modules
+    if metric is None:
+        tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
+                                       fit_kwargs=fit_kwargs)[0]
+    else:
+        tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
+                                       metric=metric, fit_kwargs=fit_kwargs)[0]
+
+    # reassemble the full modelspec with updated phi values from tmodelspec
+    for i in fit_idx:
+        modelspec[i] = tmodelspec[i]
+
+    return modelspec
