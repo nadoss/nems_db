@@ -955,6 +955,22 @@ $(document).ready(function(){
         $('#loadingPopup').css('display', 'none');
     }
 
+    var queueCount = 0;
+    function addQueue(){
+        if (queueCount == 0){
+            document.getElementById("enqueue").classList.add('btn-danger');
+            document.getElementById("enqueue").classList.remove('btn-default');
+        }
+        queueCount ++;
+    }
+    function removeQueue(){
+        queueCount --;
+        if (queueCount == 0){
+            document.getElementById("enqueue").classList.add('btn-default');
+            document.getElementById("enqueue").classList.remove('btn-danger');
+        }
+    }
+
     $("#toggleFitOp").on('click',function(){
         var fod = $('#fitOpDiv');
 
@@ -1059,7 +1075,14 @@ $(document).ready(function(){
             return false;
         }
 
-        addLoad();
+        if (document.getElementById('enqueue').classList.contains('btn-danger')){
+            if (!(confirm('WARNING: You still have other jobs waiting to be processed.'
+                          + '\n\nDo you still wish to continue? (Sorry for being annoying!'))){
+                return false;
+            }
+        }
+
+        addQueue();
         py_console_log("Sending fit request for each combination - please wait...");
 
         $.ajax({
@@ -1071,11 +1094,11 @@ $(document).ready(function(){
             type: 'GET',
             success: function(result){
                 py_console_log(result);
-                removeLoad();
+                removeQueue();
             },
             error: function(error){
                 console.log(error)
-                removeLoad();
+                removeQueue();
             }
         });
         //communicates with daemon to queue model fitting for each selection on cluster,
