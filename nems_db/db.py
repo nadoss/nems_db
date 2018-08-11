@@ -14,6 +14,7 @@ from sqlalchemy.ext.automap import automap_base
 import pandas.io.sql as psql
 
 import nems_db.util
+from nems_db import get_setting
 
 log = logging.getLogger(__name__)
 __ENGINE__ = None
@@ -135,6 +136,11 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
     db_tables = Tables()
     NarfResults = db_tables['NarfResults']
     tQueue = db_tables['tQueue']
+
+    if executable_path in [None, 'None', 'NONE', '']:
+        executable_path = get_setting('DEFAULT_EXEC_PATH')
+    if script_path in [None, 'None', 'NONE', '']:
+        script_path = get_setting('DEFAULT_SCRIPT_PATH')
 
     existing_results = psql.read_sql_query(
             session.query(NarfResults.cellid, NarfResults.modelname,
