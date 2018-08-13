@@ -131,10 +131,15 @@ def contrast(loadkey):
         elif op.startswith('pcnt'):
             percentile = int(op[4:])
             kwargs['percentile'] = percentile
+        elif op == 'kz':
+            # "keep zeros when calculating percentile cutoff"
+            kwargs['ignore_zeros'] = False
         elif op == 'n':
             kwargs['normalize'] = True
         elif op == 'dlog':
             kwargs['dlog'] = True
+        elif op == 'cont':
+            kwargs['continuous'] = True
 
     return [['nems_lbhb.contrast_helpers.add_contrast', kwargs]]
 

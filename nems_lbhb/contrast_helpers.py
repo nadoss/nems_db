@@ -44,8 +44,8 @@ def strf_to_contrast(modelspecs, IsReload=False, **context):
 
 
 def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
-                         dlog=False, bins=None, percentile=50,
-                         normalize=False):
+                         dlog=False, bins=None, continuous=False,
+                         normalize=False, percentile=50, ignore_zeros=True):
     '''
     Creates a new signal whose values represent the degree of variability
     in each channel of the source signal. Each value is based on the
@@ -87,29 +87,23 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
                            np.ones([1, history])), axis=1)
     contrast = convolve2d(array, filt, mode='same')
 
-    if normalize:
-        # Map raw values to range 0 - 1
-        contrast /= np.max(np.abs(contrast), axis=0)
+    if continuous:
+        if normalize:
+            # Map raw values to range 0 - 1
+            contrast /= np.max(np.abs(contrast), axis=0)
         rectified = contrast
-
-#    elif rab:
-#        # Binary high/low contrast based on range and std of sound level
-#        # within each window (from Rabinowiz et al)
-#        for hz in array:
-#            for t in hz:
-#                my_history = stim_array[hz][t-history:t]
-#                half-width = np.max(my_history) - np.min(my_history)
-#                std = np.std(my_history)
-#                if half-width > 30 and std > 5:
-#                    contrast[hz][t] = 1
-#                else:
-#                    contrast[hz][t] = 0
 
     else:
         # Binary high/low contrast based on percentile cutoff.
         # 50th percentile by default.
-        cutoff = np.nanpercentile(contrast, percentile)
-        rectified = np.where(contrast >= cutoff, 1, 0)\
+        if ignore_zeros:
+            # When calculating cutoff, ignore time bins where signal is 0
+            # for all spectral channels (i.e. no stimulus present)
+            no_zeros = contrast[:, ~np.all(contrast == 0, axis=0)]
+            cutoff = np.nanpercentile(no_zeros, percentile)
+        else:
+            cutoff = np.nanpercentile(contrast, percentile)
+        rectified = np.where(contrast >= cutoff, 1, 0)
 
     contrast_sig = source_signal._modified_copy(rectified)
     rec[name] = contrast_sig
@@ -117,13 +111,14 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     return rec
 
 
-def add_contrast(rec, name='contrast', source_name='stim', percentile=50,
-                 ms=500, bins=None, normalize=False, dlog=False,
-                 IsReload=False, **context):
+def add_contrast(rec, name='contrast', source_name='stim', ms=500, bins=None,
+                 continuous=False, normalize=False, dlog=False,
+                 percentile=50, ignore_zeros=True, IsReload=False, **context):
     '''xforms wrapper for make_contrast_signal'''
     rec_with_contrast = make_contrast_signal(
             rec, name=name, source_name=source_name, ms=ms, bins=bins,
             percentile=percentile, normalize=normalize, dlog=dlog,
+            ignore_zeros=ignore_zeros, continuous=continuous
             )
     return {'rec': rec_with_contrast}
 
@@ -263,7 +258,9 @@ def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
     # HACK
     for i, m in enumerate(fit_portion):
         if not m.get('phi', None):
+            old = m.get('prior', {})
             m = priors.set_mean_phi([m])[0]
+            m['prior'] = old
             fit_portion[i] = m
 
     ms.fit_mode_on(fit_portion)
@@ -297,18 +294,18 @@ def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
     shift = ('Normal', {'mean': shift0, 'sd': pred_range})
     kappa = ('Exponential', {'beta': kappa0})
 
-    mod = ('Normal', {'mean': 0, 'sd': 1})
+    #mod = ('Normal', {'mean': 0, 'sd': 1})
 
     # TODO: Forcing mods to start at 0 wasn't working very well, but
     #       maybe try just Normal(0, 1) or something?
     #       Does seem odd to set these like this, b/c it makes the model
     #       start off with pretty big modulators some times.
-    modelspec[dsig_idx]['prior'] = {
+    modelspec[dsig_idx]['prior'].update({
             'base': base, 'amplitude': amplitude, 'shift': shift,
             'kappa': kappa,
-            'base_mod': mod, 'amplitude_mod': mod, 'shift_mod': mod,
-            'kappa_mod': mod,
-            }
+#            'base_mod': mod, 'amplitude_mod': mod, 'shift_mod': mod,
+#            'kappa_mod': mod,
+            })
 
     modelspec[dsig_idx]['bounds'] = {
             'base': (1e-15, None),
@@ -332,7 +329,9 @@ def _init_double_exponential(rec, modelspec, target_i):
     # HACK
     for i, m in enumerate(fit_portion):
         if not m.get('phi', None):
+            old = m.get('prior', {})
             m = priors.set_mean_phi([m])[0]
+            m['prior'] = old
             fit_portion[i] = m
 
     ms.fit_mode_on(fit_portion)
@@ -374,12 +373,16 @@ def _init_double_exponential(rec, modelspec, target_i):
         predrange = 2 / (np.max(pred) - np.min(pred) + 1)
         kappa[i, 0] = np.log(predrange)
 
-    modelspec[target_i]['phi'] = {
-            'base': base, 'amplitude': amp, 'shift': shift,
-            'kappa': kappa, 'base_mod': 0,
-            'amplitude_mod': 0, 'shift_mod': 0,
-            'kappa_mod': 0,
-            }
+    amp = ('Normal', {'mean': amp, 'sd': 1.0})
+    base = ('Normal', {'mean': base, 'sd': 1.0})
+    kappa = ('Normal', {'mean': kappa, 'sd': 1.0})
+    shift = ('Normal', {'mean': shift, 'sd': 1.0})
+
+    modelspec[target_i]['prior'].update({
+            'base': base, 'amplitude': amp, 'shift': shift, 'kappa': kappa,
+#            'base_mod': 0, 'amplitude_mod': 0, 'shift_mod': 0, 'kappa_mod': 0,
+            })
+
 
     return modelspec
 
@@ -398,7 +401,7 @@ def dsig_phi_to_prior(modelspec):
     p = dsig['prior']
     p['base'][1]['beta'] = b
     p['amplitude'][1]['beta'] = a
-    p['shift'][1]['mean'] = s  # Do anything to scale std?
+    p['shift'][1]['mean'] = s  # Do anything to scale sd?
     p['kappa'][1]['beta'] = k
 
     return modelspec
@@ -493,7 +496,9 @@ def _prefit_contrast_modules(rec, modelspec, analysis_function,
         m = tmodelspec[i]
         if not m.get('phi'):
             log.info('Intializing phi for module %d (%s)', i, m['fn'])
+            old = m.get('prior', {})
             m = priors.set_mean_phi([m])[0]  # Inits phi
+            m['prior'] = old
 
         log.info('Freezing phi for module %d (%s)', i, m['fn'])
 
