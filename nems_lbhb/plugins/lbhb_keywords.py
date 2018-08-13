@@ -35,11 +35,33 @@ def ctfir(kw):
     if n_banks is None:
         n_banks = 1
 
-    p_coefficients = {'beta': np.full((n_outputs * n_banks, n_coefs), 0.1)}
+    if n_banks is None:
+        p_coefficients = {
+            'mean': np.zeros((n_outputs, n_coefs)),
+            'sd': np.ones((n_outputs, n_coefs)),
+        }
+    else:
+        n_banks = int(n_banks)
+        p_coefficients = {
+            'mean': np.zeros((n_outputs * n_banks, n_coefs)),
+            'sd': np.ones((n_outputs * n_banks, n_coefs)),
+        }
+
+    if n_coefs > 2:
+        # p_coefficients['mean'][:, 1] = 1
+        # p_coefficients['mean'][:, 2] = -0.5
+        p_coefficients['mean'][:, 1] = 1
+        pass
+    else:
+        p_coefficients['mean'][:, 0] = 1
+
+    #p_coefficients = {'beta': np.full((n_outputs * n_banks, n_coefs), 0.1)}
+#            'prior': {'coefficients': ('Exponential', p_coefficients)},
     template = {
             'fn': 'nems.modules.fir.filter_bank',
             'fn_kwargs': {'i': 'ctpred', 'o': 'ctpred', 'bank_count': n_banks},
-            'prior': {'coefficients': ('Exponential', p_coefficients)},
+            'prior': {
+                'coefficients': ('Normal', p_coefficients)},
             }
 
     return template
