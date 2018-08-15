@@ -72,19 +72,18 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
 
     array = source_signal.as_continuous().copy()
 
-    if ms:
+    if ms is not None:
         history = int((ms/1000)*source_signal.fs)
-    elif bins:
+    elif bins is not None:
         history = int(bins)
     else:
-        raise ValueError("Either ms or bins parameter must be specified "
-                         "and nonzero.")
+        raise ValueError("Either ms or bins parameter must be specified.")
     # TODO: Alternatively, base history length on some feature of signal?
     #       Like average length of some epoch ex 'TRIAL'
 
     array[np.isnan(array)] = 0
     filt = np.concatenate((np.zeros([1, history+1]),
-                           np.ones([1, history])), axis=1)
+                           np.ones([1, min(1, history)])), axis=1)
     contrast = convolve2d(array, filt, mode='same')
 
     if continuous:
