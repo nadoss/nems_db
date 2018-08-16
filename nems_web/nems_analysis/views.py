@@ -38,6 +38,7 @@ import pandas.io.sql as psql
 import pandas as pd
 from sqlalchemy.orm import Query
 from sqlalchemy import desc, asc, or_
+import numpy as np
 
 from nems_web.nems_analysis import app, bokeh_version
 from nems_db.db import Session, Tables
@@ -897,3 +898,36 @@ def set_saved_selections():
     session.close()
 
     return jsonify(response='selections saved', null=False)
+
+
+
+###############################################################################
+#################   SAVED SELECTIONS    #######################################
+###############################################################################
+
+
+@app.route('/random_cell_subset')
+def random_cell_subset():
+    cSelected = request.args.getlist('cSelected[]')
+    subsetSize = int(request.args.get('subsetSize'))
+
+    subset = np.random.choice(np.array(cSelected), subsetSize, replace=False)
+
+    return jsonify(cellids=subset.tolist())
+
+
+@app.route('/match_model_cells')
+def match_model_cells():
+    session = Session()
+    NarfResults = Tables()['NarfResults']
+    mSelected = request.args.getlist('mSelected[]')
+
+    results = (
+            session.query(NarfResults.cellid)
+            .filter(NarfResults.modelname.in_(mSelected))
+            .all()
+            )
+
+    cellids = [r.cellid for r in results]
+
+    return jsonify(cellids=cellids)

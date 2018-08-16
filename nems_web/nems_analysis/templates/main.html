@@ -231,6 +231,17 @@
                                     Fit Options
                         </button>
                     </div>
+
+                    <div class="input-group-btn">
+                        <button type="button"
+                                class="btn btn-default btn-xs"
+                                id="cellOptions"
+                                data-toggle="modal"
+                                data-target="#cellOptionsModal">
+                                    Cell Options
+                        </button>
+                    </div>
+
                     <div class="input-group-btn">
                         <button type="button"
                                 class="btn btn-default btn-xs"
@@ -916,6 +927,42 @@
 
                     </div><!-- form-group -->
                     </div><!--container-->
+                </div><!-- body -->
+            </div><!--content -->
+        </div><!--dialog-->
+    </div><!--modal-->
+
+    <div class="modal" id="cellOptionsModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-md" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title"> Cell Selection Options
+                    <button type="button" class="close" data-dismiss="modal"
+                    aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    </h3>
+                </div><!-- header -->
+                <div class="modal-body">
+                    <form>
+                        <div class="input-group" style="margin-bottom: 10px;">
+                                Subset Size
+                                <input type="text"
+                                       id="subsetSize"
+                                       placeholder="ex: 50">
+                                <button type="button" class="btn-default"
+                                        id="selectSubset">
+                                    Select Subset
+                                </button>
+                        </div>
+
+                        <div class="input-group" style="margin-bottom: 10px;">
+                                <button type="button" class="btn-default"
+                                        id="selectModelCells">
+                                    Match Selected Models
+                                </button>
+                        </div>
+                    </form>
                 </div><!-- body -->
             </div><!--content -->
         </div><!--dialog-->

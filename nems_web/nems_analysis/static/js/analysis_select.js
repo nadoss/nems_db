@@ -342,6 +342,39 @@ $(document).ready(function(){
         updateResults();
     }
 
+    $("#selectSubset").on('click', selectCellSubset);
+    function selectCellSubset(){
+        var cSelected = $("#cellSelector").val();
+        var subsetSize = $("#subsetSize").val();
+        if (subsetSize >= cSelected.length){
+            return false;
+        } else {
+            $.ajax({
+                url: $SCRIPT_ROOT + '/random_cell_subset',
+                data: {cSelected:cSelected, subsetSize:subsetSize},
+                type: 'GET',
+                succes: function(data){
+                    $("#cellSelector").val(data.cellids).trigger("change");
+                    /*
+                    var cellOptions = document.getElementsByName("cellOption[]");
+                    for (var i=0;i<cellOptions.length;i++){
+                        if (data.cellids.indexOf(cellOptions[i]) >= 0){
+                            cellOptions[i].selected = true;
+                        } else{
+                            cellOptions[i].selected = false;
+                        };
+
+                    };
+                    updateResults();
+                    */
+                },
+                error: function(error){
+                    console.log(error);
+                }
+            });
+        };
+    };
+
 
     $("#analysisSelector").change(updateBatchModel);
     $("[name='extraModels']").change(updateBatchModel);
