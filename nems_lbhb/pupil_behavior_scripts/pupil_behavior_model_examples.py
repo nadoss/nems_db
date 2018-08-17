@@ -143,14 +143,15 @@ def plot_save_examples(batch, compare, loader, basemodel, fitter, RELOAD=False):
 # BEGIN main code
 
 # User parameters:
-RELOAD = False
-loader = "psth.fs20"
+RELOAD = True
+loader = "psth.fs20.pup"
 fitter = "jk.nf10-init.st-basic"
 
 batches = [301, 303, 307, 309]
-#basemodels = ["psthfr_sdexp.S", "psthfr_stategain.S",
-#              "psthfr.s_sdexp.S", "psthfr.s_stategain.S"]
-basemodels = ["psthfr_sdexp.S", "psthfr_stategain.S"]
+batches = [309]
+basemodels = ["psthfr_sdexp.S", "psthfr_stategain.S",
+              "psthfr.s_sdexp.S", "psthfr.s_stategain.S"]
+#basemodels = ["psthfr_sdexp.S", "psthfr_stategain.S"]
 comparisons = ["pb", "ppas"]
 
 for batch in batches:

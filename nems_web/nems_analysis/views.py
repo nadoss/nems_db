@@ -46,6 +46,8 @@ from nems_db.plots import PLOT_TYPES
 from nems_web.account_management.views import get_current_user
 from nems_web.run_custom.script_utils import scan_for_scripts
 from nems.uri import load_resource
+from nems_web.utilities.enclosure import split_by_enclosure
+from nems.utils import escaped_split
 
 log = logging.getLogger(__name__)
 
@@ -253,6 +255,11 @@ def update_models():
     NarfAnalysis = Tables()['NarfAnalysis']
 
     aSelected = request.args.get('aSelected', type=str)
+    extraModels = request.args.get('extraModels', type=str)
+    extraAnalyses = request.args.get('extraAnalyses', type=str)
+
+    extraModels = [s.strip() for s in extraModels.split(',')]
+    extraAnalyses = [s.strip() for s in extraAnalyses.split(',')]
 
     modeltree = (
             session.query(NarfAnalysis.modeltree)
@@ -262,18 +269,22 @@ def update_models():
     # Pass modeltree string from NarfAnalysis to a ModelFinder constructor,
     # which will use a series of internal methods to convert the tree string
     # to a list of model names.
-    if modeltree:
-        load, mod, fit = _get_trees(modeltree[0])
-        if load and mod and fit:
-            loader = ModelFinder(load).modellist
-            model = ModelFinder(mod).modellist
-            fitter = ModelFinder(fit).modellist
-            combined = itertools.product(loader, model, fitter)
-            model_list = ['_'.join(m) for m in combined]
-        else:
-            # Probably an old modeltree that doesn't have a separate
-            # specification of loaders/preprocessors and fitters/postprocessors
-            model_list = ModelFinder(mod, sep='_').modellist
+    # Then add any additional models specified in extraModels, and add
+    # model_lists from extraAnalyses.
+    if modeltree and modeltree[0]:
+        model_list = _get_models(modeltree[0])
+        extraModels = [m for m in extraModels if
+                       (m not in model_list and m.strip() != '')]
+        model_list.extend(extraModels)
+        if extraAnalyses:
+            analyses = (
+                    session.query(NarfAnalysis.modeltree)
+                    .filter(NarfAnalysis.name.in_(extraAnalyses))
+                    .all()
+                    )
+            for t in [a.modeltree for a in analyses]:
+                extras = [m for m in _get_models(t) if m not in model_list]
+                model_list.extend(extras)
 
     else:
         return jsonify(modellist="Model tree not found.")
@@ -281,6 +292,22 @@ def update_models():
     session.close()
 
     return jsonify(modellist=model_list)
+
+
+def _get_models(modeltree):
+    load, mod, fit = _get_trees(modeltree)
+    if load and mod and fit:
+        loader = ModelFinder(load).modellist
+        model = ModelFinder(mod).modellist
+        fitter = ModelFinder(fit).modellist
+        combined = itertools.product(loader, model, fitter)
+        model_list = ['_'.join(m) for m in combined]
+    else:
+        # Probably an old modeltree that doesn't have a separate
+        # specification of loaders/preprocessors and fitters/postprocessors
+        model_list = ModelFinder(mod, sep='_').modellist
+
+    return model_list
 
 
 @app.route('/update_cells')
@@ -493,13 +520,13 @@ def update_analysis_details():
             if (col == 'id') or (col == 'status'):
                 detailsHTML += """
                     <p><strong>%s</strong>: %s</p>
-                    """ % (col, results.get_value(0, col))
-                    # Use a header + paragraph for everything else
+                    """ % (col, results[col].iat[0])
+            # Use a header + paragraph for everything else
             else:
                 detailsHTML += """
                     <h5><strong>%s</strong>:</h5>
                     <p>%s</p>
-                    """%(col, results.get_value(0, col))
+                    """ % (col, results[col].iat[0])
 
     session.close()
 

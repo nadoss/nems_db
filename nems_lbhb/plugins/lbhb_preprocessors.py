@@ -26,7 +26,7 @@ def ref(kw):
     return [['nems.xforms.mask_all_but_correct_references', {}]]
 
 
-def evs(loadkey, recording_uri):
+def evs(loadkey):
     """
     evs = "event stimulus"
     currently this is specific to using target onset events and lick events
@@ -34,49 +34,16 @@ def evs(loadkey, recording_uri):
 
     broken out of evt loader keyword
     """
-
     pattern = re.compile(r'^evs\.([a-zA-Z0-9\.]*)$')
     parsed = re.match(pattern, loadkey)
     loader = parsed.group(1)
 
-    state_signals = []
-    permute_signals = []
-    epoch2_shuffle = False
+    # TODO: implement better parser for more flexibility
+    loadset = loader.split(".")
 
-    if loader == ("pupbehtarlic"):
-        state_signals = ['active', 'pupil']
-        permute_signals = []
-    elif loader == ("pup0behtarlic"):
-        state_signals = ['active', 'pupil']
-        permute_signals = ['pupil']
-    elif loader == ("pupbeh0tarlic"):
-        state_signals = ['active', 'pupil']
-        permute_signals = ['active']
-    elif loader == ("pup0beh0tarlic"):
-        state_signals = ['active', 'pupil']
-        permute_signals = ['active', 'pupil']
-    elif loader == ("pupbehtarlic0"):
-        state_signals = ['active', 'pupil']
-        permute_signals = []
-        epoch2_shuffle = True
-    elif loader == ("pup0behtarlic0"):
-        state_signals = ['active', 'pupil']
-        permute_signals = ['pupil']
-        epoch2_shuffle = True
-    elif loader == ("pupbeh0tarlic0"):
-        state_signals = ['active', 'pupil']
-        permute_signals = ['active']
-        epoch2_shuffle = True
-    elif loader == ("pup0beh0tarlic0"):
-        state_signals = ['active', 'pupil']
-        permute_signals = ['active', 'pupil']
-        epoch2_shuffle = True
-    elif loader == ("tarlic"):
-        state_signals = []
-        permute_signals = ['active', 'pupil']
-    elif loader == ("tarlic0"):
-        state_signals = []
-        permute_signals = []
+    if loader == ("tar.lic"):
+        epoch2_shuffle = False
+    elif loader == ("tar.lic0"):
         epoch2_shuffle = True
     else:
         raise ValueError("unknown signals for alt-stimulus initializer")
@@ -138,6 +105,8 @@ def st(loadkey, recording_uri):
             this_sig = ["r1"]
         elif l.startswith("r2"):
             this_sig = ["r2"]
+        elif l.startswith('ttp'):
+            this_sig = ['hit_trials','miss_trials']
         else:
             raise ValueError("unknown signal code %s for state variable initializer", l)
 
@@ -159,6 +128,18 @@ def contrast(loadkey):
         if op.startswith('ms'):
             ms = op[2:].replace('d', '.')
             kwargs['ms'] = float(ms)
+        elif op.startswith('pcnt'):
+            percentile = int(op[4:])
+            kwargs['percentile'] = percentile
+        elif op == 'kz':
+            # "keep zeros when calculating percentile cutoff"
+            kwargs['ignore_zeros'] = False
+        elif op == 'n':
+            kwargs['normalize'] = True
+        elif op == 'dlog':
+            kwargs['dlog'] = True
+        elif op == 'cont':
+            kwargs['continuous'] = True
 
     return [['nems_lbhb.contrast_helpers.add_contrast', kwargs]]
 
@@ -190,7 +171,7 @@ def psthfr(load_key):
 def rscsw(load_key, cellid, batch):
     """
     generate the signals for sliding window model. It's intended that these be
-    added to the state signal later on. Will call the sliding window 
+    added to the state signal later on. Will call the sliding window
     signal resp as if it's a normal nems encoding model. Little bit kludgy.
     CRH 2018-07-12
     """
@@ -202,10 +183,10 @@ def rscsw(load_key, cellid, batch):
         state_correction = False
     else:
         state_correction = True
-    
+
     xfspec = [['preprocessing_tools.make_rscsw_signals',
                    {'win_len': win_length,
-                    'state_correction': state_correction, 
+                    'state_correction': state_correction,
                     'cellid': cellid,
                     'batch': batch},
                    ['rec'], ['rec']]]
