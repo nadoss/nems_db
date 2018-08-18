@@ -82,8 +82,8 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     #       Like average length of some epoch ex 'TRIAL'
 
     array[np.isnan(array)] = 0
-    filt = np.concatenate((np.zeros([1, history+1]),
-                           np.ones([1, min(1, history)])), axis=1)
+    filt = np.concatenate((np.zeros([1, max(2, history+1)]),
+                           np.ones([1, max(1, history)])), axis=1)
     contrast = convolve2d(array, filt, mode='same')
 
     if continuous:
