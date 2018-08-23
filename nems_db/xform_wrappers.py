@@ -380,13 +380,13 @@ def load_batch_modelpaths(batch, modelnames, cellids=None, eval_model=True):
 
 
 def quick_inspect(cellid="chn020f-b1", batch=271,
-        modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"):
+                  modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"):
 
-    ctx = load_model_baphy_xform(cellid, batch, modelname, eval=True)
+    xf, ctx = load_model_baphy_xform(cellid, batch, modelname, eval_model=True)
 
     modelspecs = ctx['modelspecs']
     est = ctx['est']
     val = ctx['val']
-    nplt.plot_summary(val, modelspecs)
+    nplt.quickplot(ctx)
 
     return modelspecs, est, val

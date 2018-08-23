@@ -32,16 +32,13 @@ params = {'legend.fontsize': 6,
 plt.rcParams.update(params)
 
 batch = 259
-modelname1 = "env100_dlogf_fir2x15_lvl1_dexp1_basic"
-# modelname1 = "env100_dlog_fir2x15_lvl1_dexp1_basic-shr"
-#modelname2="env100_dlog_stp2_fir2x15_lvl1_dexp1_basic"
-modelname2 = "env100_dlogf_wcc2x3_stp3_fir3x15_lvl1_dexp1_basic"
-# modelname2="env100_dlog_wcc2x3_stp3_fir3x15_lvl1_dexp1_basic-shr"
-#modelname2="env100_dlog_wcc2x2_stp2_fir2x15_lvl1_dexp1_basic"
 
+# shrinkage
 modelname1 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-mt.shr-basic"
 modelname2 = "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-mt.shr-basic"
-
+# regular
+modelname1 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic"
+modelname2 = "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
 
 modelnames = [modelname1, modelname2]
 df = nd.batch_comp(batch, modelnames)
@@ -56,9 +53,10 @@ for index, c in df[m].iterrows():
 plt.close('all')
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
 
-if 0:
+if 1:
     #cellid="por077a-c1"
     cellid = "por074b-d2"
+    cellid = "por020a-c1"
     fh, ctx2 = lplt.compare_model_preds(cellid, batch, modelname1, modelname2);
     #xf1, ctx1 = lplt.get_model_preds(cellid, batch, modelname1)
     #xf2, ctx2 = lplt.get_model_preds(cellid, batch, modelname2)

@@ -18,7 +18,7 @@ import nems.epoch as ep
 import nems_lbhb.plots as lplt
 
 font_size=8
-params = {'legend.fontsize': font_size,
+params = {'legend.fontsize': font_size-2,
           'figure.figsize': (8, 6),
           'axes.labelsize': font_size,
           'axes.titlesize': font_size,
@@ -480,6 +480,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
     #ctx_pb['rec'] = ctx_p0b0['rec'].copy()
     ctx_pb, l = xforms.evaluate(xf_pb, ctx_pb, start=0, stop=-2)
 
+    # organize predictions by different models
     val = ctx_pb['val'][0].copy()
 
     # val['pred_p0b0'] = ctx_p0b0['val'][0]['pred'].copy()
@@ -527,8 +528,8 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
     if state_colors is None:
         state_colors = [[None, None]]*col_count
 
-    fh = plt.figure()
-    ax = plt.subplot(3, 1, 1)
+    fh = plt.figure(figsize=(8,8))
+    ax = plt.subplot(4, 1, 1)
     nplt.state_vars_timeseries(val, ctx_pb['modelspecs'][0],
                                state_colors=[s[1] for s in state_colors])
     ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
@@ -541,7 +542,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
            varlbl = var[5:]
         else:
            varlbl = var
-        ax = plt.subplot(3, col_count, col_count+i+1)
+        ax = plt.subplot(4, col_count, col_count+i+1)
 
         nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
                                        psth_name="resp",
@@ -565,7 +566,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
         ax.xaxis.label.set_visible(False)
         lplt.ax_remove_box(ax)
 
-        ax = plt.subplot(3, col_count, col_count*2+i+1)
+        ax = plt.subplot(4, col_count, col_count*2+i+1)
         nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
                                        psth_name="resp",
                                        psth_name2="pred",
@@ -597,6 +598,79 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
         elif var.startswith('FILE_'):
             ax.legend(('this', 'others'))
         lplt.ax_remove_box(ax)
+
+    # EXTRA PANELS
+    # figure out some basic aspects of tuning/selectivity for target vs.
+    # reference:
+    r = ctx_pb['rec']['resp']
+    e = r.epochs
+    fs = r.fs
+
+    passive_epochs = r.get_epoch_indices("PASSIVE_EXPERIMENT")
+    tar_names = ep.epoch_names_matching(e, "^TAR_")
+    tar_resp={}
+    for tarname in tar_names:
+        t = r.get_epoch_indices(tarname)
+        t = ep.epoch_intersection(t, passive_epochs)
+        tar_resp[tarname] = r.extract_epoch(t) * fs
+
+    # only plot tar responses with max SNR or probe SNR
+    keys=[]
+    for k in list(tar_resp.keys()):
+        if k.endswith('0') | k.endswith('2'):
+            keys.append(k)
+    keys.sort()
+
+    # assume the reference with most reps is the one overlapping the target
+    groups = ep.group_epochs_by_occurrence_counts(e, '^STIM_')
+    l = np.array(list(groups.keys()))
+    hi = np.max(l)
+    ref_name = groups[hi][0]
+    t = r.get_epoch_indices(ref_name)
+    t = ep.epoch_intersection(t, passive_epochs)
+    ref_resp = r.extract_epoch(t) * fs
+
+    t = r.get_epoch_indices('REFERENCE')
+    t = ep.epoch_intersection(t, passive_epochs)
+    all_ref_resp = r.extract_epoch(t) * fs
+
+    prestimsilence = r.get_epoch_indices('PreStimSilence')
+    prebins=prestimsilence[0,1]-prestimsilence[0,0]
+    poststimsilence = r.get_epoch_indices('PostStimSilence')
+    postbins=poststimsilence[0,1]-poststimsilence[0,0]
+    durbins = ref_resp.shape[-1] - prebins
+
+    spont = np.nanmean(all_ref_resp[:,0,:prebins])
+    ref_mean = np.nanmean(ref_resp[:,0,prebins:durbins])-spont
+    all_ref_mean = np.nanmean(all_ref_resp[:,0,prebins:durbins])-spont
+    #print(spont)
+    #print(np.nanmean(ref_resp[:,0,prebins:-postbins]))
+    ax1=plt.subplot(4, 2, 7)
+    ref_psth = [np.nanmean(ref_resp[:, 0, :], axis=0),
+                np.nanmean(all_ref_resp[:, 0, :], axis=0)]
+    ll = ["{} {:.1f}".format(ref_name, ref_mean),
+          "all refs {:.1f}".format(all_ref_mean)]
+    nplt.timeseries_from_vectors(ref_psth, fs=fs, legend=ll, ax=ax1,
+                                 time_offset=prebins/fs)
+
+    ax2=plt.subplot(4, 2, 8)
+    ll = []
+    tar_mean = np.zeros(np.max([2,len(keys)])) * np.nan
+    tar_psth = []
+    for ii, k in enumerate(keys):
+        tar_psth.append(np.nanmean(tar_resp[k][:, 0, :], axis=0))
+        tar_mean[ii] = np.nanmean(tar_resp[k][:, 0, prebins:durbins])-spont
+        ll.append("{} {:.1f}".format(k, tar_mean[ii]))
+    nplt.timeseries_from_vectors(tar_psth, fs=fs, legend=ll, ax=ax2,
+                                 time_offset=prebins/fs)
+    # plt.legend(ll, fontsize=6)
+
+    ymin=np.min([ax1.get_ylim()[0], ax2.get_ylim()[0]])
+    ymax=np.max([ax1.get_ylim()[1], ax2.get_ylim()[1]])
+    ax1.set_ylim([ymin, ymax])
+    ax2.set_ylim([ymin, ymax])
+    lplt.ax_remove_box(ax1)
+    lplt.ax_remove_box(ax2)
 
     plt.tight_layout()
 
@@ -636,7 +710,11 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
                      ctx_p0b0['modelspecs'][0][0]['phi']['d'],
                      ctx_p0b['modelspecs'][0][0]['phi']['d'],
                      ctx_pb0['modelspecs'][0][0]['phi']['d'],
-                     ctx_pb['modelspecs'][0][0]['phi']['d']])
+                     ctx_pb['modelspecs'][0][0]['phi']['d']]),
+             'ref_all_resp': all_ref_mean,
+             'ref_common_resp': ref_mean,
+             'tar_max_resp': tar_mean[0],
+             'tar_probe_resp': tar_mean[1]
         }
 
     return fh, stats

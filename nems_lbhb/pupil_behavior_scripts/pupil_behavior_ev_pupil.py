@@ -356,4 +356,5 @@ ax.spines['top'].set_visible(False)
 
 plt.tight_layout()
 
-f.savefig('/auto/users/svd/docs/current/behavior_v_pupil/PTD_ev_pupil.pdf')
+f.savefig('/auto/users/svd/projects/pupil-behavior/PTD_ev_pupil.pdf')
+f.savefig('/auto/users/svd/projects/pupil-behavior/PTD_ev_pupil.png')
