@@ -3,9 +3,9 @@ import nems_db.baphy as nb
 
 def get_recording_file(cellid, batch, options={}):
 
-    # options["batch"] = batch
-    # options["cellid"] = cellid
-    uri = nb.baphy_data_path(cellid, batch, **options)
+    options["batch"] = batch
+    options["cellid"] = cellid
+    uri = nb.baphy_data_path(**options)
 
     return uri
 

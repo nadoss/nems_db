@@ -25,29 +25,55 @@ from nems.utils import find_module
 
 
 # start main code
-plt.close('all')
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
+save_fig = False
+#if save_fig:
+plt.close('all')
 
 # figure 8
-batch = 274
-#batch = 275
+#batch = 274
+batch = 275
 
-modelnames=["env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c.n-stp.1-fir.1x15-lvl.1-dexp.1_jk.nf5-init.st-mt.shr-basic",
-         "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c.n-stp.1-fir.1x15-lvl.1-dexp.1_jk.nf5-init.st-mt.shr-basic",
-         "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c.n-stp.1-fir.1x15-lvl.1-rep.2-dexp.2-mrg_jk.nf5-init.st-mt.shr-basic",
-         "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c.n-stp.1-fir.1x15-lvl.1-rep.2-dexp.2-mrg_jk.nf5-init.st-mt.shr-basic",
-         "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c.n-stp.1-rep2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-mt.shr-basic",
-         "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c.n-stp.1-rep2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-mt.shr-basic",
-         "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c.n-rep.2-stp.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-mt.shr-basic",
-         "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c.n-rep.2-stp.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-mt.shr-basic"]
-modelnames=["env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-dexp.1_jk.nf5-init.st-basic",
-         "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-dexp.1_jk.nf5-init.st-basic",
-         "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-rep.2-dexp.2-mrg_jk.nf5-init.st-basic",
-         "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-rep.2-dexp.2-mrg_jk.nf5-init.st-basic",
-         "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-stp.1-rep.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic",
-         "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-stp.1-rep.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic",
-         "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-rep.2-stp.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic",
-         "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-rep.2-stp.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic"]
+if 1:
+    # standard nMSE, tol 10e-7
+    modelnames=["env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-dexp.1_jk.nf5-init.st-basic",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-dexp.1_jk.nf5-init.st-basic",
+             "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-rep.2-dexp.2-mrg_jk.nf5-init.st-basic",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-rep.2-dexp.2-mrg_jk.nf5-init.st-basic",
+             "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-stp.1-rep.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-stp.1-rep.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic",
+             "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-rep.2-stp.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-rep.2-stp.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic"]
+elif 0:
+    # nMSE, stop at 10^-6
+    modelnames=["env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-dexp.1_jk.nf5-init.st-basic.t6",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-dexp.1_jk.nf5-init.st-basic.t6",
+             "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-rep.2-dexp.2-mrg_jk.nf5-init.st-basic.t6",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-rep.2-dexp.2-mrg_jk.nf5-init.st-basic.t6",
+             "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-stp.1-rep.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic.t6",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-stp.1-rep.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic.t6",
+             "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-rep.2-stp.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic.t6",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-rep.2-stp.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic.t6"]
+elif 0:
+    # nMSE, stop at 10^-5
+    modelnames=["env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-dexp.1_jk.nf5-init.st-basic.t5",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-dexp.1_jk.nf5-init.st-basic.t5",
+             "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-rep.2-dexp.2-mrg_jk.nf5-init.st-basic.t5",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-stp.1-fir.1x15-lvl.1-rep.2-dexp.2-mrg_jk.nf5-init.st-basic.t5",
+             "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-stp.1-rep.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic.t5",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-stp.1-rep.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic.t5",
+             "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c-rep.2-stp.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic.t5",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c-rep.2-stp.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-basic.t5"]
+else:
+    # shrinkge MSE
+    modelnames=["env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c.n-stp.1-fir.1x15-lvl.1-dexp.1_jk.nf5-init.st-mt.shr-basic",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c.n-stp.1-fir.1x15-lvl.1-dexp.1_jk.nf5-init.st-mt.shr-basic",
+             "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c.n-stp.1-fir.1x15-lvl.1-rep.2-dexp.2-mrg_jk.nf5-init.st-mt.shr-basic",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c.n-stp.1-fir.1x15-lvl.1-rep.2-dexp.2-mrg_jk.nf5-init.st-mt.shr-basic",
+             "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c.n-stp.1-rep2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-mt.shr-basic",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c.n-stp.1-rep2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-mt.shr-basic",
+             "env.fs100-ld-st.beh0-ref_dlog.f-wc.2x1.c.n-rep.2-stp.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-mt.shr-basic",
+             "env.fs100-ld-st.beh-ref_dlog.f-wc.2x1.c.n-rep.2-stp.2-fir.1x15x2-lvl.2-dexp.2-mrg_jk.nf5-init.st-mt.shr-basic"]
 mlabels= ["ind0","ind","NL0","NL","FIR0","FIR","STP0","STP"]
 
 # prediction analysis
@@ -113,7 +139,9 @@ d_amp = nems_db.params.fitted_params_per_batch(batch, modelname_amp,
 u_bounds = np.array([-0.6, 2.1])
 tau_bounds = np.array([-0.1, 1.5])
 str_bounds = np.array([-0.25, 0.55])
-amp_bounds = np.array([-0.1, 2.5])
+#str_bounds = np.array([-0.25, 2])
+#amp_bounds = np.array([-0.1, 2.0])
+amp_bounds = np.array([-0.1, 1.6])
 
 indices = list(d.index)
 
@@ -151,7 +179,7 @@ se_test_mtx = np.zeros(len(u))
 se0_test_mtx = np.zeros(len(u))
 str_mtx = np.zeros_like(u_mtx)
 
-# NOTE that parameter ordering is flipped so that active==0, passive==1
+# NOTE that parameter ordering is flipped so that active==1, passive==0
 
 i = 0
 for cellid in u.index:
@@ -164,20 +192,25 @@ for cellid in u.index:
     t_fir = fir[cellid]
     x = np.mean(t_fir, axis=1) / np.std(t_fir)
 
-    # REVERSE ORDER OF PARAMETERS to (ACTIVE, PASSIVE)
-    xidx=np.array([1,0])
+    # REVERSE ORDER OF PARAMETERS to (PASSIVE, ACTIVE)
+    xidx=np.array([0, 1])
     m_fir[i, :] = x[xidx]
     u_mtx[i, :] = u[cellid][xidx]
     tau_mtx[i, :] = np.abs(tau[cellid][xidx])
     str_mtx[i,:] = nplt.stp_magnitude(tau_mtx[i,:], u_mtx[i,:], fs=100)[0]
 
     # dexp amplitude for passive, active
-    amp_mtx[i, :] = amp[cellid].T[0][xidx]
+    amp_mtx[i, :] = np.absolute(amp[cellid].T[0][xidx])
 
     i += 1
 
+amp_mtx_norm = amp_mtx / amp_mtx[:,[0]] # normalize by passive
+str_mtx_norm = str_mtx / str_mtx[:,[0]] # normalize by passive
+
 # EI_units = (m_fir[:,1]<0)
-good_pred = (r_test_mtx > 0.08)
+#good_pred = (r_test_mtx > se_test_mtx*3) | \
+#            (r0_test_mtx > se0_test_mtx*3)
+good_pred = (r_test_mtx > se_test_mtx*2)
 mod_units = (r_test_mtx-se_test_mtx) >(r0_test_mtx+se0_test_mtx)
 non_suppressed_units=((amp_mtx[:,0]/10 < amp_mtx[:,1]) &
                       (amp_mtx[:,1]/10 < amp_mtx[:,0]) &
@@ -194,21 +227,25 @@ umean = np.median(u_mtx[show_units], axis=0)
 uerr = np.std(u_mtx[show_units], axis=0) / np.sqrt(np.sum(show_units))
 taumean = np.median(tau_mtx, axis=0)
 tauerr = np.std(tau_mtx, axis=0) / np.sqrt(str_mtx.shape[0])
-strmean = np.median(str_mtx, axis=0)
-strerr = np.std(str_mtx, axis=0) / np.sqrt(str_mtx.shape[0])
+strmean = np.median(str_mtx[show_units], axis=0)
+strerr = np.std(str_mtx[show_units], axis=0) / np.sqrt(np.sum(show_units))
+str_norm_mean = np.median(str_mtx_norm[show_units], axis=0)
+str_norm_err = np.std(str_mtx_norm[show_units], axis=0) / np.sqrt(np.sum(show_units))
 ampmean = np.median(amp_mtx[show_units], axis=0)
 amperr = np.std(amp_mtx[show_units], axis=0) / np.sqrt(np.sum(show_units))
+amp_norm_mean = np.median(amp_mtx_norm[show_units], axis=0)
+amp_norm_err = np.std(amp_mtx_norm[show_units], axis=0) / np.sqrt(np.sum(show_units))
 
 # see note about reversed ordering above
-xstr = 'active'
-ystr = 'passive'
+xstr = 'passive'
+ystr = 'active'
 
 fh3 = plt.figure(figsize=(8, 5))
 
 dotcolor = 'black'
 dotcolor_ns = 'lightgray'
 thinlinecolor = 'gray'
-barcolors = [(235/255, 47/255, 40/255), (115/255, 200/255, 239/255)]
+barcolors = [(115/255, 200/255, 239/255), (235/255, 47/255, 40/255)]
 barwidth = 0.5
 
 ax = plt.subplot(2, 3, 1)
@@ -229,7 +266,7 @@ plt.bar(np.arange(2), ampmean, color=barcolors, width=barwidth)
 plt.errorbar(np.arange(2), ampmean, yerr=amperr, color='black', linewidth=2)
 plt.plot(amp_mtx[show_units].T, linewidth=0.5, color=thinlinecolor)
 
-w, p = ss.wilcoxon(amp_mtx[show_units, 0], amp_mtx[show_units, 1])
+w, p = ss.wilcoxon(amp_mtx_norm[show_units, 0], amp_mtx_norm[show_units, 1])
 plt.ylim(amp_bounds)
 plt.ylabel('STRF gain')
 plt.xlabel('{} {:.3f} - {} {:.3f} - rat {:.3f} - p<{:.5f}'.format(
@@ -269,7 +306,7 @@ plt.bar(np.arange(2), strmean, color=barcolors, width=barwidth)
 plt.errorbar(np.arange(2), strmean, yerr=strerr, color='black', linewidth=2)
 plt.plot(str_mtx[show_units].T, linewidth=0.5, color=thinlinecolor)
 
-w, p = ss.wilcoxon(str_mtx[show_units, 0], str_mtx[show_units, 1])
+w, p = ss.wilcoxon(str_mtx_norm[show_units, 0], str_mtx_norm[show_units, 1])
 plt.ylim(str_bounds)
 plt.ylabel('STP str')
 plt.xlabel('{} {:.3f} - {} {:.3f} - rat {:.3f} - p<{:.5f}'.format(
@@ -292,6 +329,7 @@ lplt.ax_remove_box(ax)
 plt.tight_layout()
 
 batchstr = str(batch)
-fh1.savefig(outpath + "fig8.beh_pred_scatter_batch"+batchstr+".pdf")
-fh2.savefig(outpath + "fig8.beh_pred_sum_bar_batch"+batchstr+".pdf")
-fh3.savefig(outpath + "fig8.beh_stp_parms_batch"+batchstr+"_"+modelname+".pdf")
+if save_fig:
+    fh1.savefig(outpath + "fig8.beh_pred_scatter_batch"+batchstr+".pdf")
+    fh2.savefig(outpath + "fig8.beh_pred_sum_bar_batch"+batchstr+".pdf")
+    fh3.savefig(outpath + "fig8.beh_stp_parms_batch"+batchstr+"_"+modelname+".pdf")
