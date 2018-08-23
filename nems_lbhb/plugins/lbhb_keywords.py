@@ -34,35 +34,34 @@ def ctfir(kw):
     n_banks = parsed.group(3)  # None if not given in keyword string
     if n_banks is None:
         n_banks = 1
-
-    if n_banks is None:
-        p_coefficients = {
-            'mean': np.zeros((n_outputs, n_coefs)),
-            'sd': np.ones((n_outputs, n_coefs)),
-        }
     else:
         n_banks = int(n_banks)
-        p_coefficients = {
-            'mean': np.zeros((n_outputs * n_banks, n_coefs)),
-            'sd': np.ones((n_outputs * n_banks, n_coefs)),
-        }
+
+    p_coefficients = {
+        'mean': np.zeros((n_outputs * n_banks, n_coefs)),
+        'sd': np.ones((n_outputs * n_banks, n_coefs)),
+    }
 
     if n_coefs > 2:
         # p_coefficients['mean'][:, 1] = 1
         # p_coefficients['mean'][:, 2] = -0.5
         p_coefficients['mean'][:, 1] = 1
-        pass
     else:
         p_coefficients['mean'][:, 0] = 1
 
-    #p_coefficients = {'beta': np.full((n_outputs * n_banks, n_coefs), 0.1)}
-#            'prior': {'coefficients': ('Exponential', p_coefficients)},
     template = {
             'fn': 'nems.modules.fir.filter_bank',
             'fn_kwargs': {'i': 'ctpred', 'o': 'ctpred', 'bank_count': n_banks},
             'prior': {
                 'coefficients': ('Normal', p_coefficients)},
             }
+
+#    p_coefficients = {'beta': np.full((n_outputs * n_banks, n_coefs), 0.1)}
+#    template = {
+#            'fn': 'nems.modules.fir.filter_bank',
+#            'fn_kwargs': {'i': 'ctpred', 'o': 'ctpred', 'bank_count': n_banks},
+#            'prior': {'coefficients': ('Exponential', p_coefficients)},
+#            }
 
     return template
 
@@ -84,11 +83,27 @@ def dsig(kw):
     '''
     ops = kw.split('.')[1:]
     eq = 'logsig'
+    amp = False
+    base = False
+    kappa = False
+    shift = False
     for op in ops:
         if op in ['logsig', 'l']:
             eq = 'logsig'
         elif op in ['dexp', 'd']:
             eq = 'dexp'
+        elif op == 'a':
+            amp = True
+        elif op == 'b':
+            base = True
+        elif op == 'k':
+            kappa = True
+        elif op == 's':
+            shift = True
+
+    # Use all by default. Use none not an option (would just be static version)
+    if (not amp) and (not base) and (not kappa) and (not shift):
+        amp = True; base = True; kappa = True; shift = True
 
     template = {
         'fn': 'nems_lbhb.contrast_helpers.dynamic_sigmoid',
@@ -99,12 +114,34 @@ def dsig(kw):
         'prior': {'base': ('Exponential', {'beta': [0.1]}),
                   'amplitude': ('Exponential', {'beta': [2.0]}),
                   'shift': ('Normal', {'mean': [1.0], 'sd': [1.0]}),
-                  'kappa': ('Exponential', {'beta': [0.5]}),
-                  'base_mod': ('Exponential', {'beta': [0.1]}),
-                  'amplitude_mod': ('Exponential', {'beta': [2.0]}),
-                  'shift_mod': ('Normal', {'mean': [1.0], 'sd': [1.0]}),
-                  'kappa_mod': ('Exponential', {'beta': [0.5]})}
+                  'kappa': ('Exponential', {'beta': [0.5]})}
+#                  'base_mod': ('Exponential', {'beta': [0.1]}),
+#                  'amplitude_mod': ('Exponential', {'beta': [2.0]}),
+#                  'shift_mod': ('Normal', {'mean': [1.0], 'sd': [1.0]}),
+#                  'kappa_mod': ('Exponential', {'beta': [0.5]})}
         }
+
+    zero_norm = ('Normal', {'mean': [0.0], 'sd': [1.0]})
+
+    if amp:
+        template['prior']['amplitude_mod'] = zero_norm
+    else:
+        template['fn_kwargs']['amplitude_mod'] = 0
+
+    if base:
+        template['prior']['base_mod'] = zero_norm
+    else:
+        template['fn_kwargs']['base_mod'] = 0
+
+    if kappa:
+        template['prior']['kappa_mod'] = zero_norm
+    else:
+        template['fn_kwargs']['kappa_mod'] = 0
+
+    if shift:
+        template['prior']['shift_mod'] = zero_norm
+    else:
+        template['fn_kwargs']['shift_mod'] = 0
 
     return template
 

@@ -131,10 +131,15 @@ def contrast(loadkey):
         elif op.startswith('pcnt'):
             percentile = int(op[4:])
             kwargs['percentile'] = percentile
+        elif op == 'kz':
+            # "keep zeros when calculating percentile cutoff"
+            kwargs['ignore_zeros'] = False
         elif op == 'n':
             kwargs['normalize'] = True
         elif op == 'dlog':
             kwargs['dlog'] = True
+        elif op == 'cont':
+            kwargs['continuous'] = True
 
     return [['nems_lbhb.contrast_helpers.add_contrast', kwargs]]
 
@@ -144,8 +149,8 @@ def hrc(load_key, recording_uri):
     Mask only data during stimuli that were repeated 10 or greater times.
     hrc = high rep count
     """
-    # preprocessing is in Charlie's auto users
-    xfspec = [['preprocessing.mask_high_repetion_stims',
+    # c_preprocessing is in Charlie's auto users directory
+    xfspec = [['c_preprocessing.mask_high_repetion_stims',
                {'epoch_regex':'^STIM_'}, ['rec'], ['rec']]]
 
     return xfspec

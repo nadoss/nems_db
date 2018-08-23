@@ -227,6 +227,18 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
     return zip(queueids, messages)
 
 
+def enqueue_single_model(cellid, batch, modelname, user=None,
+                         force_rerun=False, codeHash="master", jerbQuery='',
+                         executable_path=None, script_path=None):
+
+    zipped = enqueue_models([cellid], batch, [modelname], force_rerun,
+                            user, codeHash, jerbQuery, executable_path,
+                            script_path)
+
+    queueid, message = next(zipped)
+    return queueid, message
+
+
 def _add_model_to_queue(commandPrompt, note, user, codeHash, jerbQuery,
                         priority=1, rundataid=0):
     """
