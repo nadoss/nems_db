@@ -404,7 +404,7 @@ def model_pred_comp(cellid, batch, modelnames, occurrence=0,
             # Get values from specified occurrence and channel
             extracted = val['resp'].extract_epoch(epoch)
             r_vector = extracted[occurrence][c]
-            r_vector = nems.utils.smooth(r_vector, window_len=5)[2:-2]
+            r_vector = nems.utils.smooth(r_vector, window_len=7)[3:-3]
 
             r_all = val['resp'].as_continuous()
 
@@ -418,7 +418,7 @@ def model_pred_comp(cellid, batch, modelnames, occurrence=0,
                 good_bins[time_vector > dur] = False
 
         extracted = val['pred'].extract_epoch(epoch)
-        p_vector = extracted[occurrence][c]
+        p_vector = extracted[occurrence][c] + i + 1
         p_all = val['pred'].as_continuous()
         p_all = p_all[0,np.isfinite(r_all[0,:])]
 
