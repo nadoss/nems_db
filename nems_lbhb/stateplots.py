@@ -70,7 +70,7 @@ fill_colors = {'actual_psth': (.8,.8,.8),
 
 def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
               hist_range=[-1, 1], title=None,
-              highlight=None, ax=None):
+              highlight=None, ax=None, click_fun=None):
     """
     beta1, beta2 are T x 1 vectors
     scatter plot comparing beta1 vs. beta2
@@ -117,6 +117,8 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
         exit_after_scatter=False
     else:
         plt.sca(ax)
+
+        fh = plt.gcf()
         exit_after_scatter=True
 
     #plt.plot(np.array(hist_range), np.array([0, 0]), 'k--')
@@ -127,7 +129,7 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     plt.plot(np.array(hist_range), np.array(hist_range), 'k--')
     plt.plot(beta1[outcells], beta2[outcells], '.', color='red')
     plt.plot(beta1[set2], beta2[set2], '.', color='lightgray')
-    plt.plot(beta1[set1], beta2[set1], 'k.')
+    plt.plot(beta1[set1], beta2[set1], 'k.', picker=5)
     plt.axis('equal')
     plt.ylim(hist_range)
     plt.xlim(hist_range)
@@ -137,6 +139,14 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     plt.ylabel("{} (m={:.3f})".format(n2, np.mean(beta2[goodcells])))
     plt.title(title)
     lplt.ax_remove_box(ax)
+
+    if click_fun is not None:
+        def display_wrapper(event):
+            i = int(event.ind[0])
+            click_fun(i)
+
+        fh.canvas.mpl_connect('pick_event', display_wrapper)
+
 
     if exit_after_scatter:
         return plt.gcf()

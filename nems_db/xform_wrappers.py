@@ -375,6 +375,122 @@ def load_model_baphy_xform(cellid, batch=271,
         return xforms.load_analysis(filepath, eval_model=eval_model)
 
 
+def model_pred_comp(cellid, batch, modelnames, occurrence=0,
+                    pre_dur=None, dur=None):
+
+    modelcount = len(modelnames)
+    epoch = 'REFERENCE'
+    c = 0
+
+    legend = ['1','2','3','act']
+    times = []
+    values = []
+    values_all = []
+    r_test = []
+    for i, m in enumerate(modelnames):
+        xf, ctx = load_model_baphy_xform(cellid, batch, m)
+
+        val = ctx['val'][0]
+
+        if i==0:
+            d = val['resp'].get_epoch_bounds('PreStimSilence')
+            if len(d):
+                PreStimSilence = np.mean(np.diff(d))
+            else:
+                PreStimSilence = 0
+            if pre_dur is None:
+                pre_dur = PreStimSilence
+
+            # Get values from specified occurrence and channel
+            extracted = val['resp'].extract_epoch(epoch)
+            r_vector = extracted[occurrence][c]
+            r_vector = nems.utils.smooth(r_vector, window_len=5)[2:-2]
+
+            r_all = val['resp'].as_continuous()
+
+            # Convert bins to time (relative to start of epoch)
+            # TODO: want this to be absolute time relative to start of data?
+            time_vector = np.arange(0, len(r_vector)) / val['resp'].fs - PreStimSilence
+
+            # limit time range if specified
+            good_bins = (time_vector >= -pre_dur)
+            if dur is not None:
+                good_bins[time_vector > dur] = False
+
+        extracted = val['pred'].extract_epoch(epoch)
+        p_vector = extracted[occurrence][c]
+        p_all = val['pred'].as_continuous()
+        p_all = p_all[0,np.isfinite(r_all[0,:])]
+
+        times.append(time_vector[good_bins])
+        values.append(p_vector[good_bins])
+        values_all.append(p_all)
+
+        r_test.append(ctx['modelspecs'][0][0]['meta']['r_test'][0])
+
+    times.append(time_vector[good_bins])
+    values.append(r_vector[good_bins])
+    values_all.append(r_all[0,np.isfinite(r_all[0,:])])
+
+    cc12 = np.corrcoef(values_all[0], values_all[1])[0, 1]
+    cc13 = np.corrcoef(values_all[0], values_all[2])[0, 1]
+    cc23 = np.corrcoef(values_all[1], values_all[2])[0, 1]
+
+    ccd12 = np.corrcoef(values_all[0]-values_all[3],
+                        values_all[1]-values_all[3])[0, 1]
+    ccd13 = np.corrcoef(values_all[0]-values_all[3],
+                        values_all[2]-values_all[3])[0, 1]
+    ccd23 = np.corrcoef(values_all[1]-values_all[3],
+                        values_all[2]-values_all[3])[0, 1]
+
+    print("CC LN-GC: {:.3f}  LN-STP: {:.3f} STP-GC: {:.3f}".format(
+            cc12,cc13,cc23))
+    print("CCd LN-GC: {:.3f}  LN-STP: {:.3f} STP-GC: {:.3f}".format(
+            ccd12,ccd13,ccd23))
+
+    plt.figure()
+    ax = plt.subplot(2, 1, 1)
+    extracted = val['stim'].extract_epoch(epoch)
+    sg = extracted[occurrence]
+    nplt.plot_spectrogram(sg, val['resp'].fs, ax=ax,
+                          title='{} Stim {}'.format(cellid, occurrence),
+                          time_offset=PreStimSilence)
+
+    ax = plt.subplot(2, 1, 2)
+    title = 'Preds LN {:.3f} GC {:.3f} STP {:.3f} /CC LN-GC: {:.3f}  LN-STP: {:.3f} STP-GC: {:.3f}'.format(
+            r_test[0],r_test[1],r_test[2],cc12,cc13,cc23)
+    nplt.plot_timeseries(times, values, ax=ax, legend=legend, title=title)
+
+    plt.tight_layout()
+"""
+
+    legend = [s.name for s in signals]
+    times = []
+    values = []
+    for s, o, c in zip(signals, occurrences, channels):
+        # Get occurrences x chans x time
+        extracted = s.extract_epoch(epoch)
+        # Get values from specified occurrence and channel
+        value_vector = extracted[o][c]
+        # Convert bins to time (relative to start of epoch)
+        # TODO: want this to be absolute time relative to start of data?
+        time_vector = np.arange(0, len(value_vector)) / s.fs - PreStimSilence
+
+        # limit time range if specified
+        good_bins = (time_vector >= -PreStimSilence)
+        if dur is not None:
+            good_bins[time_vector > dur] = False
+
+        times.append(time_vector[good_bins])
+        values.append(value_vector[good_bins])
+
+    plot_timeseries(times, values, xlabel, ylabel, legend=legend,
+                    linestyle=linestyle, linewidth=linewidth,
+                    ax=ax, title=title)
+"""
+
+
+
 def load_batch_modelpaths(batch, modelnames, cellids=None, eval_model=True):
     d = nd.get_results_file(batch, [modelnames], cellids=cellids)
     return d['modelpath'].tolist()
