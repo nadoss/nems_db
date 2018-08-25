@@ -377,15 +377,19 @@ def load_model_baphy_xform(cellid, batch=271,
 
 def model_pred_comp(cellid, batch, modelnames, occurrence=0,
                     pre_dur=None, dur=None):
+    """
+    return ccd12, ccd13, ccd23
+    """
 
     modelcount = len(modelnames)
     epoch = 'REFERENCE'
     c = 0
 
-    legend = ['1','2','3','act']
+    legend = ['LN','GC','STP','act']
     times = []
     values = []
     values_all = []
+    times_all = []
     r_test = []
     for i, m in enumerate(modelnames):
         xf, ctx = load_model_baphy_xform(cellid, batch, m)
@@ -411,6 +415,7 @@ def model_pred_comp(cellid, batch, modelnames, occurrence=0,
             # Convert bins to time (relative to start of epoch)
             # TODO: want this to be absolute time relative to start of data?
             time_vector = np.arange(0, len(r_vector)) / val['resp'].fs - PreStimSilence
+            time_all_vector = np.arange(0, np.sum(np.isfinite(r_all[0,:]))) / val['resp'].fs - PreStimSilence
 
             # limit time range if specified
             good_bins = (time_vector >= -pre_dur)
@@ -420,33 +425,39 @@ def model_pred_comp(cellid, batch, modelnames, occurrence=0,
         extracted = val['pred'].extract_epoch(epoch)
         p_vector = extracted[occurrence][c] + i + 1
         p_all = val['pred'].as_continuous()
-        p_all = p_all[0,np.isfinite(r_all[0,:])]
+        p_all = p_all[0,np.isfinite(r_all[0,:])] + i + 1
 
         times.append(time_vector[good_bins])
         values.append(p_vector[good_bins])
         values_all.append(p_all)
+        times_all.append(time_all_vector)
 
         r_test.append(ctx['modelspecs'][0][0]['meta']['r_test'][0])
 
     times.append(time_vector[good_bins])
     values.append(r_vector[good_bins])
-    values_all.append(r_all[0,np.isfinite(r_all[0,:])])
+    ra=nems.utils.smooth(r_all[0,np.isfinite(r_all[0,:])], 7)
+    ra=ra[3:-3]
+    values_all.append(ra)
+    times_all.append(time_all_vector)
 
     cc12 = np.corrcoef(values_all[0], values_all[1])[0, 1]
     cc13 = np.corrcoef(values_all[0], values_all[2])[0, 1]
     cc23 = np.corrcoef(values_all[1], values_all[2])[0, 1]
+    ccd23 = np.corrcoef(values_all[1]-values_all[0],
+                        values_all[2]-values_all[0])[0, 1]
 
-    ccd12 = np.corrcoef(values_all[0]-values_all[3],
-                        values_all[1]-values_all[3])[0, 1]
-    ccd13 = np.corrcoef(values_all[0]-values_all[3],
-                        values_all[2]-values_all[3])[0, 1]
-    ccd23 = np.corrcoef(values_all[1]-values_all[3],
-                        values_all[2]-values_all[3])[0, 1]
+#    ccd12 = np.corrcoef(values_all[0]-values_all[3],
+#                        values_all[1]-values_all[3])[0, 1]
+#    ccd13 = np.corrcoef(values_all[0]-values_all[3],
+#                        values_all[2]-values_all[3])[0, 1]
+#    ccd23 = np.corrcoef(values_all[1]-values_all[3],
+#                        values_all[2]-values_all[3])[0, 1]
 
     print("CC LN-GC: {:.3f}  LN-STP: {:.3f} STP-GC: {:.3f}".format(
             cc12,cc13,cc23))
-    print("CCd LN-GC: {:.3f}  LN-STP: {:.3f} STP-GC: {:.3f}".format(
-            ccd12,ccd13,ccd23))
+#    print("CCd LN-GC: {:.3f}  LN-STP: {:.3f} STP-GC: {:.3f}".format(
+#            ccd12,ccd13,ccd23))
 
     plt.figure()
     ax = plt.subplot(2, 1, 1)
@@ -457,38 +468,13 @@ def model_pred_comp(cellid, batch, modelnames, occurrence=0,
                           time_offset=PreStimSilence)
 
     ax = plt.subplot(2, 1, 2)
-    title = 'Preds LN {:.3f} GC {:.3f} STP {:.3f} /CC LN-GC: {:.3f}  LN-STP: {:.3f} STP-GC: {:.3f}'.format(
-            r_test[0],r_test[1],r_test[2],cc12,cc13,cc23)
-    nplt.plot_timeseries(times, values, ax=ax, legend=legend, title=title)
+    title = 'Preds LN {:.3f} GC {:.3f} STP {:.3f} /CC LN-GC: {:.3f}  LN-STP: {:.3f} STP-GC: {:.3f} dSTP-dGC: {:.3f}'.format(
+            r_test[0],r_test[1],r_test[2],cc12,cc13,cc23,ccd23)
+    nplt.plot_timeseries(times_all, values_all, ax=ax, legend=legend, title=title)
 
     plt.tight_layout()
-"""
 
-    legend = [s.name for s in signals]
-    times = []
-    values = []
-    for s, o, c in zip(signals, occurrences, channels):
-        # Get occurrences x chans x time
-        extracted = s.extract_epoch(epoch)
-        # Get values from specified occurrence and channel
-        value_vector = extracted[o][c]
-        # Convert bins to time (relative to start of epoch)
-        # TODO: want this to be absolute time relative to start of data?
-        time_vector = np.arange(0, len(value_vector)) / s.fs - PreStimSilence
-
-        # limit time range if specified
-        good_bins = (time_vector >= -PreStimSilence)
-        if dur is not None:
-            good_bins[time_vector > dur] = False
-
-        times.append(time_vector[good_bins])
-        values.append(value_vector[good_bins])
-
-    plot_timeseries(times, values, xlabel, ylabel, legend=legend,
-                    linestyle=linestyle, linewidth=linewidth,
-                    ax=ax, title=title)
-"""
-
+    return cc12, cc13, cc23, ccd23
 
 
 def load_batch_modelpaths(batch, modelnames, cellids=None, eval_model=True):
