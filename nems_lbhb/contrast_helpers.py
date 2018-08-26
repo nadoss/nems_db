@@ -69,6 +69,7 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
                  "contrast calculation.")
         fn = lambda x: _dlog(x, -1)
         source_signal = source_signal.transform(fn)
+        rec[source_name] = source_signal
 
     array = source_signal.as_continuous().copy()
 
@@ -183,8 +184,6 @@ def init_dsig(rec, modelspec):
     Initialization of priors for logistic_sigmoid,
     based on process described in methods of Rabinowitz et al. 2014.
     '''
-    # Shouldn't need to do this since calling function already copies
-    # modelspec = copy.deepcopy(modelspec)
 
     dsig_idx = find_module('dynamic_sigmoid', modelspec)
     if dsig_idx is None:
