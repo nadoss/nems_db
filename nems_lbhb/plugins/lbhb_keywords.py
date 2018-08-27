@@ -87,6 +87,8 @@ def dsig(kw):
     base = False
     kappa = False
     shift = False
+    c = 'ctpred'
+
     for op in ops:
         if op in ['logsig', 'l']:
             eq = 'logsig'
@@ -100,6 +102,8 @@ def dsig(kw):
             kappa = True
         elif op == 's':
             shift = True
+        elif op.startswith('C'):
+            c = op[1:]
 
     # Use all by default. Use none not an option (would just be static version)
     if (not amp) and (not base) and (not kappa) and (not shift):
@@ -109,7 +113,7 @@ def dsig(kw):
         'fn': 'nems_lbhb.contrast_helpers.dynamic_sigmoid',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
-                      'c': 'ctpred',
+                      'c': c,
                       'eq': eq},
         'prior': {'base': ('Exponential', {'beta': [0.1]}),
                   'amplitude': ('Exponential', {'beta': [2.0]}),

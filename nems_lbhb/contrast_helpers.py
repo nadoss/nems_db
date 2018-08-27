@@ -69,6 +69,7 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
                  "contrast calculation.")
         fn = lambda x: _dlog(x, -1)
         source_signal = source_signal.transform(fn)
+        rec[source_name] = source_signal
 
     array = source_signal.as_continuous().copy()
 
@@ -183,8 +184,6 @@ def init_dsig(rec, modelspec):
     Initialization of priors for logistic_sigmoid,
     based on process described in methods of Rabinowitz et al. 2014.
     '''
-    # Shouldn't need to do this since calling function already copies
-    # modelspec = copy.deepcopy(modelspec)
 
     dsig_idx = find_module('dynamic_sigmoid', modelspec)
     if dsig_idx is None:
@@ -505,6 +504,16 @@ def _prefit_contrast_modules(rec, modelspec, analysis_function,
         m['phi'] = {}
         tmodelspec[i] = m
 
+    # Also only prefit the static nonlinearity parameters
+    dynamic_phi = {'amplitude_mod': False, 'base_mod': False,
+                   'kappa_mod': False, 'shift_mod': False}
+    dsig_idx = fit_idx[-1]
+    for p in dynamic_phi:
+        v = modelspec[dsig_idx]['prior'].pop(p, False)
+        if v:
+            modelspec[dsig_idx]['fn_kwargs'][p] = 0
+            dynamic_phi[p] = v
+
     # fit the subset of modules
     if metric is None:
         tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
@@ -516,5 +525,13 @@ def _prefit_contrast_modules(rec, modelspec, analysis_function,
     # reassemble the full modelspec with updated phi values from tmodelspec
     for i in fit_idx:
         modelspec[i] = tmodelspec[i]
+
+    # reset dynamic sigmoid parameters if they were frozen
+    for p, v in dynamic_phi.items():
+        if v:
+            prior = priors._tuples_to_distributions({p: v})[p]
+            modelspec[dsig_idx]['fn_kwargs'].pop(p, None)
+            modelspec[dsig_idx]['prior'][p] = v
+            modelspec[dsig_idx]['phi'][p] = prior.mean()
 
     return modelspec
