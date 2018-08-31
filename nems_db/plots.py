@@ -467,6 +467,19 @@ class Bar(PlotGenerator):
         #in the create_hover function
 
         modelnames = self.data.index.levels[0].tolist()
+
+        # Bokeh gets unhappy if modelnames are too long for this one.
+        # Not an ideal solution but avoids errors for now.
+        length_flag = False
+        for m in modelnames:
+            if len(m) >= 70:
+                length_flag = True
+        if length_flag:
+            shortened_modelnames = [m[:67]+'...' for m in modelnames]
+            self.data = self.data.rename(index=dict(zip(modelnames,
+                                                        shortened_modelnames)))
+            modelnames = shortened_modelnames
+
         stdev_col = pd.Series(index=modelnames)
         mean_col = pd.Series(index=modelnames)
         median_col = pd.Series(index=modelnames)
@@ -506,6 +519,7 @@ class Bar(PlotGenerator):
                 PanTool(), SaveTool(), WheelZoomTool(),
                 ResetTool(), self.create_hover()
                 ]
+
         xrange = FactorRange(factors=modelnames)
         yrange = Range1d(
                 start=0,

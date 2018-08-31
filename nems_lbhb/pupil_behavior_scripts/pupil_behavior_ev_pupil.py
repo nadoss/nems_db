@@ -28,7 +28,7 @@ import nems_lbhb.stateplots as sp
 
 
 def ev_pupil(cellid, batch, presilence=0.35):
-    modelname = "psth20pupbeh_stategain3_cd-nf-shr"
+    modelname = "psth.fs20-st.pup.beh_stategain.3_init.st-basic"
 
     print('Finding recording for cell/batch {0}/{1}...'.format(cellid, batch))
 
@@ -356,4 +356,5 @@ ax.spines['top'].set_visible(False)
 
 plt.tight_layout()
 
-f.savefig('/auto/users/svd/docs/current/behavior_v_pupil/PTD_ev_pupil.pdf')
+f.savefig('/auto/users/svd/projects/pupil-behavior/PTD_ev_pupil.pdf')
+f.savefig('/auto/users/svd/projects/pupil-behavior/PTD_ev_pupil.png')

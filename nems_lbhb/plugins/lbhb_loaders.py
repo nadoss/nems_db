@@ -298,6 +298,21 @@ def _state_model_loadkey_helper(loader):
     return state_signals, permute_signals, epoch2_shuffle
 
 
+def ldb(loadkey, recording_uri, cellid):
+    """
+    Load baphy recording.
+    Essentially the same as ld (nems default loader) but has the option to load
+    multiple cellids. In order to load more than one cellid, the recording_uri
+    must point to a cached recording containing both cells (or the whole site).
+    Cellid can be list of cellid, single cellid, or simply a site.
+    """
+    recordings = [recording_uri]
+
+    xfspec = [['nems_db.baphy.load_recordings',
+               {'recording_uri_list': recordings, 'cellid': cellid}]]
+
+    return xfspec
+
 def _aliased_loader(fn, loadkey):
     '''Forces the keyword fn to use the given loadkey. Used for implementing
     backwards compatibility with old keywords that did not follow the

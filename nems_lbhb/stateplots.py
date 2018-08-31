@@ -18,7 +18,7 @@ import nems.epoch as ep
 import nems_lbhb.plots as lplt
 
 font_size=8
-params = {'legend.fontsize': font_size,
+params = {'legend.fontsize': font_size-2,
           'figure.figsize': (8, 6),
           'axes.labelsize': font_size,
           'axes.titlesize': font_size,
@@ -70,7 +70,7 @@ fill_colors = {'actual_psth': (.8,.8,.8),
 
 def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
               hist_range=[-1, 1], title=None,
-              highlight=None):
+              highlight=None, ax=None, click_fun=None):
     """
     beta1, beta2 are T x 1 vectors
     scatter plot comparing beta1 vs. beta2
@@ -88,8 +88,10 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
         highlight = highlight[nncells]
 
     if title is None:
-        title="n={}/{}".format(np.sum(highlight),len(highlight))
-
+        if highlight is not None:
+            title="n={}/{}".format(np.sum(highlight),len(highlight))
+        else:
+            title="{} v {}".format(n1,n2)
     # exclude cells without prepassive
     outcells = ((beta1 > hist_range[1]) | (beta1 < hist_range[0]) |
                 (beta2 > hist_range[1]) | (beta2 < hist_range[0]))
@@ -108,24 +110,46 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
         set1 = np.logical_and(goodcells, (highlight))
         set2 = np.logical_and(goodcells, (1-highlight))
 
-    fh = plt.figure(figsize=(8, 6))
+    if ax is None:
+        fh = plt.figure(figsize=(8, 6))
 
-    ax = plt.subplot(2, 2, 3)
-    plt.plot(np.array(hist_range), np.array([0, 0]), 'k--')
-    plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
+        ax = plt.subplot(2, 2, 3)
+        exit_after_scatter=False
+    else:
+        plt.sca(ax)
+
+        fh = plt.gcf()
+        exit_after_scatter=True
+
+    #plt.plot(np.array(hist_range), np.array([0, 0]), 'k--')
+    #plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
+    plt.axvline(0, color='k', linestyle='--')
+    plt.axhline(0, color='k', linestyle='--')
+
     plt.plot(np.array(hist_range), np.array(hist_range), 'k--')
     plt.plot(beta1[outcells], beta2[outcells], '.', color='red')
     plt.plot(beta1[set2], beta2[set2], '.', color='lightgray')
-    plt.plot(beta1[set1], beta2[set1], 'k.')
+    plt.plot(beta1[set1], beta2[set1], 'k.', picker=5)
     plt.axis('equal')
     plt.ylim(hist_range)
     plt.xlim(hist_range)
     #plt.axis('tight')
 
-    plt.xlabel(n1)
-    plt.ylabel(n2)
+    plt.xlabel("{} (m={:.3f})".format(n1, np.mean(beta1[goodcells])))
+    plt.ylabel("{} (m={:.3f})".format(n2, np.mean(beta2[goodcells])))
     plt.title(title)
     lplt.ax_remove_box(ax)
+
+    if click_fun is not None:
+        def display_wrapper(event):
+            i = int(event.ind[0])
+            click_fun(i)
+
+        fh.canvas.mpl_connect('pick_event', display_wrapper)
+
+
+    if exit_after_scatter:
+        return plt.gcf()
 
     ax = plt.subplot(2, 2, 1)
     plt.hist([beta1[set1], beta1[set2]], bins=hist_bins, range=hist_range,
@@ -154,7 +178,8 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
 #             histtype='bar', stacked=True,
 #             color=['black','lightgray'])
 
-    d=np.sort(np.sign(beta1[goodcells])*(beta2[goodcells]-beta1[goodcells]))
+    # d = np.sort(np.sign(beta1[goodcells])*(beta2[goodcells]-beta1[goodcells]))
+    d = np.sort(beta2[goodcells] - beta1[goodcells])
     plt.bar(np.arange(np.sum(goodcells)), d,
             color='black')
     plt.title('mean={:.3f} abs={:.3f}'.
@@ -189,12 +214,15 @@ def display_png(event, cellids, path):
 def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
                           n1='model1', n2='model2', hist_bins=20,
                           hist_range=[-1, 1], title='modelname/batch',
-                          folder=None):
+                          folder=None, highlight=None):
 
     if folder is None:
         raise ValueError('Must specify the results folder!')
     elif folder[-1] == '/':
         folder = folder[:-1]
+
+    if highlight is not None:
+        highlight = np.array(highlight)
 
     results = pd.read_csv(folder+'/results.csv')
     cellids = results['cellid'].values
@@ -216,7 +244,14 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
     beta2[beta2 > hist_range[1]] = hist_range[1]
     beta2[beta2 < hist_range[0]] = hist_range[0]
 
-    set1 = goodcells
+    if highlight is None:
+        set1 = goodcells.astype(bool)
+        set2 = (1-goodcells).astype(bool)
+    else:
+        highlight = np.array(highlight)
+        set1 = np.logical_and(goodcells, (highlight))
+        set2 = np.logical_and(goodcells, (1-highlight))
+
 
     fh = plt.figure(figsize=(6, 6))
 
@@ -225,6 +260,7 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
     plt.plot(np.array([0, 0]), np.array(hist_range), 'k--')
     plt.plot(np.array(hist_range), np.array(hist_range), 'k--')
     plt.plot(beta1[set1], beta2[set1], 'k.', picker=3)
+    plt.plot(beta1[set2], beta2[set2], '.', color='lightgray', picker=3)
     plt.plot(beta1[outcells], beta2[outcells], '.', color='red')
     plt.axis('equal')
     plt.axis('tight')
@@ -233,42 +269,97 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
     plt.ylabel(n2)
     plt.title(title)
 
-    fh.canvas.mpl_connect('pick_event', lambda event: display_png(event, cellids[set1], folder))
+    def display_wrapper(event):
 
-    plt.subplot(2, 2, 1)
-    plt.hist([beta1[set1]], bins=hist_bins, range=hist_range,
+        if sum(set2)==0:
+            display_png(event, cellids[set1], folder)
+        elif event.mouseevent.button==1:
+            print("Left-click detected, displaying from 'highlighted' cells")
+            display_png(event, cellids[set1], folder)
+        elif event.mouseevent.button==3:
+            print("Right-click detected, loading from 'non-highlighted' cells")
+            display_png(event, cellids[set2], folder)
+
+    fh.canvas.mpl_connect('pick_event', lambda event: display_wrapper(event))
+
+
+    ax = plt.subplot(2, 2, 1)
+    plt.hist([beta1[set1], beta1[set2]], bins=hist_bins, range=hist_range,
              histtype='bar', stacked=True,
-             color=['black'])
+             color=['black','lightgray'])
     plt.title('mean={:.3f} abs={:.3f}'.
               format(np.mean(beta1[goodcells]),
                      np.mean(np.abs(beta1[goodcells]))))
     plt.xlabel(n1)
+    lplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 2, 4)
-    plt.hist([beta2[set1]], bins=hist_bins, range=hist_range,
+    plt.hist([beta2[set1], beta2[set2]], bins=hist_bins, range=hist_range,
              histtype='bar', stacked=True, orientation="horizontal",
-             color=['black'])
+             color=['black','lightgray'])
     plt.title('mean={:.3f} abs={:.3f}'.
               format(np.mean(beta2[goodcells]),
                      np.mean(np.abs(beta2[goodcells]))))
     plt.xlabel(n2)
+    lplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 2, 2)
-    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1])],
+    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1]),
+              beta2[set2]-beta1[set2] * np.sign(beta2[set2])],
              bins=hist_bins-1, range=[hist_range[0]/2,hist_range[1]/2],
              histtype='bar', stacked=True,
-             color=['black'])
+             color=['black','lightgray'])
+
+#    d=np.sort(np.sign(beta1[goodcells])*(beta2[goodcells]-beta1[goodcells]))
+#    plt.bar(np.arange(np.sum(goodcells)), d,
+#            color='black')
     plt.title('mean={:.3f} abs={:.3f}'.
               format(np.mean(beta2[goodcells]),
                      np.mean(np.abs(beta2[goodcells]))))
-    plt.xlabel('difference')
+    plt.ylabel('difference')
 
     plt.tight_layout()
+    lplt.ax_remove_box(ax)
 
     old_title=fh.canvas.get_window_title()
     fh.canvas.set_window_title(old_title+': '+title)
 
     return fh
+
+#    plt.subplot(2, 2, 1)
+#    plt.hist([beta1[set1]], bins=hist_bins, range=hist_range,
+#             histtype='bar', stacked=True,
+#             color=['black'])
+#    plt.title('mean={:.3f} abs={:.3f}'.
+#              format(np.mean(beta1[goodcells]),
+#                     np.mean(np.abs(beta1[goodcells]))))
+#    plt.xlabel(n1)
+#
+#    ax = plt.subplot(2, 2, 4)
+#    plt.hist([beta2[set1]], bins=hist_bins, range=hist_range,
+#             histtype='bar', stacked=True, orientation="horizontal",
+#             color=['black'])
+#    plt.title('mean={:.3f} abs={:.3f}'.
+#              format(np.mean(beta2[goodcells]),
+#                     np.mean(np.abs(beta2[goodcells]))))
+#    plt.xlabel(n2)
+#
+#    ax = plt.subplot(2, 2, 2)
+#    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1])],
+#             bins=hist_bins-1, range=[hist_range[0]/2,hist_range[1]/2],
+#             histtype='bar', stacked=True,
+#             color=['black'])
+#    plt.title('mean={:.3f} abs={:.3f}'.
+#              format(np.mean(beta2[goodcells]),
+#                     np.mean(np.abs(beta2[goodcells]))))
+#    plt.xlabel('difference')
+#
+#    plt.tight_layout()
+#
+#    old_title=fh.canvas.get_window_title()
+#    fh.canvas.set_window_title(old_title+': '+title)
+
+
 
 
 def beta_comp_cols(g, b, n1='A', n2='B', hist_bins=20,
@@ -399,6 +490,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
     #ctx_pb['rec'] = ctx_p0b0['rec'].copy()
     ctx_pb, l = xforms.evaluate(xf_pb, ctx_pb, start=0, stop=-2)
 
+    # organize predictions by different models
     val = ctx_pb['val'][0].copy()
 
     # val['pred_p0b0'] = ctx_p0b0['val'][0]['pred'].copy()
@@ -446,13 +538,13 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
     if state_colors is None:
         state_colors = [[None, None]]*col_count
 
-    fh = plt.figure()
-    ax = plt.subplot(3, 1, 1)
+    fh = plt.figure(figsize=(8,8))
+    ax = plt.subplot(4, 1, 1)
     nplt.state_vars_timeseries(val, ctx_pb['modelspecs'][0],
                                state_colors=[s[1] for s in state_colors])
     ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
     ax.set_ylabel("{} r={:.3f}".format(factor0,
-                  ctx_p0b0['modelspecs'][0][0]['meta']['r_test']))
+                  ctx_p0b0['modelspecs'][0][0]['meta']['r_test'][0]))
     lplt.ax_remove_box(ax)
 
     for i, var in enumerate(factors[1:]):
@@ -460,7 +552,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
            varlbl = var[5:]
         else:
            varlbl = var
-        ax = plt.subplot(3, col_count, col_count+i+1)
+        ax = plt.subplot(4, col_count, col_count+i+1)
 
         nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
                                        psth_name="resp",
@@ -471,20 +563,20 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
             ax.set_ylabel("Control model")
             ax.set_title("{} ctl r={:.3f}"
                          .format(varlbl.lower(),
-                                 ctx_p0b['modelspecs'][0][0]['meta']['r_test']),
+                                 ctx_p0b['modelspecs'][0][0]['meta']['r_test'][0]),
                          fontsize=6)
         else:
             ax.yaxis.label.set_visible(False)
             ax.set_title("{} ctl r={:.3f}"
                          .format(varlbl.lower(),
-                                 ctx_pb0['modelspecs'][0][0]['meta']['r_test']),
+                                 ctx_pb0['modelspecs'][0][0]['meta']['r_test'][0]),
                          fontsize=6)
         if ax.legend_:
             ax.legend_.remove()
         ax.xaxis.label.set_visible(False)
         lplt.ax_remove_box(ax)
 
-        ax = plt.subplot(3, col_count, col_count*2+i+1)
+        ax = plt.subplot(4, col_count, col_count*2+i+1)
         nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
                                        psth_name="resp",
                                        psth_name2="pred",
@@ -503,7 +595,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
             j=1
 
         ax.set_title("r={:.3f} rawmod={:.3f} umod={:.3f}"
-                     .format(ctx_pb['modelspecs'][0][0]['meta']['r_test'],
+                     .format(ctx_pb['modelspecs'][0][0]['meta']['r_test'][0],
                              pred_mod_full_norm[i+1][j], pred_mod_norm[i+1][j]),
                      fontsize=6)
 
@@ -517,6 +609,79 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
             ax.legend(('this', 'others'))
         lplt.ax_remove_box(ax)
 
+    # EXTRA PANELS
+    # figure out some basic aspects of tuning/selectivity for target vs.
+    # reference:
+    r = ctx_pb['rec']['resp']
+    e = r.epochs
+    fs = r.fs
+
+    passive_epochs = r.get_epoch_indices("PASSIVE_EXPERIMENT")
+    tar_names = ep.epoch_names_matching(e, "^TAR_")
+    tar_resp={}
+    for tarname in tar_names:
+        t = r.get_epoch_indices(tarname)
+        t = ep.epoch_intersection(t, passive_epochs)
+        tar_resp[tarname] = r.extract_epoch(t) * fs
+
+    # only plot tar responses with max SNR or probe SNR
+    keys=[]
+    for k in list(tar_resp.keys()):
+        if k.endswith('0') | k.endswith('2'):
+            keys.append(k)
+    keys.sort()
+
+    # assume the reference with most reps is the one overlapping the target
+    groups = ep.group_epochs_by_occurrence_counts(e, '^STIM_')
+    l = np.array(list(groups.keys()))
+    hi = np.max(l)
+    ref_name = groups[hi][0]
+    t = r.get_epoch_indices(ref_name)
+    t = ep.epoch_intersection(t, passive_epochs)
+    ref_resp = r.extract_epoch(t) * fs
+
+    t = r.get_epoch_indices('REFERENCE')
+    t = ep.epoch_intersection(t, passive_epochs)
+    all_ref_resp = r.extract_epoch(t) * fs
+
+    prestimsilence = r.get_epoch_indices('PreStimSilence')
+    prebins=prestimsilence[0,1]-prestimsilence[0,0]
+    poststimsilence = r.get_epoch_indices('PostStimSilence')
+    postbins=poststimsilence[0,1]-poststimsilence[0,0]
+    durbins = ref_resp.shape[-1] - prebins
+
+    spont = np.nanmean(all_ref_resp[:,0,:prebins])
+    ref_mean = np.nanmean(ref_resp[:,0,prebins:durbins])-spont
+    all_ref_mean = np.nanmean(all_ref_resp[:,0,prebins:durbins])-spont
+    #print(spont)
+    #print(np.nanmean(ref_resp[:,0,prebins:-postbins]))
+    ax1=plt.subplot(4, 2, 7)
+    ref_psth = [np.nanmean(ref_resp[:, 0, :], axis=0),
+                np.nanmean(all_ref_resp[:, 0, :], axis=0)]
+    ll = ["{} {:.1f}".format(ref_name, ref_mean),
+          "all refs {:.1f}".format(all_ref_mean)]
+    nplt.timeseries_from_vectors(ref_psth, fs=fs, legend=ll, ax=ax1,
+                                 time_offset=prebins/fs)
+
+    ax2=plt.subplot(4, 2, 8)
+    ll = []
+    tar_mean = np.zeros(np.max([2,len(keys)])) * np.nan
+    tar_psth = []
+    for ii, k in enumerate(keys):
+        tar_psth.append(np.nanmean(tar_resp[k][:, 0, :], axis=0))
+        tar_mean[ii] = np.nanmean(tar_resp[k][:, 0, prebins:durbins])-spont
+        ll.append("{} {:.1f}".format(k, tar_mean[ii]))
+    nplt.timeseries_from_vectors(tar_psth, fs=fs, legend=ll, ax=ax2,
+                                 time_offset=prebins/fs)
+    # plt.legend(ll, fontsize=6)
+
+    ymin=np.min([ax1.get_ylim()[0], ax2.get_ylim()[0]])
+    ymax=np.max([ax1.get_ylim()[1], ax2.get_ylim()[1]])
+    ax1.set_ylim([ymin, ymax])
+    ax2.set_ylim([ymin, ymax])
+    lplt.ax_remove_box(ax1)
+    lplt.ax_remove_box(ax2)
+
     plt.tight_layout()
 
     stats = {'cellid': cellid,
@@ -525,22 +690,22 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
              'state_vars': state_var_list,
              'factors': factors,
              'r_test': np.array([
-                     ctx_p0b0['modelspecs'][0][0]['meta']['r_test'],
-                     ctx_p0b['modelspecs'][0][0]['meta']['r_test'],
-                     ctx_pb0['modelspecs'][0][0]['meta']['r_test'],
-                     ctx_pb['modelspecs'][0][0]['meta']['r_test']
+                     ctx_p0b0['modelspecs'][0][0]['meta']['r_test'][0],
+                     ctx_p0b['modelspecs'][0][0]['meta']['r_test'][0],
+                     ctx_pb0['modelspecs'][0][0]['meta']['r_test'][0],
+                     ctx_pb['modelspecs'][0][0]['meta']['r_test'][0]
                      ]),
              'se_test': np.array([
-                     ctx_p0b0['modelspecs'][0][0]['meta']['se_test'],
-                     ctx_p0b['modelspecs'][0][0]['meta']['se_test'],
-                     ctx_pb0['modelspecs'][0][0]['meta']['se_test'],
-                     ctx_pb['modelspecs'][0][0]['meta']['se_test']
+                     ctx_p0b0['modelspecs'][0][0]['meta']['se_test'][0],
+                     ctx_p0b['modelspecs'][0][0]['meta']['se_test'][0],
+                     ctx_pb0['modelspecs'][0][0]['meta']['se_test'][0],
+                     ctx_pb['modelspecs'][0][0]['meta']['se_test'][0]
                      ]),
              'r_floor': np.array([
-                     ctx_p0b0['modelspecs'][0][0]['meta']['r_floor'],
-                     ctx_p0b['modelspecs'][0][0]['meta']['r_floor'],
-                     ctx_pb0['modelspecs'][0][0]['meta']['r_floor'],
-                     ctx_pb['modelspecs'][0][0]['meta']['r_floor']
+                     ctx_p0b0['modelspecs'][0][0]['meta']['r_floor'][0],
+                     ctx_p0b['modelspecs'][0][0]['meta']['r_floor'][0],
+                     ctx_pb0['modelspecs'][0][0]['meta']['r_floor'][0],
+                     ctx_pb['modelspecs'][0][0]['meta']['r_floor'][0]
                      ]),
              'pred_mod': pred_mod.T,
              'pred_mod_full': pred_mod_full.T,
@@ -555,7 +720,11 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
                      ctx_p0b0['modelspecs'][0][0]['phi']['d'],
                      ctx_p0b['modelspecs'][0][0]['phi']['d'],
                      ctx_pb0['modelspecs'][0][0]['phi']['d'],
-                     ctx_pb['modelspecs'][0][0]['phi']['d']])
+                     ctx_pb['modelspecs'][0][0]['phi']['d']]),
+             'ref_all_resp': all_ref_mean,
+             'ref_common_resp': ref_mean,
+             'tar_max_resp': tar_mean[0],
+             'tar_probe_resp': tar_mean[1]
         }
 
     return fh, stats

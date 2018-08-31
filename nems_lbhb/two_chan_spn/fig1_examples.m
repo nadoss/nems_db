@@ -1,5 +1,5 @@
 
-baphy_set_path
+narf_set_path
 close all
 
 if 0,
@@ -11,7 +11,7 @@ if 0,
     
     ftcfile='/auto/data/daq/Portabello/por074/sorted/por074a01_p_FTC.spk.mat';
 
-elseif 0,
+elseif 1,
     cellid='por074b-d2';
     channum=4;
     unit=2;
@@ -65,9 +65,12 @@ tt=(1:size(stim,2))./options.rasterfs;
 colors={[237 45 38]./256, [114 201 241]./256};
 
 figure(2);
+colormap(1-gray);
+
 clf;
 subplot(4,1,1);
-imagesc(tt,1:size(stim,1),stim(:,:,stimidx,1));
+sr=shift(stim(:,:,stimidx,1),[-2, 0]);
+imagesc(tt,1:size(stim,1),sr);
 axis xy;
 
 subplot(4,1,2);
@@ -83,17 +86,23 @@ else
 end
 
 subplot(4,1,3);
-xx=r(:,:,stimidx)';
-xx(xx>2)=2;
-xx=xx./2;
-im=repmat(1-xx,[1 1 3]);
-imagesc(tt,1:size(im,1),im);
+[xx,yy]=find(r(:,:,stimidx));
+xx=xx./options.rasterfs;
+plot(xx,yy,'k.');
+axis([0, tt(end), 0, size(r,2)+1]);
+
+% xx=r(:,:,stimidx)';
+% xx(xx>2)=2;
+% xx=xx./2;
+% im=repmat(1-xx,[1 1 3]);
+% imagesc(tt,1:size(im,1),im);
 
 subplot(4,1,4);
 rr=gsmooth(r(:,:,stimidx),[1 0.01]);
 plot(tt,mean(rr,2).*options.rasterfs,'k');
 
-fullpage portrait;
+set(gcf,'PaperPosition',[.25 .25 8 6]);
+
 
 ref=exptparams.TrialObject.ReferenceHandle;
 s = eval(ref.BaseSound);
@@ -112,7 +121,6 @@ filtfmt = 'ozgf';
 fsin = get(s, 'SamplingRate');
 fsout=100;
 chancount=64;
-
 
 w1=waveform(s, s1);
 shiftrange=(ref.PreStimSilence*fsin)+(1:ref.Duration*fsin);
@@ -152,13 +160,15 @@ hold off;
 
 colormap(1-gray);
 
-fullpage portrait;
+set(gcf,'PaperPosition',[.25 .25 8 6]);
 
+
+outpath='/auto/users/svd/docs/current/two_band_spn/eps';
 
 disp('To print:');
-disp(['print -f1 -dpdf ' cellid '_strf.pdf']);
-disp(['print -f2 -dpdf ' cellid '_spn_data.pdf']);
-disp(['print -f3 -dpdf ' cellid '_spn2_stim.pdf']);
+disp(['print -f1 -dpdf ' outpath '/fig1.' cellid '_strf.pdf']);
+disp(['print -f2 -dpdf ' outpath '/fig1.' cellid '_spn_data.pdf']);
+disp(['print -f3 -dpdf ' outpath '/fig1.' cellid '_spn2_stim.pdf']);
 
 
 

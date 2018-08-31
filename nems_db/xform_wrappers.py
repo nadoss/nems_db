@@ -34,9 +34,9 @@ log = logging.getLogger(__name__)
 
 def get_recording_file(cellid, batch, options={}):
 
-    # options["batch"] = batch
-    # options["cellid"] = cellid
-    uri = nb.baphy_data_path(cellid, batch, **options)
+    options["batch"] = batch
+    options["cellid"] = cellid
+    uri = nb.baphy_data_path(**options)
 
     return uri
 
@@ -58,8 +58,14 @@ def get_recording_uri(cellid, batch, options={}):
     return url
 
 
-def generate_recording_uri(cellid, batch, loadkey):
+def generate_recording_uri(cellid=None, batch=None, loadkey=None, siteid=None):
     """
+    required parameters (passed through to nb.baphy_data_path):
+        cellid: string or list
+            string can be a valid cellid or siteid
+            list is a list of cellids from a single(?) site
+        batch: integer
+
     figure out filename (or eventually URI) of pre-generated
     NEMS-format recording for a given cell/batch/loader string
 
@@ -87,10 +93,11 @@ def generate_recording_uri(cellid, batch, loadkey):
         return options
 
     # remove any preprocessing keywords in the loader string.
-    loader = loadkey.split("-")[0]
+    loader = nems.utils.escaped_split(loadkey, '-')[0]
     log.info('loader=%s',loader)
+
     if loader.startswith('ozgf'):
-        pattern = re.compile(r'^ozgf\.fs(\d{1,})\.ch(\d{1,})(\.\w*)?$')
+        pattern = re.compile(r'^ozgf\.fs(\d{1,})\.ch(\d{1,})([a-zA-Z\.]*)$')
         parsed = re.match(pattern, loader)
         # TODO: fs and chans useful for anything for the loader? They don't
         #       seem to be used here, only in the baphy-specific stuff.
@@ -107,13 +114,23 @@ def generate_recording_uri(cellid, batch, loadkey):
                             'pupil_median': 2})
 
     elif loader.startswith('nostim'):
+        raise(DeprecationWarning)
         pattern = re.compile(r'^nostim\.fs(\d{1,})([a-zA-Z\.]*)?$')
         parsed = re.match(pattern, loader)
         fs = parsed.group(1)
         ops = parsed.group(2)
         pupil = ('pup' in ops)
 
+    elif loader.startswith('parm'):
+        pattern = re.compile(r'^parm\.fs(\d{1,})([a-zA-Z\.]*)?$')
+        parsed = re.match(pattern, loader)
+        fs = parsed.group(1)
+        ops = parsed.group(2)
+        pupil = ('pup' in ops)
+
         options.update(_parm_helper(fs, pupil))
+        options['stimfmt'] = 'parm'
+        options['stim'] = True
 
     elif loader.startswith('ns'):
         pattern = re.compile(r'^ns\.fs(\d{1,})')
@@ -152,8 +169,26 @@ def generate_recording_uri(cellid, batch, loadkey):
     else:
         raise ValueError('unknown loader string: %s' % loader)
 
-    # recording_uri = get_recording_uri(cellid, batch, options)\
-    recording_uri = get_recording_file(cellid, batch, options)
+    if siteid is not None:
+        options['siteid'] = siteid
+
+    # check for use of new loading key (ldb - load baphy) - recording_uri
+    # will point towards cached recording holding all stable cells at that
+    # site/batch
+    # else will load the rec_uri for the single cell specified in fn args
+    if 'ldb' in loadkey:
+        options['batch'] = batch
+        options['recache'] = options.get('recache', False)
+        if type(cellid) is not list:
+            cellid = [cellid]
+        if re.search(r'\d+$', cellid[0]) is None:
+            options['site'] = cellid[0]
+        else:
+            options['site'] = cellid[0][:-5]
+        recording_uri = nb.baphy_load_multichannel_recording(**options)
+    else:
+        recording_uri = get_recording_file(cellid, batch, options)
+        #recording_uri = get_recording_uri(cellid, batch, options)
 
     return recording_uri
 
@@ -188,16 +223,16 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
              cellid, int(batch))
 
     # Segment modelname for meta information
-    kws = modelname.split("_")
+    kws = nems.utils.escaped_split(modelname, '_')
     old = False
     if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')
                           and not kws[1].startswith('stategain.')):
         # Check if modelname uses old format.
         log.info("Using old modelname format ... ")
         old = True
-        modelspecname = '_'.join(kws[1:-1])
+        modelspecname = nems.utils.escaped_join(kws[1:-1], '_')
     else:
-        modelspecname = "-".join(kws[1:-1])
+        modelspecname = nems.utils.escaped_join(kws[1:-1], '-')
     loadkey = kws[0]
     fitkey = kws[-1]
 
@@ -219,7 +254,8 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
             log.info('Generating summary plot ...')
             xfspec.append(['nems.xforms.plot_summary', {}])
     else:
-        recording_uri = generate_recording_uri(cellid, batch, loadkey)
+        uri_key = nems.utils.escaped_split(loadkey, '-')[0]
+        recording_uri = generate_recording_uri(cellid, batch, uri_key)
         xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta)
 
     # actually do the fit
@@ -252,11 +288,77 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     return savepath
 
 
+def fit_pop_model_xforms_baphy(cellid, batch, modelname, saveInDB=False):
+    """
+    Fits a NEMS population model using baphy data
+    """
+
+    log.info("Preparing pop model: ({0},{1},{2})".format(
+            cellid, batch, modelname))
+
+    # Segment modelname for meta information
+    kws = modelname.split("_")
+    modelspecname = "-".join(kws[1:-1])
+
+    loadkey = kws[0]
+    fitkey = kws[-1]
+    if type(cellid) is list:
+        disp_cellid="_".join(cellid)
+    else:
+        disp_cellid=cellid
+
+    meta = {'batch': batch, 'cellid': disp_cellid, 'modelname': modelname,
+            'loader': loadkey, 'fitkey': fitkey,
+            'modelspecname': modelspecname,
+            'username': 'nems', 'labgroup': 'lbhb', 'public': 1,
+            'githash': os.environ.get('CODEHASH', ''),
+            'recording': loadkey}
+
+    uri_key = nems.utils.escaped_split(loadkey, '-')[0]
+    recording_uri = generate_recording_uri(cellid, batch, uri_key)
+
+    # pass cellid information to xforms so that loader knows which cells
+    # to load from recording_uri
+    xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta,
+                                        xforms_kwargs={'cellid': cellid})
+
+    # actually do the fit
+    ctx, log_xf = xforms.evaluate(xfspec)
+
+    # save some extra metadata
+    modelspecs = ctx['modelspecs']
+
+    destination = '/auto/data/nems_db/results/{0}/{1}/{2}/'.format(
+            batch, disp_cellid, ms.get_modelspec_longname(modelspecs[0]))
+    modelspecs[0][0]['meta']['modelpath'] = destination
+    modelspecs[0][0]['meta']['figurefile'] = destination+'figure.0000.png'
+    modelspecs[0][0]['meta'].update(meta)
+
+    # extra thing to save for pop model
+    modelspecs[0][0]['meta']['cellids'] = ctx['val'][0]['resp'].chans
+
+    # save results
+    log.info('Saving modelspec(s) to {0} ...'.format(destination))
+    save_data = xforms.save_analysis(destination,
+                                     recording=ctx['rec'],
+                                     modelspecs=modelspecs,
+                                     xfspec=xfspec,
+                                     figures=ctx['figures'],
+                                     log=log_xf)
+    savepath = save_data['savepath']
+
+    if saveInDB:
+        # save in database as well
+        nd.update_results_table(modelspecs[0])
+
+    return savepath
+
+
 def load_model_baphy_xform(cellid, batch=271,
         modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
         eval_model=True):
 
-    kws = modelname.split("_")
+    kws = nems.utils.escaped_split(modelname, '_')
     old = False
     if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')
                           and not kws[1].startswith('stategain.')):
@@ -273,19 +375,121 @@ def load_model_baphy_xform(cellid, batch=271,
         return xforms.load_analysis(filepath, eval_model=eval_model)
 
 
+def model_pred_comp(cellid, batch, modelnames, occurrence=0,
+                    pre_dur=None, dur=None):
+    """
+    return ccd12, ccd13, ccd23
+    """
+
+    modelcount = len(modelnames)
+    epoch = 'REFERENCE'
+    c = 0
+
+    legend = ['LN','GC','STP','act']
+    times = []
+    values = []
+    values_all = []
+    times_all = []
+    r_test = []
+    for i, m in enumerate(modelnames):
+        xf, ctx = load_model_baphy_xform(cellid, batch, m)
+
+        val = ctx['val'][0]
+
+        if i==0:
+            d = val['resp'].get_epoch_bounds('PreStimSilence')
+            if len(d):
+                PreStimSilence = np.mean(np.diff(d))
+            else:
+                PreStimSilence = 0
+            if pre_dur is None:
+                pre_dur = PreStimSilence
+
+            # Get values from specified occurrence and channel
+            extracted = val['resp'].extract_epoch(epoch)
+            r_vector = extracted[occurrence][c]
+            r_vector = nems.utils.smooth(r_vector, window_len=7)[3:-3]
+
+            r_all = val['resp'].as_continuous()
+
+            # Convert bins to time (relative to start of epoch)
+            # TODO: want this to be absolute time relative to start of data?
+            time_vector = np.arange(0, len(r_vector)) / val['resp'].fs - PreStimSilence
+            time_all_vector = np.arange(0, np.sum(np.isfinite(r_all[0,:]))) / val['resp'].fs - PreStimSilence
+
+            # limit time range if specified
+            good_bins = (time_vector >= -pre_dur)
+            if dur is not None:
+                good_bins[time_vector > dur] = False
+
+        extracted = val['pred'].extract_epoch(epoch)
+        p_vector = extracted[occurrence][c] + i + 1
+        p_all = val['pred'].as_continuous()
+        p_all = p_all[0,np.isfinite(r_all[0,:])] + i + 1
+
+        times.append(time_vector[good_bins])
+        values.append(p_vector[good_bins])
+        values_all.append(p_all)
+        times_all.append(time_all_vector)
+
+        r_test.append(ctx['modelspecs'][0][0]['meta']['r_test'][0])
+
+    times.append(time_vector[good_bins])
+    values.append(r_vector[good_bins])
+    ra=nems.utils.smooth(r_all[0,np.isfinite(r_all[0,:])], 7)
+    ra=ra[3:-3]
+    values_all.append(ra)
+    times_all.append(time_all_vector)
+
+    cc12 = np.corrcoef(values_all[0], values_all[1])[0, 1]
+    cc13 = np.corrcoef(values_all[0], values_all[2])[0, 1]
+    cc23 = np.corrcoef(values_all[1], values_all[2])[0, 1]
+    ccd23 = np.corrcoef(values_all[1]-values_all[0],
+                        values_all[2]-values_all[0])[0, 1]
+
+#    ccd12 = np.corrcoef(values_all[0]-values_all[3],
+#                        values_all[1]-values_all[3])[0, 1]
+#    ccd13 = np.corrcoef(values_all[0]-values_all[3],
+#                        values_all[2]-values_all[3])[0, 1]
+#    ccd23 = np.corrcoef(values_all[1]-values_all[3],
+#                        values_all[2]-values_all[3])[0, 1]
+
+    print("CC LN-GC: {:.3f}  LN-STP: {:.3f} STP-GC: {:.3f}".format(
+            cc12,cc13,cc23))
+#    print("CCd LN-GC: {:.3f}  LN-STP: {:.3f} STP-GC: {:.3f}".format(
+#            ccd12,ccd13,ccd23))
+
+    plt.figure()
+    ax = plt.subplot(2, 1, 1)
+    extracted = val['stim'].extract_epoch(epoch)
+    sg = extracted[occurrence]
+    nplt.plot_spectrogram(sg, val['resp'].fs, ax=ax,
+                          title='{} Stim {}'.format(cellid, occurrence),
+                          time_offset=PreStimSilence)
+
+    ax = plt.subplot(2, 1, 2)
+    title = 'Preds LN {:.3f} GC {:.3f} STP {:.3f} /CC LN-GC: {:.3f}  LN-STP: {:.3f} STP-GC: {:.3f} dSTP-dGC: {:.3f}'.format(
+            r_test[0],r_test[1],r_test[2],cc12,cc13,cc23,ccd23)
+    nplt.plot_timeseries(times_all, values_all, ax=ax, legend=legend, title=title)
+
+    plt.tight_layout()
+
+    return cc12, cc13, cc23, ccd23
+
+
 def load_batch_modelpaths(batch, modelnames, cellids=None, eval_model=True):
     d = nd.get_results_file(batch, [modelnames], cellids=cellids)
     return d['modelpath'].tolist()
 
 
 def quick_inspect(cellid="chn020f-b1", batch=271,
-        modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"):
+                  modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"):
 
-    ctx = load_model_baphy_xform(cellid, batch, modelname, eval=True)
+    xf, ctx = load_model_baphy_xform(cellid, batch, modelname, eval_model=True)
 
     modelspecs = ctx['modelspecs']
     est = ctx['est']
     val = ctx['val']
-    nplt.plot_summary(val, modelspecs)
+    nplt.quickplot(ctx)
 
     return modelspecs, est, val

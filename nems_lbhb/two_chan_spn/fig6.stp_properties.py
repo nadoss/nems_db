@@ -41,6 +41,7 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
     u_bounds = np.array([-0.6, 2.1])
     tau_bounds = np.array([-0.1, 1.5])
     str_bounds = np.array([-0.25, 0.55])
+    amp_bounds = np.array([-1, 1.5])
 
     indices = list(d.index)
 
@@ -57,7 +58,7 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
     fir = d.loc[fir_index]
     r_test = d.loc['meta--r_test']
     se_test = d.loc['meta--se_test']
-
+    print(u)
     if modelname0 is not None:
         d0 = nems_db.params.fitted_params_per_batch(batch, modelname0, stats_keys=[], multi='first')
         r0_test = d0.loc['meta--r_test']
@@ -82,38 +83,44 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
 
         t_fir = fir[cellid]
         x = np.mean(t_fir, axis=1) / np.std(t_fir)
-        if x[0] > x[1]:
-            xidx = np.array([0, 1])
-        else:
-            xidx = np.array([1, 0])
+        mn, = np.where(x == np.min(x))
+        mx, = np.where(x == np.max(x))
+        xidx = np.array([mx[0], mn[0]])
         m_fir[i, :] = x[xidx]
         u_mtx[i, :] = u[cellid][xidx]
         tau_mtx[i, :] = np.abs(tau[cellid][xidx])
-        str_mtx[i,:] = nplt.stp_magnitude(tau_mtx[i,:], u_mtx[i,:], fs=100)[0]
+        str_mtx[i, :] = nplt.stp_magnitude(tau_mtx[i,:], u_mtx[i,:], fs=100)[0]
         i += 1
 
     # EI_units = (m_fir[:,0]>0) & (m_fir[:,1]<0)
-    EI_units = (m_fir[:,1]<0)
-    good_pred = (r_test_mtx > 0.08)
-    mod_units = (r_test_mtx-se_test_mtx) >(r0_test_mtx+se0_test_mtx)
+    EI_units = (m_fir[:,1] < 0)
+    #good_pred = (r_test_mtx > se_test_mtx*2)
+    good_pred = ((r_test_mtx > se_test_mtx*3) |
+                 (r0_test_mtx > se0_test_mtx*3))
 
-    show_units = mod_units
+    mod_units = (r_test_mtx-se_test_mtx) > (r0_test_mtx+se0_test_mtx)
 
+    show_units = mod_units & good_pred
+
+    u_mtx[u_mtx < u_bounds[0]] = u_bounds[0]
+    u_mtx[u_mtx > u_bounds[1]] = u_bounds[1]
     tau_mtx[tau_mtx > tau_bounds[1]] = tau_bounds[1]
     str_mtx[str_mtx < str_bounds[0]] = str_bounds[0]
     str_mtx[str_mtx > str_bounds[1]] = str_bounds[1]
+    m_fir[m_fir < amp_bounds[0]] = amp_bounds[0]
+    m_fir[m_fir > amp_bounds[1]] = amp_bounds[1]
 
     umean = np.median(u_mtx[show_units], axis=0)
     uerr = np.std(u_mtx[show_units], axis=0) / np.sqrt(np.sum(show_units))
-    taumean = np.median(tau_mtx, axis=0)
-    tauerr = np.std(tau_mtx, axis=0) / np.sqrt(str_mtx.shape[0])
-    strmean = np.median(str_mtx, axis=0)
-    strerr = np.std(str_mtx, axis=0) / np.sqrt(str_mtx.shape[0])
+    taumean = np.median(tau_mtx[show_units], axis=0)
+    tauerr = np.std(tau_mtx[show_units], axis=0) / np.sqrt(str_mtx.shape[0])
+    strmean = np.median(str_mtx[show_units], axis=0)
+    strerr = np.std(str_mtx[show_units], axis=0) / np.sqrt(str_mtx.shape[0])
 
     xstr = 'E'
     ystr = 'I'
 
-    fh = plt.figure(figsize=(8,5))
+    fh = plt.figure(figsize=(8, 5))
 
     dotcolor = 'black'
     dotcolor_ns = 'lightgray'
@@ -122,10 +129,11 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
     barwidth = 0.5
 
     ax = plt.subplot(2, 3, 1)
-    plt.plot(np.array([-1, 1]), np.array([-1, 1]), 'k--')
-    plt.plot(m_fir[good_pred, 0], m_fir[good_pred, 1], '.', color=dotcolor)
+    plt.plot(np.array(amp_bounds), np.array(amp_bounds), 'k--')
+    plt.plot(m_fir[~show_units, 0], m_fir[~show_units, 1], '.', color=dotcolor_ns)
+    plt.plot(m_fir[show_units, 0], m_fir[show_units, 1], '.', color=dotcolor)
     plt.title('n={}/{} good units'.format(
-            np.sum(show_units), u_mtx.shape[0]))
+            np.sum(show_units), np.sum(good_pred)))
     plt.xlabel('exc channel gain')
     plt.ylabel('inh channel gain')
     lplt.ax_remove_box(ax)
@@ -170,9 +178,9 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
     ax = plt.subplot(2, 3, 5)
     plt.plot(np.array([-0.5, 1.5]), np.array([0, 0]), 'k--')
     plt.bar(np.arange(2), np.sqrt(taumean), color=barcolors, width=barwidth)
-    plt.errorbar(np.arange(2), taumean, yerr=tauerr, color='black',
-                 linewidth=2)
-    plt.plot(tau_mtx[show_units].T, linewidth=0.5, color=thinlinecolor)
+    plt.errorbar(np.arange(2), np.sqrt(taumean), yerr=np.sqrt(tauerr),
+                 color='black', linewidth=2)
+    plt.plot(np.sqrt(tau_mtx[show_units].T), linewidth=0.5, color=thinlinecolor)
 
     w, p = ss.wilcoxon(tau_mtx[show_units, 0], tau_mtx[show_units, 1])
     plt.ylim((-np.sqrt(np.abs(tau_bounds[0])), np.sqrt(tau_bounds[1])))
@@ -201,96 +209,39 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
 
 
 # start main code
-plt.close('all')
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
+save_fig = True
+if save_fig:
+    plt.close('all')
 
-# figure 6
-batch = 259
-#modelname="env100_dlog_stp2_fir2x15_lvl1_dexp1_basic"
+if 1:
+    # figure 6, SPN
+    batch = 259
+    #modelname="env100_dlog_stp2_fir2x15_lvl1_dexp1_basic"
 
-# shrinkage, normed wc
-modelname0 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-mt.shr-basic"
-modelname = "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-mt.shr-basic"
+    # shrinkage, normed wc
+    modelname0 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic"
+    modelname = "env.fs100-ld-sev_dlog.f-wc.2x3.c-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
 
-# no shrinkage, wc
-# modelname0 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic"
-# modelname = "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
+    # no shrinkage, wc
+    # modelname0 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic"
+    # modelname = "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
 
-# no shrinkage, wc normed
-# modelname0 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic"
-# modelname = "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
+    # no shrinkage, wc normed
+    # modelname0 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic"
+    # modelname = "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
+    fileprefix="fig6.SPN"
+elif 1:
+    # figure 9, NAT
+
+    batch = 271
+    modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15_init-basic"
+    modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15_init-basic"
+    fileprefix="fig9.NAT"
+
 
 fh = stp_parameter_comp(batch, modelname, modelname0=modelname0)
 
-fh.savefig(outpath + "fig6.stp_parms_"+modelname+".pdf")
+if save_fig:
+    fh.savefig(outpath + fileprefix + ".stp_parms_"+modelname+".pdf")
 
-
-"""
-batch = 259
-modelname1 = "env100_dlogf_fir2x15_lvl1_dexp1_basic"
-# modelname1 = "env100_dlog_fir2x15_lvl1_dexp1_basic-shr"
-#modelname2="env100_dlog_stp2_fir2x15_lvl1_dexp1_basic"
-modelname2 = "env100_dlogf_wcc2x3_stp3_fir3x15_lvl1_dexp1_basic"
-# modelname2="env100_dlog_wcc2x3_stp3_fir3x15_lvl1_dexp1_basic-shr"
-#modelname2="env100_dlog_wcc2x2_stp2_fir2x15_lvl1_dexp1_basic"
-
-modelname1 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic"
-modelname2 = "env.fs100-ld-sev_dlog.f-wc.2x3.c-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
-
-
-modelnames = [modelname1, modelname2]
-df = nd.batch_comp(batch, modelnames)
-df['diff'] = df[modelname2] - df[modelname1]
-df['cellid'] = df.index
-df.sort_values('cellid', inplace=True, ascending=True)
-m = df['cellid'].str.startswith('por07') & (df[modelname2] > 0.3)
-for index, c in df[m].iterrows():
-    print("{}  {:.3f} - {:.3f} = {:.3f}".format(
-            index, c[modelname2], c[modelname1], c['diff']))
-
-plt.close('all')
-outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
-
-if 0:
-    #cellid="por077a-c1"
-    cellid = "por074b-d2"
-    fh = lplt.compare_model_preds(cellid, batch, modelname1, modelname2);
-    xf1, ctx1 = lplt.get_model_preds(cellid, batch, modelname1)
-    xf2, ctx2 = lplt.get_model_preds(cellid, batch, modelname2)
-    nplt.diagnostic(ctx2);
-    # fh.savefig(outpath + "fig1_model_preds_" + cellid + ".pdf")
-
-
-elif 0:
-    for cellid, c in df[m].iterrows():
-        fh = lplt.compare_model_preds(cellid,batch,modelname1,modelname2);
-        #fh.savefig(outpath + "fig1_model_preds_" + cellid + ".pdf")
-
-else:
-    fh = plt.figure(figsize=(8,10))
-    cellcount = np.sum(m)
-    colcount = 2
-    rowcount = np.ceil((cellcount+1)/colcount)
-
-    i=0
-    for cellid, c in df[m].iterrows():
-        i += 1
-        if i==1:
-            ax0 = plt.subplot(rowcount,colcount,i)
-            i += 1
-            ax = plt.subplot(rowcount,colcount,i)
-
-            lplt.quick_pred_comp(cellid,batch,modelname1,modelname2,
-                                 ax=(ax0,ax))
-            ax.get_xaxis().set_visible(False)
-        else:
-            ax = plt.subplot(rowcount,colcount,i)
-
-            lplt.quick_pred_comp(cellid,batch,modelname1,modelname2,
-                                 ax=ax);
-
-        if i<cellcount+1:
-            ax.get_xaxis().set_visible(False)
-
-    fh.savefig(outpath + "fig2_example_psth_preds.pdf")
-"""
