@@ -4,6 +4,7 @@ import copy
 import numpy as np
 from scipy.signal import convolve2d
 
+import nems.epoch
 import nems.modelspec as ms
 from nems.utils import find_module
 from nems import signal
@@ -121,6 +122,36 @@ def add_contrast(rec, name='contrast', source_name='stim', ms=500, bins=None,
             ignore_zeros=ignore_zeros, continuous=continuous
             )
     return {'rec': rec_with_contrast}
+
+
+def add_onoff(rec, name='contrast', source='stim', epoch='^STIM_',
+              isReload=False, **context):
+    # TODO: not really working yet...
+    new_rec = copy.deepcopy(rec)
+    s = new_rec[source]
+    if not isinstance(s, signal.RasterizedSignal):
+        try:
+            s = s.rasterize()
+        except AttributeError:
+            raise TypeError("signal with key {} was not a RasterizedSignal"
+                            " and could not be converted to one."
+                            .format(source))
+
+    eps = nems.epoch.epoch_names_matching(s.epochs, epoch)
+    indices = [s.get_epoch_indices(ep) for ep in eps]
+    data = np.zeros([1, s.ntimes], dtype=np.float16)
+    for a in indices:
+        for i in a:
+            lb, ub = i
+            data[:, lb:ub] = 1.0
+
+    attributes = s._get_attributes()
+    attributes['chans'] = [epoch]
+    new_sig = signal.RasterizedSignal(data=data, safety_checks=False,
+                                      **attributes)
+    new_rec[name] = new_sig
+
+    return {'rec': new_rec}
 
 
 def reset_single_recording(rec, est, val, IsReload=False, **context):
@@ -504,15 +535,15 @@ def _prefit_contrast_modules(rec, modelspec, analysis_function,
         m['phi'] = {}
         tmodelspec[i] = m
 
-    # Also only prefit the static nonlinearity parameters
-    dynamic_phi = {'amplitude_mod': False, 'base_mod': False,
-                   'kappa_mod': False, 'shift_mod': False}
-    dsig_idx = fit_idx[-1]
-    for p in dynamic_phi:
-        v = modelspec[dsig_idx]['prior'].pop(p, False)
-        if v:
-            modelspec[dsig_idx]['fn_kwargs'][p] = 0
-            dynamic_phi[p] = v
+#    # Also only prefit the static nonlinearity parameters
+#    dynamic_phi = {'amplitude_mod': False, 'base_mod': False,
+#                   'kappa_mod': False, 'shift_mod': False}
+#    dsig_idx = fit_idx[-1]
+#    for p in dynamic_phi:
+#        v = modelspec[dsig_idx]['prior'].pop(p, False)
+#        if v:
+#            modelspec[dsig_idx]['fn_kwargs'][p] = 0
+#            dynamic_phi[p] = v
 
     # fit the subset of modules
     if metric is None:
@@ -526,12 +557,12 @@ def _prefit_contrast_modules(rec, modelspec, analysis_function,
     for i in fit_idx:
         modelspec[i] = tmodelspec[i]
 
-    # reset dynamic sigmoid parameters if they were frozen
-    for p, v in dynamic_phi.items():
-        if v:
-            prior = priors._tuples_to_distributions({p: v})[p]
-            modelspec[dsig_idx]['fn_kwargs'].pop(p, None)
-            modelspec[dsig_idx]['prior'][p] = v
-            modelspec[dsig_idx]['phi'][p] = prior.mean()
+#    # reset dynamic sigmoid parameters if they were frozen
+#    for p, v in dynamic_phi.items():
+#        if v:
+#            prior = priors._tuples_to_distributions({p: v})[p]
+#            modelspec[dsig_idx]['fn_kwargs'].pop(p, None)
+#            modelspec[dsig_idx]['prior'][p] = v
+#            modelspec[dsig_idx]['phi'][p] = prior.mean()
 
     return modelspec

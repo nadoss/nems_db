@@ -144,6 +144,10 @@ def contrast(loadkey):
     return [['nems_lbhb.contrast_helpers.add_contrast', kwargs]]
 
 
+def onoff(loadkey):
+    return [['nems_lbhb.contrast_helpers.add_onoff', {}]]
+
+
 def hrc(load_key, recording_uri):
     """
     Mask only data during stimuli that were repeated 10 or greater times.
@@ -168,8 +172,6 @@ def psthfr(load_key):
     return xfspec
 
 
-<<<<<<< HEAD
-=======
 def rscsw(load_key, cellid, batch):
     """
     generate the signals for sliding window model. It's intended that these be
@@ -193,4 +195,3 @@ def rscsw(load_key, cellid, batch):
                     'batch': batch},
                    ['rec'], ['rec']]]
     return xfspec
-

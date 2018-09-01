@@ -66,6 +66,13 @@ def ctfir(kw):
     return template
 
 
+def OOfir(kw):
+    kw = 'ct' + kw[2:]
+    template = ctfir(kw)
+    template['fn_kwargs']['i'] = 'contrast'
+    return template
+
+
 def ctlvl(kw):
     '''
     Same as nems.plugins.keywords.lvl but renamed for
