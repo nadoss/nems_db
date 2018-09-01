@@ -413,6 +413,22 @@ def save_results(stack, preview_file, queueid=None):
 
 #########    Start new nems functions here
 
+def pd_query(sql=None, params=()):
+    """
+    execture an SQL command and return the results in a dataframe
+    params:
+        sql: string
+            query to execute
+    """
+
+    if sql is None:
+        raise ValueError ("parameter sql required")
+    engine = Engine()
+    print(sql)
+    print(params)
+    d = pd.read_sql(sql=sql, con=engine, params=params)
+
+    return d
 
 def update_results_table(modelspec, preview=None,
                          username="svd", labgroup="lbhb"):
