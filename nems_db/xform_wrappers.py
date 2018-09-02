@@ -179,6 +179,12 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None, siteid=None):
     if 'ldb' in loadkey:
         options['batch'] = batch
         options['recache'] = options.get('recache', False)
+        
+        # check for run_num specifier
+        if len(cellid.split('_'))>1:
+            run_num = cellid.split('_')[-1]
+            cellid = cellid.split('_')[0]
+            
         if type(cellid) is not list:
             cellid = [cellid]
         if re.search(r'\d+$', cellid[0]) is None:
