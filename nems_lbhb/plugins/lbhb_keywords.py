@@ -66,6 +66,13 @@ def ctfir(kw):
     return template
 
 
+def OOfir(kw):
+    kw = 'ct' + kw[2:]
+    template = ctfir(kw)
+    template['fn_kwargs']['i'] = 'contrast'
+    return template
+
+
 def ctlvl(kw):
     '''
     Same as nems.plugins.keywords.lvl but renamed for
@@ -87,6 +94,8 @@ def dsig(kw):
     base = False
     kappa = False
     shift = False
+    c = 'ctpred'
+
     for op in ops:
         if op in ['logsig', 'l']:
             eq = 'logsig'
@@ -100,6 +109,8 @@ def dsig(kw):
             kappa = True
         elif op == 's':
             shift = True
+        elif op.startswith('C'):
+            c = op[1:]
 
     # Use all by default. Use none not an option (would just be static version)
     if (not amp) and (not base) and (not kappa) and (not shift):
@@ -109,7 +120,7 @@ def dsig(kw):
         'fn': 'nems_lbhb.contrast_helpers.dynamic_sigmoid',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
-                      'c': 'ctpred',
+                      'c': c,
                       'eq': eq},
         'prior': {'base': ('Exponential', {'beta': [0.1]}),
                   'amplitude': ('Exponential', {'beta': [2.0]}),
@@ -168,22 +179,35 @@ def sdexp(kw):
     Parameters
     ----------
     kw : str
-        Expected format: r'^sdexp\.?(\d{1,})$'
-
+        Expected format: r'^sdexp\.?(\d{1,})x(\d{1,})$'
+        e.g., "sdexp.SxR" or "sdexp.S":
+            S : number of state channels (required)
+            R : number of channels to modulate (default = 1)
+            currently not supported. R=1
+        TODO add support for R>1, copy from stategain
     Options
     -------
     None
     '''
-    pattern = re.compile(r'^sdexp\.?(\d{1,})$')
+    pattern = re.compile(r'^sdexp\.?(\d{1,})x(\d{1,})$')
     parsed = re.match(pattern, kw)
+    if parsed is None:
+        # backward compatible parsing if R not specified
+        pattern = re.compile(r'^sdexp\.?(\d{1,})$')
+        parsed = re.match(pattern, kw)
     try:
         n_vars = int(parsed.group(1))
+        if len(parsed.groups())>1:
+            n_chans = int(parsed.group(2))
+        else:
+            n_chans = 1
     except TypeError:
         raise ValueError("Got TypeError when parsing stategain keyword.\n"
                          "Make sure keyword is of the form: \n"
                          "sdexp.{n_state_variables} \n"
                          "keyword given: %s" % kw)
-
+    if n_chans > 1:
+        raise ValueError("sdexp R>1 not supported")
     zeros = np.zeros(n_vars)
     ones = np.ones(n_vars)
     g_mean = _one_zz(n_vars-1)

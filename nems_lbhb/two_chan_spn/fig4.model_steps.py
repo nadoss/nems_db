@@ -33,19 +33,28 @@ plt.rcParams.update(params)
 
 batch = 259
 
-modelname1 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-mt.shr-basic"
-#modelname2 = "env.fs100-ld-sev_dlog.f-wc.2x3.c-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
-modelname2 = "env.fs100-ld-sev_dlog.f-wc.2x2.c.n-stp.2-fir.2x15-lvl.1-dexp.1_init-mt.shr-basic"
+#modelname1 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-mt.shr-basic"
+modelname1 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic"
+modelname2 = "env.fs100-ld-sev_dlog.f-wc.2x3.c-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
+#modelname2 = "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
+#modelname2 = "env.fs100-ld-sev_dlog.f-wc.2x2.c.n-stp.2-fir.2x15-lvl.1-dexp.1_init-basic"
 
-plt.close('all')
+save_figs = True
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
+#if save_figs:
+plt.close('all')
 
 #cellid="por077a-c1"
 cellid = "por074b-d2"
+cellid = "por074b-c2"
+cellid = "por020a-c1"
+#cellid = "chn003c-a1"
 fh1,c = lplt.compare_model_preds(cellid, batch, modelname1, modelname2);
 
 xf2, ctx2 = lplt.get_model_preds(cellid, batch, modelname2)
-fh2 = nplt.diagnostic(ctx2);
+fh2 = nplt.diagnostic(ctx2, pre_dur=0.25, dur=1.5);
 
-fh1.savefig(outpath + "fig1.detailed_response_" + cellid + ".pdf")
-fh2.savefig(outpath + "fig4.model_steps_" + cellid + ".pdf")
+if save_figs:
+    print("saving figures...")
+    fh1.savefig(outpath + "fig1.detailed_response_" + cellid + ".pdf")
+    fh2.savefig(outpath + "fig4.model_steps_" + cellid + ".pdf")

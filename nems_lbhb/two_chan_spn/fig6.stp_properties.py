@@ -58,7 +58,7 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
     fir = d.loc[fir_index]
     r_test = d.loc['meta--r_test']
     se_test = d.loc['meta--se_test']
-
+    print(u)
     if modelname0 is not None:
         d0 = nems_db.params.fitted_params_per_batch(batch, modelname0, stats_keys=[], multi='first')
         r0_test = d0.loc['meta--r_test']
@@ -94,11 +94,16 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
 
     # EI_units = (m_fir[:,0]>0) & (m_fir[:,1]<0)
     EI_units = (m_fir[:,1] < 0)
-    good_pred = (r_test_mtx > 0.08)
+    #good_pred = (r_test_mtx > se_test_mtx*2)
+    good_pred = ((r_test_mtx > se_test_mtx*3) |
+                 (r0_test_mtx > se0_test_mtx*3))
+
     mod_units = (r_test_mtx-se_test_mtx) > (r0_test_mtx+se0_test_mtx)
 
     show_units = mod_units & good_pred
 
+    u_mtx[u_mtx < u_bounds[0]] = u_bounds[0]
+    u_mtx[u_mtx > u_bounds[1]] = u_bounds[1]
     tau_mtx[tau_mtx > tau_bounds[1]] = tau_bounds[1]
     str_mtx[str_mtx < str_bounds[0]] = str_bounds[0]
     str_mtx[str_mtx > str_bounds[1]] = str_bounds[1]
@@ -128,7 +133,7 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
     plt.plot(m_fir[~show_units, 0], m_fir[~show_units, 1], '.', color=dotcolor_ns)
     plt.plot(m_fir[show_units, 0], m_fir[show_units, 1], '.', color=dotcolor)
     plt.title('n={}/{} good units'.format(
-            np.sum(show_units), u_mtx.shape[0]))
+            np.sum(show_units), np.sum(good_pred)))
     plt.xlabel('exc channel gain')
     plt.ylabel('inh channel gain')
     lplt.ax_remove_box(ax)
@@ -204,8 +209,10 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
 
 
 # start main code
-plt.close('all')
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
+save_fig = True
+if save_fig:
+    plt.close('all')
 
 if 1:
     # figure 6, SPN
@@ -213,9 +220,8 @@ if 1:
     #modelname="env100_dlog_stp2_fir2x15_lvl1_dexp1_basic"
 
     # shrinkage, normed wc
-    modelname0 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-mt.shr-basic"
-    #modelname = "env.fs100-ld-sev_dlog.f-wc.2x2.c.n-stp.2-fir.2x15-lvl.1-dexp.1_init-mt.shr-basic"
-    modelname = "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-mt.shr-basic"
+    modelname0 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic"
+    modelname = "env.fs100-ld-sev_dlog.f-wc.2x3.c-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
 
     # no shrinkage, wc
     # modelname0 = "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic"
@@ -236,5 +242,6 @@ elif 1:
 
 fh = stp_parameter_comp(batch, modelname, modelname0=modelname0)
 
-fh.savefig(outpath + fileprefix + ".stp_parms_"+modelname+".pdf")
+if save_fig:
+    fh.savefig(outpath + fileprefix + ".stp_parms_"+modelname+".pdf")
 

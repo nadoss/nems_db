@@ -251,10 +251,12 @@ def fit_population_iteratively(
 
     # apply mask to remove invalid portions of signals and allow fit to
     # only evaluate the model on the valid portion of the signals
-    # if 'mask' in data.signals.keys():
-    #    log.info("Data len pre-mask: %d", data['mask'].shape[1])
-    #    data = data.apply_mask()
-    #    log.info("Data len post-mask: %d", data['mask'].shape[1])
+    # then delete the mask signal so that it's not reapplied on each fit
+    if 'mask' in data.signals.keys():
+        log.info("Data len pre-mask: %d", data['mask'].shape[1])
+        data = data.apply_mask()
+        log.info("Data len post-mask: %d", data['mask'].shape[1])
+        del data.signals['mask']
 
     start_time = time.time()
     ms.fit_mode_on(modelspec)
