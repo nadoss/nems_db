@@ -356,7 +356,7 @@ def fit_pop_model_xforms_baphy(cellid, batch, modelname, saveInDB=False):
 
 def load_model_baphy_xform(cellid, batch=271,
         modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
-        eval_model=True):
+        eval_model=True, only=None):
 
     kws = nems.utils.escaped_split(modelname, '_')
     old = False
@@ -372,7 +372,7 @@ def load_model_baphy_xform(cellid, batch=271,
     if old:
         return oxf.load_analysis(filepath, eval_model=eval_model)
     else:
-        return xforms.load_analysis(filepath, eval_model=eval_model)
+        return xforms.load_analysis(filepath, eval_model=eval_model, only=only)
 
 
 def model_pred_comp(cellid, batch, modelnames, occurrence=0,
