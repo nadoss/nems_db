@@ -27,71 +27,51 @@ import nems_db.db as nd
 from nems.plots.recording_browser import (browse_recording)
 
 
-def pandas_table_test():
-
-    data = {'a': [1, 2, 3], 'b': ['dog','cat','ferret']}
-    df = pd.DataFrame.from_dict(data)
-    w = qw.QWidget()
-
-    def loadFile(self):
-        fileName, _ = qw.QFileDialog.getOpenFileName(w, "Open File", "", "CSV Files (*.csv)");
-        pathLE.setText(fileName)
-        df = pd.read_csv(fileName)
-        model = PandasModel(df)
-        pandasTv.setModel(model)
-
-    hLayout = qw.QHBoxLayout()
-    pathLE = qw.QLineEdit(w)
-    hLayout.addWidget(pathLE)
-    loadBtn = qw.QPushButton("Select File", w)
-    hLayout.addWidget(loadBtn)
-    loadBtn.clicked.connect(loadFile)
-
-    vLayout = qw.QVBoxLayout(w)
-    vLayout.addLayout(hLayout)
-
-    pandasTv = qw.QTableView()
-    model = PandasModel(df)
-    pandasTv.setModel(model)
-    vLayout.addWidget(pandasTv)
-
-    w.show()
-    w.raise_()
-    return w
-
-
 class model_browser(qw.QWidget):
+    """
+    For a given batch, list all cellids and modelnames matching in
+    NarfResults. Clicking view will call view_model_recording for the
+    currently selected model.
 
-    def __init__(self, batch=289, search_string="ozgf%", parent=None):
+    """
+    def __init__(self, batch=289,
+                 cell_search_string="%",
+                 model_search_string="ozgf%",
+                 parent=None):
         qw.QWidget.__init__(self, parent=None)
 
         self.batch = batch
-        self.search_string = search_string
 
-        hLayout = qw.QHBoxLayout()
-        self.batchLE = qw.QLineEdit(self)
-        self.batchLE.setText(str(batch))
-        hLayout.addWidget(self.batchLE)
-        self.loadBtn = qw.QPushButton("Update batch", self)
-        self.loadBtn.clicked.connect(self.update_widgets)
-        hLayout.addWidget(self.loadBtn)
+        hLayout = qw.QHBoxLayout(self)
 
         self.cells = qw.QListWidget(self)
         self.models = qw.QListWidget(self)
 
-        hLayout2 = qw.QHBoxLayout()
-        hLayout2.addWidget(self.cells)
-        hLayout2.addWidget(self.models)
+        vLayout = qw.QVBoxLayout(self)
 
-        hLayout3 = qw.QHBoxLayout()
+        self.batchLE = qw.QLineEdit(self)
+        self.batchLE.setText(str(batch))
+        vLayout.addWidget(self.batchLE)
+
+        self.cellLE = qw.QLineEdit(self)
+        self.cellLE.setText(cell_search_string)
+        vLayout.addWidget(self.cellLE)
+
+        self.modelLE = qw.QLineEdit(self)
+        self.modelLE.setText(model_search_string)
+        vLayout.addWidget(self.modelLE)
+
+        self.loadBtn = qw.QPushButton("Update lists", self)
+        self.loadBtn.clicked.connect(self.update_widgets)
+        vLayout.addWidget(self.loadBtn)
+
         self.viewBtn = qw.QPushButton("View recording", self)
         self.viewBtn.clicked.connect(self.view_recording)
-        hLayout3.addWidget(self.viewBtn)
+        vLayout.addWidget(self.viewBtn)
 
-        vLayout = qw.QVBoxLayout(self)
-        vLayout.addLayout(hLayout)
-        vLayout.addLayout(hLayout2)
-        vLayout.addLayout(hLayout3)
+        hLayout.addLayout(vLayout)
+        hLayout.addWidget(self.cells)
+        hLayout.addWidget(self.models)
 
         self.update_widgets()
 
@@ -101,15 +81,18 @@ class model_browser(qw.QWidget):
     def update_widgets(self):
 
         batch = int(self.batchLE.text())
+        cellmask = self.cellLE.text()
+        modelmask = self.modelLE.text()
+
         if batch > 0:
             self.batch = batch
         else:
             self.batchLE.setText(str(self.batch))
 
-        self.d_cells = nd.get_batch_cells(self.batch)
+        self.d_cells = nd.get_batch_cells(self.batch, cellid=cellmask)
         self.d_models = nd.pd_query("SELECT DISTINCT modelname FROM NarfResults" +
                                " WHERE batch=%s AND modelname like %s",
-                               (self.batch, self.search_string))
+                               (self.batch, modelmask))
 
         self.cells.clear()
         for c in list(self.d_cells['cellid']):
