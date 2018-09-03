@@ -846,6 +846,8 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
 
     if not rawid is None:
         sql += " AND rawid IN %s"
+        if type(rawid) is not list:
+            rawid = [rawid]
         rawid=tuple([str(i) for i in rawid])
         params = params+(rawid,)
 

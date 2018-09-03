@@ -1609,8 +1609,12 @@ def baphy_load_multichannel_recording(**options):
     cache_exists=None
 
     options['cellid'] = cellids
+    
+    if options['rawid'] is not None:
+        options['rawid'] = [str(i) for i in options['rawid']]
+
     t_options = options.copy()
-    # t_options just so that recache field doesn't mess up caching system check (CRH)
+    # just so that recache field doesn't mess up caching system check (CRH)
     if 'recache' in t_options:
         del t_options['recache']
     for mdf in meta_data_files:
