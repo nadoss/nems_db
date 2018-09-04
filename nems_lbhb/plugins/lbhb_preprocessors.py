@@ -154,7 +154,7 @@ def hrc(load_key, recording_uri):
     hrc = high rep count
     """
     # c_preprocessing is in Charlie's auto users directory
-    xfspec = [['c_preprocessing.mask_high_repetion_stims',
+    xfspec = [['nems_lbhb.preprocessing.mask_high_repetion_stims',
                {'epoch_regex':'^STIM_'}, ['rec'], ['rec']]]
 
     return xfspec

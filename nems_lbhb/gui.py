@@ -124,7 +124,9 @@ def view_model_recording(cellid="TAR010c-18-2", batch=289,
 
     xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname, eval_model=True)
 
-    aw = browse_recording(ctx[recname][0], signals=['stim','resp','pred'],
-                           cellid=cellid, modelname=modelname)
+    signals = ['stim','psth','state','resp','pred']
+    rec = ctx[recname][0].apply_mask()
+    aw = browse_recording(rec, signals=signals,
+                          cellid=cellid, modelname=modelname)
 
     return aw
