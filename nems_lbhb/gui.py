@@ -127,11 +127,11 @@ class model_browser(qw.QWidget):
         print('updated list widgets')
 
     def get_current_selection(self):
-        w = self
+        aw = self
 
-        batch = w.batch
-        cellid = w.cells.currentItem().text()
-        modelname = w.models.currentItem().text()
+        batch = aw.batch
+        cellid = aw.cells.currentItem().text()
+        modelname = aw.models.currentItem().text()
 
         print("Viewing {},{},{}".format(batch,cellid,modelname))
 
