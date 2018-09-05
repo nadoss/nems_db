@@ -1598,7 +1598,7 @@ def baphy_load_multichannel_recording(**options):
     else:
         raise ValueError("what's going on?")
 
-    unique_id = str(datetime.datetime.now()).split('.')[0].replace(' ', '-')
+    unique_id = str(datetime.datetime.now()).split('.')[0].replace(' ', '-').replace(':', '_')
     full_rec_uri = '/auto/users/hellerc/recordings/'+str(batch)+'/'+site+'_'+unique_id+'.tgz'
     full_rec_meta = full_rec_uri.split('.')[0:-1][0]+'.json'
 
