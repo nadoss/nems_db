@@ -179,20 +179,20 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None, siteid=None):
     if 'ldb' in loadkey:
         options['batch'] = batch
         options['recache'] = options.get('recache', False)
-        
+
         # check for run_num specifier
         if len(cellid.split('_'))>1:
             run_num = cellid.split('_')[-1]
             cellid = cellid.split('_')[0]
             options['rawid'] = nd.get_rawid(cellid, run_num)
-            
+
         if type(cellid) is not list:
             cellid = [cellid]
         if re.search(r'\d+$', cellid[0]) is None:
             options['site'] = cellid[0]
         else:
             options['site'] = cellid[0][:-5]
-            
+
         recording_uri = nb.baphy_load_multichannel_recording(**options)
     else:
         recording_uri = get_recording_file(cellid, batch, options)
@@ -364,7 +364,7 @@ def fit_pop_model_xforms_baphy(cellid, batch, modelname, saveInDB=False):
 
 def load_model_baphy_xform(cellid, batch=271,
         modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
-        eval_model=True):
+        eval_model=True, only=None):
 
     kws = nems.utils.escaped_split(modelname, '_')
     old = False
@@ -380,7 +380,7 @@ def load_model_baphy_xform(cellid, batch=271,
     if old:
         return oxf.load_analysis(filepath, eval_model=eval_model)
     else:
-        return xforms.load_analysis(filepath, eval_model=eval_model)
+        return xforms.load_analysis(filepath, eval_model=eval_model, only=only)
 
 
 def model_pred_comp(cellid, batch, modelnames, occurrence=None,

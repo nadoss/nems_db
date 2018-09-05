@@ -24,13 +24,13 @@ import nems_db.db as nd
 import nems.plots.api as nplt
 from nems.utils import find_module
 
-save_fig = True
+save_fig = False
 if save_fig:
     plt.close('all')
 
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
 
-if 1:
+if 0:
     batch = 259
     modelnames=["env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic",
                 "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-stp.1-dexp.1_init-basic",
@@ -45,10 +45,16 @@ if 1:
 #                "env.fs100-ld-sev_dlog-wc.2x3.c-stp.3-fir.3x15-lvl.1-dexp.1_init-basic",
 #                "env.fs100-ld-sev_dlog-wc.2x4.c-stp.4-fir.4x15-lvl.1-dexp.1_init-basic"]
     fileprefix="fig5.SPN"
+    n1=modelnames[0]
+    n2=modelnames[-2]
 elif 1:
-    batch = 271
-    modelnames = ["ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15_init-basic",
-                  "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15_init-basic"]
+    batch = 289
+    modelnames = ["ozgf.fs100.ch18-ld-sev_dlog-wc.18x2-fir.2x15-lvl.1-dexp.1_init-basic",
+                  "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2-stp.2-fir.2x15-lvl.1-dexp.1_init-basic"]
+    #modelnames = ["ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-fir.3x15-lvl.1-dexp.1_init-basic",
+    #              "ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"]
+    n1=modelnames[0]
+    n2=modelnames[1]
     fileprefix="fig9.NAT"
 
 xc_range = [-0.05, 1.1]
@@ -57,8 +63,6 @@ df = nd.batch_comp(batch,modelnames,stat='r_ceiling')
 df_r = nd.batch_comp(batch,modelnames,stat='r_test')
 df_e = nd.batch_comp(batch,modelnames,stat='se_test')
 
-n1=modelnames[0]
-n2=modelnames[-2]
 cellcount = len(df)
 
 beta1 = df[n1]
@@ -67,6 +71,9 @@ beta1_test = df_r[n1]
 beta2_test = df_r[n2]
 se1 = df_e[n1]
 se2 = df_e[n2]
+
+beta1[beta1>1]=1
+beta2[beta2>1]=1
 
 # test for significant improvement
 improvedcells = (beta2_test-se2 > beta1_test+se1)
@@ -78,9 +85,13 @@ fh1 = stateplots.beta_comp(beta1[goodcells], beta2[goodcells],
                            n1='LN STRF', n2='RW3 STP STRF',
                            hist_range=xc_range,
                            highlight=improvedcells[goodcells])
+#fh1 = stateplots.beta_comp(beta1, beta2,
+#                           n1='LN STRF', n2='RW3 STP STRF',
+#                           hist_range=xc_range,
+#                           highlight=improvedcells)
 
 fh2 = plt.figure(figsize=(3.5, 3))
-m = np.array(df.loc[goodcells].median()[modelnames])
+m = np.array(df.loc[goodcells].mean()[modelnames])
 plt.bar(np.arange(len(modelnames)), m, color='black')
 plt.plot(np.array([-1, len(modelnames)]), np.array([0, 0]), 'k--')
 plt.ylim((-.05, 0.8))

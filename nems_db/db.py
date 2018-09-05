@@ -142,21 +142,20 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
     if script_path in [None, 'None', 'NONE', '']:
         script_path = get_setting('DEFAULT_SCRIPT_PATH')
 
-    existing_results = psql.read_sql_query(
-            session.query(NarfResults.cellid, NarfResults.modelname,
-                          NarfResults.batch)
-            .filter(NarfResults.cellid.in_(celllist))
-            .filter(NarfResults.batch == batch)
-            .filter(NarfResults.modelname.in_(modellist))
-            .statement,
-            session.bind
-            )
-
     # Convert to list of tuples b/c product object only useable once.
     combined = [(c, b, m) for c, b, m in
                 itertools.product(celllist, [batch], modellist)]
 
     if not force_rerun:
+        existing_results = psql.read_sql_query(
+                session.query(NarfResults.cellid, NarfResults.modelname,
+                              NarfResults.batch)
+                .filter(NarfResults.cellid.in_(celllist))
+                .filter(NarfResults.batch == batch)
+                .filter(NarfResults.modelname.in_(modellist))
+                .statement,
+                session.bind
+                )
         removals = [r for r in existing_results.itertuples()]
         combined = [t for t in combined if t not in removals]
 
