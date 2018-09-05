@@ -40,6 +40,11 @@ class model_browser(qw.QWidget):
                  parent=None):
         qw.QWidget.__init__(self, parent=None)
 
+        # parameters for caching last model loaded
+        self.last_loaded=['x','x',0]
+        self.recname='val'
+
+        # selection parameters
         self.batch = batch
 
         hLayout = qw.QHBoxLayout(self)
@@ -49,25 +54,42 @@ class model_browser(qw.QWidget):
 
         vLayout = qw.QVBoxLayout(self)
 
+        formLayout = qw.QFormLayout(self)
+        batchlabel = qw.QLabel(self)
+        batchlabel.setText('Batch:')
         self.batchLE = qw.QLineEdit(self)
         self.batchLE.setText(str(batch))
-        vLayout.addWidget(self.batchLE)
+        self.batchLE.returnPressed.connect(self.update_widgets)
+        formLayout.addRow(batchlabel, self.batchLE)
 
+        celllabel = qw.QLabel(self)
+        celllabel.setText('CellID:')
         self.cellLE = qw.QLineEdit(self)
         self.cellLE.setText(cell_search_string)
-        vLayout.addWidget(self.cellLE)
+        self.cellLE.returnPressed.connect(self.update_widgets)
+        formLayout.addRow(celllabel,self.cellLE)
 
+        modellabel = qw.QLabel(self)
+        modellabel.setText('Modelname:')
         self.modelLE = qw.QLineEdit(self)
         self.modelLE.setText(model_search_string)
-        vLayout.addWidget(self.modelLE)
+        self.modelLE.returnPressed.connect(self.update_widgets)
 
-        self.loadBtn = qw.QPushButton("Update lists", self)
-        self.loadBtn.clicked.connect(self.update_widgets)
-        vLayout.addWidget(self.loadBtn)
+        formLayout.addRow(modellabel,self.modelLE)
+
+        vLayout.addLayout(formLayout)
+
+        self.updateBtn = qw.QPushButton("Update lists", self)
+        self.updateBtn.clicked.connect(self.update_widgets)
+        vLayout.addWidget(self.updateBtn)
 
         self.viewBtn = qw.QPushButton("View recording", self)
         self.viewBtn.clicked.connect(self.view_recording)
         vLayout.addWidget(self.viewBtn)
+
+        self.modelBtn = qw.QPushButton("View model", self)
+        self.modelBtn.clicked.connect(self.view_model)
+        vLayout.addWidget(self.modelBtn)
 
         hLayout.addLayout(vLayout)
         hLayout.addWidget(self.cells)
@@ -104,8 +126,7 @@ class model_browser(qw.QWidget):
 
         print('updated list widgets')
 
-    def view_recording(self):
-
+    def get_current_selection(self):
         w = self
 
         batch = w.batch
@@ -113,9 +134,39 @@ class model_browser(qw.QWidget):
         modelname = w.models.currentItem().text()
 
         print("Viewing {},{},{}".format(batch,cellid,modelname))
-        aw = view_model_recording(cellid, batch, modelname)
+
+        if (self.last_loaded[0]==cellid and self.last_loaded[1]==modelname and
+            self.last_loaded[2]==batch):
+            xf = self.last_loaded[3]
+            ctx = self.last_loaded[4]
+        else:
+            xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname, eval_model=True)
+            self.last_loaded=[cellid,modelname,batch,xf,ctx]
+        return xf, ctx
+
+    def view_recording(self):
+
+        batch = self.batch
+        cellid = self.cells.currentItem().text()
+        modelname = self.models.currentItem().text()
+        xf, ctx = self.get_current_selection()
+
+        recname=self.recname
+        signals = ['stim','psth','state','resp','pred']
+        if type(ctx[recname]) is list:
+            rec = ctx[recname][0].apply_mask()
+        else:
+            rec = ctx[recname].copy()
+
+        aw = browse_recording(rec, signals=signals,
+                              cellid=cellid, modelname=modelname)
 
         return aw
+
+    def view_model(self):
+
+        xf, ctx = self.get_current_selection()
+        nplt.quickplot(ctx)
 
 
 def view_model_recording(cellid="TAR010c-18-2", batch=289,

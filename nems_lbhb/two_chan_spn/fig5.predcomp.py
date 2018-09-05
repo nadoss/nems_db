@@ -49,8 +49,10 @@ if 0:
     n2=modelnames[-2]
 elif 1:
     batch = 289
-    modelnames = ["ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15-lvl.1-dexp.1_init-basic",
-                  "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15-lvl.1-dexp.1_init-basic"]
+    modelnames = ["ozgf.fs100.ch18-ld-sev_dlog-wc.18x2-fir.2x15-lvl.1-dexp.1_init-basic",
+                  "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2-stp.2-fir.2x15-lvl.1-dexp.1_init-basic"]
+    #modelnames = ["ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-fir.3x15-lvl.1-dexp.1_init-basic",
+    #              "ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"]
     n1=modelnames[0]
     n2=modelnames[1]
     fileprefix="fig9.NAT"
