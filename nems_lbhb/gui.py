@@ -135,33 +135,34 @@ class model_browser(qw.QWidget):
 
         print("Viewing {},{},{}".format(batch,cellid,modelname))
 
-        if (self.last_loaded[0]==cellid and self.last_loaded[1]==modelname and
-            self.last_loaded[2]==batch):
-            xf = self.last_loaded[3]
-            ctx = self.last_loaded[4]
+        if (aw.last_loaded[0]==cellid and aw.last_loaded[1]==modelname and
+            aw.last_loaded[2]==batch):
+            xf = aw.last_loaded[3]
+            ctx = aw.last_loaded[4]
         else:
             xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname, eval_model=True)
-            self.last_loaded=[cellid,modelname,batch,xf,ctx]
+            aw.last_loaded=[cellid,modelname,batch,xf,ctx]
         return xf, ctx
 
     def view_recording(self):
+        aw = self
+        
+        batch = aw.batch
+        cellid = aw.cells.currentItem().text()
+        modelname = aw.models.currentItem().text()
+        xf, ctx = aw.get_current_selection()
 
-        batch = self.batch
-        cellid = self.cells.currentItem().text()
-        modelname = self.models.currentItem().text()
-        xf, ctx = self.get_current_selection()
-
-        recname=self.recname
+        recname=aw.recname
         signals = ['stim','psth','state','resp','pred']
         if type(ctx[recname]) is list:
             rec = ctx[recname][0].apply_mask()
         else:
             rec = ctx[recname].copy()
 
-        aw = browse_recording(rec, signals=signals,
+        aw2 = browse_recording(rec, signals=signals,
                               cellid=cellid, modelname=modelname)
 
-        return aw
+        return aw2
 
     def view_model(self):
 
