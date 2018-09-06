@@ -35,8 +35,8 @@ class model_browser(qw.QWidget):
 
     """
     def __init__(self, batch=289,
-                 cell_search_string="%",
-                 model_search_string="ozgf%",
+                 cell_search_string="",
+                 model_search_string="ozgf.fs100.ch18",
                  parent=None):
         qw.QWidget.__init__(self, parent=None)
 
@@ -112,7 +112,7 @@ class model_browser(qw.QWidget):
 
         batch = int(self.batchLE.text())
         cellmask = self.cellLE.text()
-        modelmask = self.modelLE.text()
+        modelmask = "%" + self.modelLE.text() + "%"
 
         if batch > 0:
             self.batch = batch
