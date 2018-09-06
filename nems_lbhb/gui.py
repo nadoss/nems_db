@@ -54,6 +54,7 @@ class model_browser(qw.QWidget):
         hLayout = qw.QHBoxLayout(self)
 
         self.cells = qw.QListWidget(self)
+        self.cells.setMaximumSize(qc.QSize(130, 1000))
         self.models = qw.QListWidget(self)
 
         vLayout = qw.QVBoxLayout(self)
@@ -64,6 +65,7 @@ class model_browser(qw.QWidget):
         self.batchLE = qw.QLineEdit(self)
         self.batchLE.setText(str(batch))
         self.batchLE.returnPressed.connect(self.update_widgets)
+        self.batchLE.setMaximumWidth(800)
         formLayout.addRow(batchlabel, self.batchLE)
 
         celllabel = qw.QLabel(self)
@@ -71,6 +73,7 @@ class model_browser(qw.QWidget):
         self.cellLE = qw.QLineEdit(self)
         self.cellLE.setText(cell_search_string)
         self.cellLE.returnPressed.connect(self.update_widgets)
+        self.cellLE.setMaximumWidth(800)
         formLayout.addRow(celllabel,self.cellLE)
 
         modellabel = qw.QLabel(self)
@@ -78,6 +81,7 @@ class model_browser(qw.QWidget):
         self.modelLE = qw.QLineEdit(self)
         self.modelLE.setText(model_search_string)
         self.modelLE.returnPressed.connect(self.update_widgets)
+        self.modelLE.setMaximumWidth(800)
 
         formLayout.addRow(modellabel,self.modelLE)
 
@@ -117,7 +121,8 @@ class model_browser(qw.QWidget):
 
         self.d_cells = nd.get_batch_cells(self.batch, cellid=cellmask)
         self.d_models = nd.pd_query("SELECT DISTINCT modelname FROM NarfResults" +
-                               " WHERE batch=%s AND modelname like %s",
+                               " WHERE batch=%s AND modelname like %s" +
+                               " ORDER BY modelname",
                                (self.batch, modelmask))
 
         self.cells.clear()
