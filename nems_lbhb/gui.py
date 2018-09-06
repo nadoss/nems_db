@@ -40,6 +40,10 @@ class model_browser(qw.QWidget):
                  parent=None):
         qw.QWidget.__init__(self, parent=None)
 
+        # Keep reference to opened recordings so they don't
+        # get garbage-collected
+        self._cached_windows = []
+
         # parameters for caching last model loaded
         self.last_loaded=['x','x',0]
         self.recname='val'
@@ -146,7 +150,7 @@ class model_browser(qw.QWidget):
 
     def view_recording(self):
         aw = self
-        
+
         batch = aw.batch
         cellid = aw.cells.currentItem().text()
         modelname = aw.models.currentItem().text()
@@ -162,6 +166,7 @@ class model_browser(qw.QWidget):
         aw2 = browse_recording(rec, signals=signals,
                               cellid=cellid, modelname=modelname)
 
+        self._cached_windows.append(aw2)
         return aw2
 
     def view_model(self):
