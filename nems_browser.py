@@ -6,8 +6,12 @@ Created on Tue Sep  4 08:21:46 2018
 @author: svd
 """
 
-import matplotlib
-matplotlib.use("Qt5Agg")
-from nems_lbhb.gui import model_browser, view_model_recording
+# OLD VERSION in Qt. DELETE ME?
+#import matplotlib
+#matplotlib.use("Qt5Agg")
+#from nems_lbhb.gui import model_browser, view_model_recording
+#
+#aw = model_browser()
 
-aw = model_browser()
+from nems_lbhb.nems_browser_gui import main
+main()

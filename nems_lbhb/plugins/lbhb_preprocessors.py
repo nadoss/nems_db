@@ -23,7 +23,15 @@ def pas(loadkey, recording_uri):
 
 
 def ref(kw):
-    return [['nems.xforms.mask_all_but_correct_references', {}]]
+    ops = kw.split('.')[1:]
+
+    balance_rep_count = False
+    for op in ops:
+        if op.startswith('b'):
+            balance_rep_count = True
+
+    return [['nems.xforms.mask_all_but_correct_references',
+             {'balance_rep_count': balance_rep_count}]]
 
 
 def evs(loadkey):
@@ -168,7 +176,7 @@ def psthfr(load_key):
     smooth = ('s' in options)
     epoch_regex = '^STIM_'
     xfspec=[['nems.xforms.generate_psth_from_resp',
-                   {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
+             {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
     return xfspec
 
 

@@ -210,7 +210,7 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
 
 # start main code
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
-save_fig = False
+save_fig = True
 if save_fig:
     plt.close('all')
 
@@ -234,9 +234,15 @@ if 0:
 elif 1:
     # figure 9, NAT
 
-    batch = 289
-    modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15-lvl.1-dexp.1_init-basic"
-    modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15-lvl.1-dexp.1_init-basic"
+    # old
+    batch = 271
+    modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15_init-basic"
+    modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15_init-basic"
+
+    # new
+    #batch=289
+    #modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x3-fir.3x15-lvl.1-dexp.1_init-basic"
+    #modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x3-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
     fileprefix="fig9.NAT"
 
 
