@@ -24,7 +24,7 @@ import pandas as pd
 import scipy.ndimage.filters as sf
 import nems_lbhb.plots as lplt
 import nems_db.db as nd
-from nems.plots.recording_browser import (browse_recording)
+from nems_gui.recording_browser import (browse_recording)
 
 
 class model_browser(qw.QWidget):

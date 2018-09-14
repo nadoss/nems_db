@@ -13,5 +13,5 @@ Created on Tue Sep  4 08:21:46 2018
 #
 #aw = model_browser()
 
-from nems_lbhb.nems_browser_gui import main
+from nems_gui.nems_browser_gui import main
 main()
