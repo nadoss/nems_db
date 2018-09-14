@@ -163,9 +163,11 @@ class ModelBrowser(Atom):
         xf, ctx = aw.get_current_selection()
 
         recname=aw.recname
+        #signals = ['stim','psth','state','resp','pred','mask']
         signals = ['stim','psth','state','resp','pred']
         if type(ctx[recname]) is list:
             rec = ctx[recname][0].apply_mask()
+            #rec = ctx[recname][0]
         else:
             rec = ctx[recname].copy()
 
@@ -184,13 +186,20 @@ def main():
     with enaml.imports():
         from nems_lbhb.nems_defs import NemsForm, NEMSWindow
 
-    #app = QtApplication()
-
+    try:
+        app = QtApplication()
+    except:
+        print('Qt app already running')
+        print('THERE IS A BETTER WAY TO DO THIS.')
     browser = ModelBrowser(debug=True)
 
     view = NEMSWindow(browser=browser)
     view.show()
-    #app.start()
+    try:
+        app.start()
+    except:
+        print('Qt app already running')
+        print('THERE IS A BETTER WAY TO DO THIS.')
 
 
 if __name__ == '__main__':

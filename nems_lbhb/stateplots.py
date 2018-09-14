@@ -746,10 +746,10 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301,
     # modelname_p0b = loader + "20pup0beh_stategain3_" + fitter
     # modelname_pb0 = loader + "20pupbeh0_stategain3_" + fitter
     # modelname_pb = loader + "20pupbeh_stategain3_" + fitter
-    modelname_p0b0 = loader + "-ld-st.pup0.beh0-ref-" + basemodel + "_" + fitter
-    modelname_p0b = loader + "-ld-st.pup0.beh-ref-" + basemodel + "_" + fitter
-    modelname_pb0 = loader + "-ld-st.pup.beh0-ref-" + basemodel + "_" + fitter
-    modelname_pb = loader + "-ld-st.pup.beh-ref-" + basemodel + "_" + fitter
+    modelname_p0b0 = loader + "-ld-st.pup0.beh0-" + basemodel + "_" + fitter
+    modelname_p0b = loader + "-ld-st.pup0.beh-" + basemodel + "_" + fitter
+    modelname_pb0 = loader + "-ld-st.pup.beh0-" + basemodel + "_" + fitter
+    modelname_pb = loader + "-ld-st.pup.beh-" + basemodel + "_" + fitter
 
     factor0 = "baseline"
     factor1 = "pupil"

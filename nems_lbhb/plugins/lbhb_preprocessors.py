@@ -115,6 +115,10 @@ def st(loadkey, recording_uri):
             this_sig = ["r2"]
         elif l.startswith('ttp'):
             this_sig = ['hit_trials','miss_trials']
+        elif l.startswith('far'):
+            this_sig = ['far']
+        elif l.startswith('hit'):
+            this_sig = ['hit']
         else:
             raise ValueError("unknown signal code %s for state variable initializer", l)
 
@@ -174,9 +178,23 @@ def psthfr(load_key):
     """
     options = load_key.split('.')[1:]
     smooth = ('s' in options)
+    hilo = ('hilo' in options)
+    jackknife = ('j' in options)
     epoch_regex = '^STIM_'
-    xfspec=[['nems.xforms.generate_psth_from_resp',
-             {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
+    if hilo:
+        if jackknife:
+             xfspec=[['nems_lbhb.preprocessing.hi_lo_psth_jack',
+                     {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
+        else:
+            xfspec=[['nems_lbhb.preprocessing.hi_lo_psth',
+                     {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
+    else:
+        if jackknife:
+            xfspec=[['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold',
+                     {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
+        else:
+            xfspec=[['nems.xforms.generate_psth_from_resp',
+                     {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
     return xfspec
 
 

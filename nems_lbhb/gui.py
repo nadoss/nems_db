@@ -162,14 +162,16 @@ class model_browser(qw.QWidget):
         xf, ctx = aw.get_current_selection()
 
         recname=aw.recname
+        #signals = ['stim','psth','state','resp','pred','mask']
         signals = ['stim','psth','state','resp','pred']
         if type(ctx[recname]) is list:
             rec = ctx[recname][0].apply_mask()
+            #rec = ctx[recname][0]
         else:
             rec = ctx[recname].copy()
 
         aw2 = browse_recording(rec, signals=signals,
-                              cellid=cellid, modelname=modelname)
+                               cellid=cellid, modelname=modelname)
 
         self._cached_windows.append(aw2)
         return aw2
@@ -186,8 +188,10 @@ def view_model_recording(cellid="TAR010c-18-2", batch=289,
 
     xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname, eval_model=True)
 
-    signals = ['stim','psth','state','resp','pred']
-    rec = ctx[recname][0].apply_mask()
+    #signals = ['stim','psth','state','resp','pred']
+    signals = ['stim','psth','state','resp','pred','mask']
+    #rec = ctx[recname][0].apply_mask()
+    rec = ctx[recname][0]
     aw = browse_recording(rec, signals=signals,
                           cellid=cellid, modelname=modelname)
 
