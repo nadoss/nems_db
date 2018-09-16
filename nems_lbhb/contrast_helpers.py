@@ -124,8 +124,7 @@ def add_contrast(rec, name='contrast', source_name='stim', ms=500, bins=None,
     return {'rec': rec_with_contrast}
 
 
-def add_onoff(rec, name='contrast', source='stim', epoch='^STIM_',
-              isReload=False, **context):
+def add_onoff(rec, name='contrast', source='stim', isReload=False, **context):
     # TODO: not really working yet...
     new_rec = copy.deepcopy(rec)
     s = new_rec[source]
@@ -137,16 +136,31 @@ def add_onoff(rec, name='contrast', source='stim', epoch='^STIM_',
                             " and could not be converted to one."
                             .format(source))
 
-    eps = nems.epoch.epoch_names_matching(s.epochs, epoch)
-    indices = [s.get_epoch_indices(ep) for ep in eps]
-    data = np.zeros([1, s.ntimes], dtype=np.float16)
-    for a in indices:
+    st_eps = nems.epoch.epoch_names_matching(s.epochs, '^STIM_')
+    pre_eps = nems.epoch.epoch_names_matching(s.epochs, 'PreStimSilence')
+    post_eps = nems.epoch.epoch_names_matching(s.epochs, 'PostStimSilence')
+
+    st_indices = [s.get_epoch_indices(ep) for ep in st_eps]
+    pre_indices = [s.get_epoch_indices(ep) for ep in pre_eps]
+    post_indices = [s.get_epoch_indices(ep) for ep in post_eps]
+
+    # Could definitely make this more efficient
+    data = np.zeros([1, s.ntimes])
+    for a in st_indices:
         for i in a:
             lb, ub = i
             data[:, lb:ub] = 1.0
+    for a in pre_indices:
+        for i in a:
+            lb, ub = i
+            data[:, lb:ub] = 0.0
+    for a in post_indices:
+        for i in a:
+            lb, ub = i
+            data[:, lb:ub] = 0.0
 
     attributes = s._get_attributes()
-    attributes['chans'] = [epoch]
+    attributes['chans'] = ['StimOnOff']
     new_sig = signal.RasterizedSignal(data=data, safety_checks=False,
                                       **attributes)
     new_rec[name] = new_sig

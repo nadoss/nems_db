@@ -378,9 +378,11 @@ def load_model_baphy_xform(cellid, batch=271,
     filepath = d['modelpath'][0]
 
     if old:
-        return oxf.load_analysis(filepath, eval_model=eval_model)
+        xfspec, ctx = oxf.load_analysis(filepath, eval_model=eval_model)
     else:
-        return xforms.load_analysis(filepath, eval_model=eval_model, only=only)
+        xfspec, ctx = xforms.load_analysis(filepath, eval_model=eval_model,
+                                           only=only)
+    return xfspec, ctx
 
 
 def model_pred_comp(cellid, batch, modelnames, occurrence=None,
