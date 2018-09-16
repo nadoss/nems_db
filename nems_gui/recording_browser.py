@@ -152,26 +152,33 @@ class NemsCanvas(MyMplCanvas):
         MyMplCanvas.__init__(self, *args, **kwargs)
         self.recording = recording
         self.signal = signal
+        self.signal_obj = self.recording[self.signal]
+        self.fs = self.signal_obj.fs
         self.parent = parent
         print("creating canvas: {}".format(signal))
-        sig_array = self.recording[self.signal].as_continuous()
+
+        sig_array = self.signal_obj.as_continuous()
         # Chop off end of array (where it's all nan'd out after processing)
         # TODO: Make this smarter incase there are intermediate nans?
         no_nans = sig_array[:, ~np.all(np.isnan(sig_array), axis=0)]
         self.max_time = no_nans.shape[-1] / self.recording[self.signal].fs
 
-    def compute_initial_figure(self):
-        pass
+        point = (isinstance(self.recording[self.signal],
+                            nems.signal.PointProcess))
+        tiled = (isinstance(self.recording[self.signal],
+                            nems.signal.TiledSignal)
+                 or 'stim' in self.recording[self.signal].name
+                 or 'contrast' in self.recording[self.signal].name)
 
-    def update_figure(self):
-        p = self.parent
+        if (not point) and (not tiled):
+            self.ymax = np.nanmax(sig_array)*1.25
+            self.ymin = np.nanmin(sig_array)*1.25
 
-        c_count = self.recording[self.signal].shape[0]
-        fs = self.recording[self.signal].fs
-        start_bin = int(p.start_time * fs)
-        stop_bin = int(p.stop_time * fs)
+        self.point = point
+        self.tiled = tiled
 
         # skip some channels, get names
+        c_count = self.recording[self.signal].shape[0]
         if self.recording[self.signal].chans is None:
             channel_names = [''] * c_count
         else:
@@ -184,31 +191,41 @@ class NemsCanvas(MyMplCanvas):
             keep = np.ones(c_count, dtype=bool)
             channel_names = None
 
-        d = self.recording[self.signal].as_continuous()[keep, start_bin:stop_bin]
+        self.keep = keep
+        self.channel_names = channel_names
 
-        point = (isinstance(self.recording[self.signal],
-                            nems.signal.PointProcess))
-        tiled = (isinstance(self.recording[self.signal],
-                           nems.signal.TiledSignal)
-                 or 'stim' in self.recording[self.signal].name)
-        if point:
+    def compute_initial_figure(self):
+        pass
+
+    def update_figure(self):
+        p = self.parent
+
+        start_bin = int(p.start_time * self.fs)
+        stop_bin = int(p.stop_time * self.fs)
+        d = self.recording[self.signal].as_continuous()[self.keep, start_bin:stop_bin]
+
+        if self.point:
             self.axes.imshow(d, aspect='auto', cmap='Greys',
                              interpolation='nearest', origin='lower')
             self.axes.get_yaxis().set_visible(False)
-        elif tiled:
+        elif self.tiled:
             self.axes.imshow(d, aspect='auto', origin='lower')
         else:
             t = np.linspace(p.start_time, p.stop_time, d.shape[1])
             self.axes.plot(t, d.T)
-            if (channel_names is not None) and len(channel_names)>1:
-                self.axes.legend(channel_names, frameon=False)
-            self.axes.set_xlim([t[0],t[-1]])
+            if self.channel_names is not None:
+                if len(self.channel_names) > 1:
+                    self.axes.legend(self.channel_names, frameon=False)
+            self.axes.set_xlim(p.start_time, p.stop_time)
+            self.axes.set_ylim(ymin=self.ymin, ymax=self.ymax)
+
+        #self.axes.set_xlim(p.start_time, p.stop_time)
         self.axes.set_ylabel(self.signal)
         #self.axes.autoscale(enable=True, axis='x', tight=True)
         ax_remove_box(self.axes)
         self.draw()
 
-        if point or tiled:
+        if self.point or self.tiled:
             tick_labels = self.axes.get_xticklabels()
 
             #new_labels = [round((t.get_position()[0]+start_bin)/fs)
@@ -230,6 +247,7 @@ class EpochCanvas(MyMplCanvas):
         self.parent = parent
         print("creating epoch canvas: {}".format(signal))
         self.max_time = 0
+        self.epoch_groups = {}
 
     def compute_initial_figure(self):
         pass
@@ -242,14 +260,69 @@ class EpochCanvas(MyMplCanvas):
         valid_epochs = epochs[(epochs['start'] >= p.start_time) &
                               (epochs['end'] < p.stop_time)]
 
-        i = 0
-        for index, e in valid_epochs.iterrows():
-            x = np.array([e['start'],e['end']])
-            y = np.array([i, i])
-            self.axes.plot(x, y, 'k-')
-            self.axes.text(x[0], y[0], e['name'], va='bottom')
-            i += 1
-            self.axes.hold(True)
+        # On each refresh, keep the same keys but reform the lists of indices.
+        self.epoch_groups = {k: [] for k in self.epoch_groups}
+        for i, n, s, e in valid_epochs.itertuples():
+            prefix = n.split('_')[0]
+            if prefix in self.epoch_groups:
+                self.epoch_groups[prefix].append(i)
+            else:
+                self.epoch_groups[prefix] = [i]
+
+#        colors = ['Blue', 'Green', 'Yellow', 'Red']
+#        k = 0
+        for i, g in enumerate(self.epoch_groups):
+#            c = colors[k]
+#            k += 1
+#            if k == len(colors):
+#                k = 0
+            for j in self.epoch_groups[g]:
+                n = valid_epochs['name'][j]
+                s = valid_epochs['start'][j]
+                e = valid_epochs['end'][j]
+
+                try:
+                    n2 = valid_epochs['name'][j+1]
+                    s2 = valid_epochs['start'][j+1]
+                    e2 = valid_epochs['end'][j+1]
+                except KeyError:
+                    # j is already the last epoch in the list
+                    pass
+
+                # If two epochs with the same name overlap,
+                # extend the end of the first to the end of the second
+                # and skip the second epoch.
+                # Same if end goes past next start.
+                if n == n2:
+                    if (s2 < e) or (e > s2):
+                        e = e2
+                        j += 1
+                    else:
+                        pass
+
+                # Don't plot text boxes outside of plot limits
+                if s < p.start_time:
+                    s = p.start_time
+                elif e > p.stop_time:
+                    p = p.stop_time
+
+                x = np.array([s, e])
+                y = np.array([i, i])
+#                props = {'facecolor': c, 'alpha': 0.07}
+#                self.axes.text(x[0], y[0], n, va='bottom',
+#                               bbox=props)
+                self.axes.plot(x, y, 'k-')
+                self.axes.text(s, i, n, va='bottom')
+                self.axes.hold(True)
+
+#        i = 0
+#        for index, e in valid_epochs.iterrows():
+#            x = np.array([e['start'],e['end']])
+#            y = np.array([i, i])
+#            self.axes.plot(x, y, 'k-')
+#            self.axes.text(x[0], y[0], e['name'], va='bottom')
+#            i += 1
+#            self.axes.hold(True)
 
         self.axes.set_xlim([p.start_time, p.stop_time])
         self.axes.set_ylim([-0.5, i+0.5])
@@ -295,10 +368,6 @@ class ApplicationWindow(qw.QMainWindow):
         self.file_menu = qw.QMenu('&File', self)
         self.file_menu.addAction('&Quit', self.fileQuit,
                                  qc.Qt.CTRL + qc.Qt.Key_Q)
-        self.file_menu.addAction('Add Signal', self.add_signal,
-                                 qc.Qt.CTRL + qc.Qt.Key_A)
-        self.file_menu.addAction('Remove Signal', self.remove_signal,
-                                 qc.Qt.CTRL + qc.Qt.Key_R)
         self.file_menu.addAction('Screenshot', self.save_screenshot,
                                  qc.Qt.CTRL + qc.Qt.Key_S)
         self.menuBar().addMenu(self.file_menu)
@@ -323,10 +392,12 @@ class ApplicationWindow(qw.QMainWindow):
         # mpl panels
         signals = [value for value in signals if value in recording.signals]
         self.plot_list = [self._default_plot_instance(s) for s in signals]
-        epoch_canvas = EpochCanvas(self.recording, 'resp', self, self.main_widget,
-                          width=self.plot_width, height=self.plot_height,
-                          dpi=self.plot_dpi)
-        self.plot_list = [epoch_canvas] + self.plot_list
+        epoch_canvas = EpochCanvas(
+                self.recording, 'resp', self, self.main_widget,
+                width=self.plot_width, height=self.plot_height,
+                dpi=self.plot_dpi
+                )
+        self.plot_list.insert(0, epoch_canvas)
         self.plot_layout = qw.QVBoxLayout()
         self.plot_layout.setSpacing(25)
         [self.plot_layout.addWidget(p) for p in self.plot_list]
@@ -367,9 +438,17 @@ class ApplicationWindow(qw.QMainWindow):
         qbtn2 = qw.QPushButton('Test', self)
         qbtn2.clicked.connect(self.print_signals)
 
+        add_sig = qw.QPushButton('Add Signal', self)
+        add_sig.clicked.connect(self.add_signal)
+
+        remove_sig = qw.QPushButton('Remove Signal', self)
+        remove_sig.clicked.connect(self.remove_signal)
+
         control_layout = qw.QHBoxLayout()
         control_layout.addWidget(qbtn)
         control_layout.addWidget(qbtn2)
+        control_layout.addWidget(add_sig)
+        control_layout.addWidget(remove_sig)
         self.outer_layout.addLayout(control_layout)
 
         self.main_widget.setLayout(self.outer_layout)
@@ -578,7 +657,6 @@ class PandasModel(qc.QAbstractTableModel):
         self.layoutChanged.emit()
 
 
-
 def pandas_table_test():
 
     data = {'a': [1, 2, 3], 'b': ['dog','cat','ferret']}
@@ -644,11 +722,11 @@ def _window_startup(aw):
 
     return aw
 
-
+#import nems_db.xform_wrappers as nw
 #batch = 289
 #modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15-lvl.1-dexp.1_init-basic"
 #cellid = 'TAR010c-21-4'
 #xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname, eval_model=True,
 #                                    only=0)
-#
+
 #browse_context(ctx, rec='val', signals=['stim', 'resp'], rec_idx=0)
