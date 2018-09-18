@@ -124,8 +124,7 @@ def add_contrast(rec, name='contrast', source_name='stim', ms=500, bins=None,
     return {'rec': rec_with_contrast}
 
 
-def add_onoff(rec, name='contrast', source='stim', epoch='^STIM_',
-              isReload=False, **context):
+def add_onoff(rec, name='contrast', source='stim', isReload=False, **context):
     # TODO: not really working yet...
     new_rec = copy.deepcopy(rec)
     s = new_rec[source]
@@ -137,16 +136,31 @@ def add_onoff(rec, name='contrast', source='stim', epoch='^STIM_',
                             " and could not be converted to one."
                             .format(source))
 
-    eps = nems.epoch.epoch_names_matching(s.epochs, epoch)
-    indices = [s.get_epoch_indices(ep) for ep in eps]
-    data = np.zeros([1, s.ntimes], dtype=np.float16)
-    for a in indices:
+    st_eps = nems.epoch.epoch_names_matching(s.epochs, '^STIM_')
+    pre_eps = nems.epoch.epoch_names_matching(s.epochs, 'PreStimSilence')
+    post_eps = nems.epoch.epoch_names_matching(s.epochs, 'PostStimSilence')
+
+    st_indices = [s.get_epoch_indices(ep) for ep in st_eps]
+    pre_indices = [s.get_epoch_indices(ep) for ep in pre_eps]
+    post_indices = [s.get_epoch_indices(ep) for ep in post_eps]
+
+    # Could definitely make this more efficient
+    data = np.zeros([1, s.ntimes])
+    for a in st_indices:
         for i in a:
             lb, ub = i
             data[:, lb:ub] = 1.0
+    for a in pre_indices:
+        for i in a:
+            lb, ub = i
+            data[:, lb:ub] = 0.0
+    for a in post_indices:
+        for i in a:
+            lb, ub = i
+            data[:, lb:ub] = 0.0
 
     attributes = s._get_attributes()
-    attributes['chans'] = [epoch]
+    attributes['chans'] = ['StimOnOff']
     new_sig = signal.RasterizedSignal(data=data, safety_checks=False,
                                       **attributes)
     new_rec[name] = new_sig
@@ -162,13 +176,23 @@ def reset_single_recording(rec, est, val, IsReload=False, **context):
     Warning: This may mess up jackknifing!
     '''
     if not IsReload:
-        if isinstance(rec, list):
-            rec = rec[0]
         if isinstance(est, list):
             est = est[0]
         if isinstance(val, list):
             val = val[0]
-    return {'rec': rec, 'est': est, 'val': val}
+    return {'est': est, 'val': val}
+
+
+def pass_nested_modelspec(modelspecs, IsReload=False, **context):
+    '''
+    Useful for stopping after initialization. Mimics return value
+    of fit_basic, but without any fitting.
+    '''
+    if not IsReload:
+        if not isinstance(modelspecs, list):
+            modelspecs = [modelspecs]
+
+    return {'modelspecs': modelspecs}
 
 
 def dynamic_sigmoid(rec, i, o, c, base, amplitude, shift, kappa,
@@ -284,7 +308,7 @@ def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
 
     # generate prediction from module preceeding dexp
 
-    # HACK
+    # HACK to get phi for ctwc, ctfir, ctlvl
     for i, m in enumerate(fit_portion):
         if not m.get('phi', None):
             old = m.get('prior', {})
@@ -469,6 +493,15 @@ def init_contrast_model(est, modelspecs, IsReload=False,
 
     log.info("initializing priors and bounds for dsig ...\n")
     modelspec = init_dsig(est, modelspec)
+
+    for i, m in enumerate(modelspec):
+        if not m.get('phi'):
+            log.info('\n\nIntializing phi for module %d (%s)', i, m['fn'])
+            old = m.get('prior', {})
+            m = priors.set_mean_phi([m])[0]  # Inits phi
+            m['prior'] = old
+            modelspec[i] = m
+
     modelspec = _prefit_contrast_modules(
                     est, modelspec, fit_basic,
                     fitter=fitter_fn,
@@ -489,6 +522,7 @@ def init_contrast_model(est, modelspecs, IsReload=False,
 #            fit_kwargs=fit_kwargs)
 #    modelspec = remove_dsig_bounds(modelspec)
 
+
     # after prefitting contrast modules, update priors to reflect the
     # prefit values so that random sample fits incorporate the prefit info.
     modelspec = dsig_phi_to_prior(modelspec)
@@ -505,15 +539,14 @@ def _prefit_contrast_modules(rec, modelspec, analysis_function,
     # identify any excluded modules and take them out of temp modelspec
     # that will be fit here
     fit_idx = []
-    tmodelspec = []
     fit_set = ['ctwc', 'ctfir', 'ctlvl', 'dsig']
     for i, m in enumerate(modelspec):
-        m = copy.deepcopy(m)
         for id in fit_set:
             if id in m['id']:
                 fit_idx.append(i)
                 log.info('Found module %d (%s) for subset prefit', i, id)
-        tmodelspec.append(m)
+
+    tmodelspec = copy.deepcopy(modelspec)
 
     if len(fit_idx) == 0:
         log.info('No modules matching fit_set for subset prefit')
