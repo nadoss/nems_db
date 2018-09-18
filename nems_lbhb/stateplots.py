@@ -16,6 +16,7 @@ import nems.plots.api as nplt
 import nems.xforms as xforms
 import nems.epoch as ep
 import nems_lbhb.plots as lplt
+from nems.metrics.state import state_mod_index
 
 font_size=8
 params = {'legend.fontsize': font_size-2,
@@ -424,38 +425,6 @@ def beta_comp_cols(g, b, n1='A', n2='B', hist_bins=20,
     plt.tight_layout()
 
 
-def state_mod_index(rec, epoch='REFERENCE', psth_name='resp',
-                    state_sig='pupil'):
-
-    full_psth = rec[psth_name]
-    folded_psth = full_psth.extract_epoch(epoch)
-
-    full_var = rec['state'].loc[state_sig]
-    folded_var = np.squeeze(full_var.extract_epoch(epoch))
-
-    # compute the mean state for each occurrence
-    m = np.nanmean(folded_var, axis=1)
-
-    # compute the mean state across all occurrences
-    mean = np.nanmean(m)
-    gtidx = (m >= mean)
-    ltidx = np.logical_not(gtidx)
-
-    # low = response on epochs when state less than mean
-    if np.sum(ltidx):
-        low = np.nanmean(folded_psth[ltidx, :, :], axis=0).T
-    else:
-        low = np.ones(folded_psth[0, :, :].shape).T * np.nan
-
-    # high = response on epochs when state greater than or equal to mean
-    if np.sum(gtidx):
-        high = np.nanmean(folded_psth[gtidx, :, :], axis=0).T
-    else:
-        high = np.ones(folded_psth[0, :, :].shape).T * np.nan
-
-    mod = np.sum(high - low) / np.sum(high + low)
-
-    return mod
 
 
 def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
