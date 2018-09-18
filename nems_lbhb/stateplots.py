@@ -767,6 +767,43 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301,
     return fh, stats
 
 
+def bperf_model_plot(cellid='TAR010c-06-1', batch=307,
+                     loader="psth.fs20.pup",
+                     basemodel="ref-psthfr.s_stategain.S",
+                     fitter="jk.nf10-init.st-basic"):
+    """
+    test for engagement-performance interaction.
+    loader : string
+      can be 'psth' or 'psths'
+    fitter : string
+      can be 'basic-nf' or 'cd-nf'
+
+    """
+    global line_colors
+
+    modelname_p0b0 = loader + "-ld-st.pup.beh0.far0.hit0-" + basemodel + "_" + fitter
+    modelname_p0b = loader + "-ld-st.pup.beh.far0.hit0-" + basemodel + "_" + fitter
+    modelname_pb0 = loader + "-ld-st.pup.beh0.far.hit-" + basemodel + "_" + fitter
+    modelname_pb = loader + "-ld-st.pup.beh.far.hit-" + basemodel + "_" + fitter
+
+    factor0 = "baseline"
+    factor1 = "active"
+    factor2 = "hit"
+
+    modelnames = [modelname_p0b0, modelname_p0b, modelname_pb0,
+                  modelname_pb]
+    factors = [factor0, factor1, factor2]
+    state_colors = [[line_colors['passive'], line_colors['active']],
+                    [line_colors['passive'], line_colors['active']],
+                    [line_colors['passive'], line_colors['active']],
+                    [line_colors['easy'], line_colors['hard']]]
+
+    fh, stats = _model_step_plot(cellid, batch, modelnames, factors,
+                                 state_colors=state_colors)
+
+    return fh, stats
+
+
 def pp_model_plot(cellid='TAR010c-06-1', batch=301,
                   loader="psth", basemodel="stategain.N", fitter="basic-nf"):
     """

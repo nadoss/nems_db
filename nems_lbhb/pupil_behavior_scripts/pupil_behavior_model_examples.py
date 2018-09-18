@@ -24,6 +24,8 @@ import nems.plots.api as nplt
 sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
 
 
+
+
 def plot_save_examples(batch, compare, loader, basemodel, fitter, RELOAD=False):
 
     if batch in [301, 307]:
