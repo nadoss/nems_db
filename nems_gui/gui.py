@@ -177,8 +177,8 @@ class model_browser(qw.QWidget):
         return aw2
 
     def view_model(self):
-
-        xf, ctx = self.get_current_selection()
+        aw = self
+        xf, ctx = aw.get_current_selection()
         nplt.quickplot(ctx)
 
 
