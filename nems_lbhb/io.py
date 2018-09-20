@@ -373,6 +373,7 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
     pupil_bandpass = options.get('pupil_bandpass', 0)
     pupil_derivative = options.get('pupil_derivative', '')
     pupil_mm = options.get('pupil_mm', False)
+    pupil_eyespeed = options.get('pupil_eyespeed', False)
     verbose = options.get('verbose', False)
 
     if exptevents is None:
@@ -420,6 +421,9 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
         pupil_diameter = pupil_diameter.T
     print("pupil_diameter.shape: " + str(pupil_diameter.shape))
 
+    if pupil_eyespeed:
+        eye_speed = np.array(results[0]['eye_speed'][0][0])
+
     fs_approximate = 10  # approx video framerate
     if pupil_deblink:
         dp = np.abs(np.diff(pupil_diameter, axis=0))
@@ -441,6 +445,8 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
         if len(onidx) > len(offidx):
             offidx = np.concatenate((offidx, np.array([len(blink)])))
         deblinked = pupil_diameter.copy()
+        if pupil_eyespeed:
+            deblinked_eye_speed = eye_speed.copy()
         for i, x1 in enumerate(onidx):
             x2 = offidx[i]
             if x2 < x1:
@@ -451,16 +457,34 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
                 deblinked[x1:x2, 0] = np.linspace(
                         deblinked[x1], deblinked[x2-1], x2-x1
                         )
+                if pupil_eyespeed:
+                    deblinked_eye_speed[x1:x2, 0] = np.nan
 
         if verbose:
             plt.figure()
-            plt.plot(pupil_diameter)
-            plt.plot(deblinked)
+            if pupil_eyespeed:
+                plt.subplot(2,1,1)
+            plt.plot(pupil_diameter, label='Raw')
+            plt.plot(deblinked, label='Deblinked')
             plt.xlabel('Frame')
             plt.ylabel('Pupil')
-            plt.legend('Raw', 'Deblinked')
+            plt.legend()
             plt.title("Artifacts detected: {}".format(len(onidx)))
+            if pupil_eyespeed:
+                plt.subplot(2,1,2)
+                plt.plot(eye_speed, label='Raw')
+                plt.plot(deblinked_eye_speed, label='Deblinked')
+                plt.xlabel('Frame')
+                plt.ylabel('Eye speed')
+                plt.legend()
         pupil_diameter = deblinked
+        if pupil_eyespeed:
+            eye_speed = deblinked_eye_speed
+
+    if pupil_eyespeed:
+        returned_measurement = eye_speed
+    else:
+        returned_measurement = pupil_diameter
 
     # resample and remove dropped frames
 
@@ -507,13 +531,17 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
     # warp/resample each trial to compensate for dropped frames
     strialidx = np.zeros([ntrials + 1])
     big_rs = np.array([])
+    all_fs = np.empty([ntrials])
 
     for ii in range(0, ntrials):
-        d = pupil_diameter[
+        d = returned_measurement[
                 int(firstframe[ii]):int(firstframe[ii]+frame_count[ii]), 0
                 ]
         fs = frame_count[ii] / duration[ii]
+        all_fs[ii] = fs
         t = np.arange(0, len(d)) / fs
+        if pupil_eyespeed:
+            d = d*fs #convert to px/s before resampling
         ti = np.arange(
                 (1/rasterfs)/2, duration[ii]+(1/rasterfs)/2, 1/rasterfs
                 )
@@ -531,7 +559,7 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
         kernel_size = int(round(pupil_median*rasterfs/2)*2+1)
         big_rs = scipy.signal.medfilt(big_rs, kernel_size=kernel_size)
 
-    # shift pupil trace by offset, usually 0.75 sec
+    # shift pupil (or eye speed) trace by offset, usually 0.75 sec
     offset_frames = int(pupil_offset*rasterfs)
     big_rs = np.roll(big_rs, -offset_frames)
     big_rs[-offset_frames:] = np.nan
@@ -539,5 +567,14 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
     # shape to 1 x T to match NEMS signal specs
     big_rs = big_rs[np.newaxis, :]
 
-    return big_rs, strialidx
+    if verbose:
+        #plot framerate for each trial (for checking camera performance)
+        plt.figure()
+        plt.plot(all_fs.T)
+        plt.xlabel('Trial')
+        plt.ylabel('Sampling rate (Hz)')
 
+    if verbose:
+        plt.show()
+
+    return big_rs, strialidx
