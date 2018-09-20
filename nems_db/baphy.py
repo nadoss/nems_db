@@ -28,6 +28,7 @@ import nems.recording
 import nems_db.db as db
 from nems.recording import Recording
 from nems.recording import load_recording
+from nems.utils import recording_filename_hash
 
 
 # TODO: Replace catch-all `except:` statements with except SpecificError,
@@ -321,7 +322,7 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
         if len(sortinfo[c]) and sortinfo[c][0].size:
             s = sortinfo[c][0][0]['unitSpikes']
             comment = sortinfo[c][0][0][0][0][2][0]
-            log.info('Comment: %s', comment)
+            log.debug('Comment: %s', comment)
 
             s = np.reshape(s, (-1, 1))
             unitcount = s.shape[0]
@@ -736,8 +737,7 @@ def baphy_load_dataset(parmfilepath, **options):
             keepevents[(i-1):(i+2)] = False
 
         for i, d in exptevents.loc[fftrunc].iterrows():
-            print("Truncating event {0} early at {1}"
-                  .format(i, trialstoptime))
+            log.debug("Truncating event %d early at %.3f", i, trialstoptime)
             exptevents.loc[i, 'end'] = trialstoptime
             # also trim post stim silence
             exptevents.loc[i + 1, 'start'] = trialstoptime
@@ -1318,6 +1318,7 @@ def baphy_load_recording_nonrasterized(**options):
     batch = options.get('batch', None)
     cell_list = options.get('cell_list', None)
     siteid = options.get('siteid', None)
+    meta = options
 
     if (cellid is None) and (cell_list is None) and (siteid is None):
         raise ValueError("must provide cellid, cell_list or siteid")
@@ -1379,6 +1380,8 @@ def baphy_load_recording_nonrasterized(**options):
                                rawid=options['rawid'])
 
     files = list(set(list(d['parm'])))
+    files.sort()
+
     if len(files) == 0:
        raise ValueError('NarfData not found for cell {0}/batch {1}'.format(cellid,batch))
 
@@ -1466,7 +1469,6 @@ def baphy_load_recording_nonrasterized(**options):
             raise ValueError("RDT not supported yet")
 
     resp.meta = options
-
     signals = {'resp': resp}
 
     if options['pupil']:
@@ -1483,7 +1485,8 @@ def baphy_load_recording_nonrasterized(**options):
         signals['state'] = state
         # signals['stim'].meta={'BigStimMatrix': BigStimMatrix}
 
-    rec = nems.recording.Recording(signals=signals)
+    rec = nems.recording.Recording(signals=signals, meta=meta, name=siteid)
+
     return rec
 
 
@@ -1521,10 +1524,13 @@ def baphy_data_path(**options):
         raise ValueError("cellid,batch,rasterfs,stimfmt,chancount options required")
 
     # TODO : base filename on siteid/cellid plus hash from JSON-ized options
-    data_path = ("/auto/data/nems_db/recordings/{0}/{1}{2}_fs{3}/"
-                 .format(options["batch"], options['stimfmt'],
-                         options["chancount"], options["rasterfs"]))
-    data_file = data_path + cellid + '.tgz'
+    #data_path = ("/auto/data/nems_db/recordings/{0}/{1}{2}_fs{3}/"
+    #             .format(options["batch"], options['stimfmt'],
+    #                     options["chancount"], options["rasterfs"]))
+    #data_file = data_path + cellid + '.tgz'
+    siteid = options.get('siteid', cellid.split("-")[0])
+    data_file = recording_filename_hash(siteid, options,
+                                        uri_path="/auto/data/nems_db/recordings/")
 
     log.info(data_file)
     log.info(options)
@@ -1609,7 +1615,7 @@ def baphy_load_multichannel_recording(**options):
     cache_exists=None
 
     options['cellid'] = cellids
-    
+
     if options['rawid'] is not None:
         options['rawid'] = [str(i) for i in options['rawid']]
 
