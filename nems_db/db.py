@@ -634,6 +634,7 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
     if label is not None:
         sql += " AND label like %s"
         params = params + (label,)
+    sql += " ORDER BY filepath"
     print(sql)
     d = pd.read_sql(sql=sql, con=engine, params=params)
     d.set_index(['cellid', 'groupid', 'label', 'rawid'], inplace=True)
@@ -896,33 +897,33 @@ def get_wft(cellid=None):
 def get_rawid(cellid, run_num):
     """
     Used to return the rawid corresponding to given run number. To be used if
-    you have two files at a given site that belong to the same batch but were 
+    you have two files at a given site that belong to the same batch but were
     sorted separately and you only want to load cellids from one of the files.
-    
-    ex. usage in practice would be to pass a sys arg cellid followed by the 
+
+    ex. usage in practice would be to pass a sys arg cellid followed by the
     run_num:
-        
+
         cellid = 'TAR017b-04-1_04'
-        
+
         This specifies cellid and run_num. So parse this string and pass as args
-        to this function to return rawid        
+        to this function to return rawid
     """
     engine = Engine()
     params = ()
     sql = "SELECT rawid FROM sCellFile WHERE 1"
-    
+
     if cellid is not None:
         sql += " AND cellid like %s"
         params = params+(cellid+"%",)
-    
+
     if run_num is not None:
         sql += " AND respfile like %s"
         params = params+(cellid[:-5]+run_num+"%",)
-        
+
     d = pd.read_sql(sql=sql, con=engine, params=params)
-    
+
     return [d['rawid'].values[0]]
-    
+
 # TODO
 # Old enqueu_models function, remove this once new version
 # is tested a bit more.

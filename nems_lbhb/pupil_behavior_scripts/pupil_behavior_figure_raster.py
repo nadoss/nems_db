@@ -10,6 +10,7 @@ import os
 import sys
 sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
 import pandas as pd
+from scipy.signal import decimate
 
 import nems_db.db as nd
 import nems_db.params
@@ -81,6 +82,8 @@ except:
     d_cells['tar_onset']=0
     d_cells['tar_sust']=0
     d_cells['tar_offset']=0
+    d_cells['ref_mean'] = '0'
+    d_cells['tar_mean'] = '0'
 
 d_cells = d_cells.set_index(['cellid'])
 #cellids = list(d_cells.index)
@@ -125,9 +128,11 @@ for cellid in d_cells[d_cells['spont']==0].index:
     ref_onset = []
     ref_sust = []
     ref_offset = []
+    ref_mean = []
     tar_onset = []
     tar_sust = []
     tar_offset = []
+    tar_mean = []
 
     for i, f in enumerate(file_epochs):
 
@@ -138,40 +143,48 @@ for cellid in d_cells[d_cells['spont']==0].index:
         m = trec['mask']
 
         _r = resp.as_matrix(stim_epochs, mask=m)
-        r.append(_r)
-        repcount = np.sum(np.isfinite(_r[:, :, 0, 0]), axis=1)
-        n, = np.where(repcount == np.max(repcount))
-        n = n[-1]
-        max_rep_id.append(n)
-        offsetbin = _r.shape[3]-postbins
+        if _r.size > 0:
+            r.append(_r)
+            repcount = np.sum(np.isfinite(_r[:, :, 0, 0]), axis=1)
+            n, = np.where(repcount == np.max(repcount))
+            n = n[-1]
+            max_rep_id.append(n)
+            offsetbin = _r.shape[3]-postbins
 
-        spont.append(np.nanmean(_r[n,:,0,:prebins])*fs)
-        ref_onset.append(np.nanmean(_r[n,:,0,prebins:onsetbin])*fs)
-        ref_sust.append(np.nanmean(_r[n,:,0,onsetbin:offsetbin])*fs)
-        ref_offset.append(np.nanmean(_r[n,:,0,offsetbin:(offsetbin+postbins)])*fs)
+            spont.append(np.nanmean(_r[n,:,0,:prebins])*fs)
+            ref_onset.append(np.nanmean(_r[n,:,0,prebins:onsetbin])*fs)
+            ref_sust.append(np.nanmean(_r[n,:,0,onsetbin:offsetbin])*fs)
+            ref_offset.append(np.nanmean(_r[n,:,0,offsetbin:(offsetbin+postbins)])*fs)
+            ref_mean.append(decimate(np.nanmean(_r[n,:,0,:], axis=0),2))
 
-        trec = trec.create_mask(f)
-        _t = resp.as_matrix(tar_epochs, mask=trec['mask'])
-        tar.append(_t)
-        repcount = np.sum(np.isfinite(_t[:, :, 0, 0]), axis=1)
-        if (len(repcount) >= 2) and (repcount[2]>0):
-            n = 2
-        else:
-            n = 0
-        max_tar_id.append(n)
-        #n, = np.where(repcount == np.max(repcount))
-        #max_tar_id.append(n[-1])
-        tar_onset.append(np.nanmean(_t[n,:,0,prebins:onsetbin])*fs)
-        tar_sust.append(np.nanmean(_t[n,:,0,onsetbin:offsetbin])*fs)
-        tar_offset.append(np.nanmean(_t[n,:,0,offsetbin:(offsetbin+postbins)])*fs)
+            trec = trec.create_mask(f)
+            _t = resp.as_matrix(tar_epochs, mask=trec['mask'])
+            tar.append(_t)
+            repcount = np.sum(np.isfinite(_t[:, :, 0, 0]), axis=1)
+            if (len(repcount) >= 3) and (repcount[2]>0):
+                n = 2
+            elif (len(repcount) == 2) and (repcount[0]==0):
+                n = 1
+            else:
+                n = 0
+            max_tar_id.append(n)
+            #n, = np.where(repcount == np.max(repcount))
+            #max_tar_id.append(n[-1])
+            tar_onset.append(np.nanmean(_t[n,:,0,prebins:onsetbin])*fs)
+            tar_sust.append(np.nanmean(_t[n,:,0,onsetbin:offsetbin])*fs)
+            tar_offset.append(np.nanmean(_t[n,:,0,offsetbin:(offsetbin+postbins)])*fs)
+            tar_mean.append(decimate(np.nanmean(_t[n,:,0,:], axis=0),2))
 
-    d_cells.loc[cellid,'spont'] = np.nanmean(np.array(spont))
-    d_cells.loc[cellid,'ref_onset'] = np.nanmean(np.array(ref_onset))
-    d_cells.loc[cellid,'ref_sust'] = np.nanmean(np.array(ref_sust))
-    d_cells.loc[cellid,'ref_offset'] = np.nanmean(np.array(ref_offset))
-    d_cells.loc[cellid,'tar_onset'] = np.nanmean(np.array(tar_onset))
-    d_cells.loc[cellid,'tar_sust'] = np.nanmean(np.array(tar_sust))
-    d_cells.loc[cellid,'tar_offset'] = np.nanmean(np.array(tar_offset))
+    d_cells.loc[cellid,'spont'] = np.nanmean(np.array(spont)[:3])
+    d_cells.loc[cellid,'ref_onset'] = np.nanmean(np.array(ref_onset)[:3])
+    d_cells.loc[cellid,'ref_sust'] = np.nanmean(np.array(ref_sust)[:3])
+    d_cells.loc[cellid,'ref_offset'] = np.nanmean(np.array(ref_offset)[:3])
+    d_cells.loc[cellid,'tar_onset'] = np.nanmean(np.array(tar_onset)[:3])
+    d_cells.loc[cellid,'tar_sust'] = np.nanmean(np.array(tar_sust)[:3])
+    d_cells.loc[cellid,'tar_offset'] = np.nanmean(np.array(tar_offset)[:3])
+
+    d_cells.at[cellid,'ref_mean'] = list(np.nanmean(np.stack(ref_mean[:3]), axis=0))
+    d_cells.at[cellid,'tar_mean'] = list(np.nanmean(np.stack(tar_mean[:3]), axis=0))
 
     fh.clf()
 
@@ -184,8 +197,7 @@ for cellid in d_cells[d_cells['spont']==0].index:
         _t = tar[i][max_tar_id[i], :, 0, :bincount]
 
         ax = plt.subplot(4, len(r), i+1)
-        nplt.raster(t, _t, ax=ax, title=file_epochs[i],
-                    ylabel='tar')
+        nplt.raster(t, _t, ax=ax, title=cellid, ylabel='tar')
         ylim = ax.get_ylim()
         xlim = ax.get_xlim()
         ax.plot(np.array([0, 0]), ylim, 'g--')
@@ -206,7 +218,7 @@ for cellid in d_cells[d_cells['spont']==0].index:
         ax = plt.subplot(4, len(r), len(r)*2+i+1)
         rall = _r[max_rep_id[i], :, 0, :]
         #rall = np.reshape(rall, [rall.shape[0]*med_rep, rall.shape[2]])
-        nplt.raster(t, rall, ax=ax, ylabel='ref')
+        nplt.raster(t, rall, ax=ax, ylabel='ref', title=file_epochs[i])
         ylim = ax.get_ylim()
         xlim = ax.get_xlim()
         ax.plot(np.array([0, 0]), ylim, 'g--')
@@ -225,7 +237,7 @@ for cellid in d_cells[d_cells['spont']==0].index:
         ax.plot(np.array([0, 0])+(xlim[1]-PostStimSilence + 0.5/resp.fs*10), ylim, 'k--')
 
     plt.tight_layout()
-    plt.show()
-    plt.pause(0.05)
+    #plt.show()
+    #plt.pause(0.05)
     fh.savefig(outpath+cellid+".pdf")
     d_cells.to_csv(outpath+"selectivity.csv")

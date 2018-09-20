@@ -322,7 +322,7 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
         if len(sortinfo[c]) and sortinfo[c][0].size:
             s = sortinfo[c][0][0]['unitSpikes']
             comment = sortinfo[c][0][0][0][0][2][0]
-            # log.info('Comment: %s', comment)
+            log.debug('Comment: %s', comment)
 
             s = np.reshape(s, (-1, 1))
             unitcount = s.shape[0]
