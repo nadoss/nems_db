@@ -188,6 +188,7 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None, siteid=None):
 
         if type(cellid) is not list:
             cellid = [cellid]
+        
         if re.search(r'\d+$', cellid[0]) is None:
             options['site'] = cellid[0]
         else:
@@ -263,8 +264,11 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
             xfspec.append(['nems.xforms.plot_summary', {}])
     else:
         uri_key = nems.utils.escaped_split(loadkey, '-')[0]
-        recording_uri = generate_recording_uri(cellid, batch, uri_key)
-        xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta)
+        recording_uri = generate_recording_uri(cellid, batch, uri_key)    
+        registry_args = {'cellid': cellid, 'batch': int(batch)}
+        xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta,
+                                            xforms_kwargs=registry_args)
+
 
     # actually do the fit
     ctx, log_xf = xforms.evaluate(xfspec)
