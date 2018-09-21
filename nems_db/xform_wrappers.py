@@ -58,7 +58,8 @@ def get_recording_uri(cellid, batch, options={}):
     return url
 
 
-def generate_recording_uri(cellid=None, batch=None, loadkey=None, siteid=None):
+def generate_recording_uri(cellid=None, batch=None, loadkey=None,
+                           siteid=None, **options):
     """
     required parameters (passed through to nb.baphy_data_path):
         cellid: string or list
@@ -76,8 +77,6 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None, siteid=None):
     # TODO: A lot of the parsing is copy-pasted from nems_lbhb/loaders/,
     #       need to figure out which role goes where and delete the
     #       repeated code.
-
-    options = {}
 
     def _parm_helper(fs, pupil):
         options = {'rasterfs': fs, 'stimfmt': 'parm',
@@ -188,7 +187,7 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None, siteid=None):
 
         if type(cellid) is not list:
             cellid = [cellid]
-        
+
         if re.search(r'\d+$', cellid[0]) is None:
             options['site'] = cellid[0]
         else:
@@ -264,7 +263,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
             xfspec.append(['nems.xforms.plot_summary', {}])
     else:
         uri_key = nems.utils.escaped_split(loadkey, '-')[0]
-        recording_uri = generate_recording_uri(cellid, batch, uri_key)    
+        recording_uri = generate_recording_uri(cellid, batch, uri_key)
         registry_args = {'cellid': cellid, 'batch': int(batch)}
         xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta,
                                             xforms_kwargs=registry_args)

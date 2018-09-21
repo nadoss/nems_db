@@ -1139,15 +1139,78 @@ def dict_to_signal(stim_dict, fs=100, event_times=None, signal_name='stim',
             epochs=event_times, recording=recording_name
             )
     stim = empty_stim.replace_epochs(stim_dict)
-    #stim = stim.normalize('minmax')
+    # stim = stim.normalize('minmax')
 
     return stim
+
+
+def fill_default_options(options):
+    """
+    fill in default options. use options after adding defaults to specify
+    metadata hash
+    """
+
+    cellid = options.get('cellid', None)
+    batch = options.get('batch', None)
+    cell_list = options.get('cell_list', None)
+    siteid = options.get('siteid', None)
+
+    if (cellid is None) and (cell_list is None) and (siteid is None):
+        raise ValueError("must provide cellid, cell_list or siteid")
+    if batch is None:
+        raise ValueError("must provide batch")
+
+    if type(cellid) is list:
+        cell_list = cellid
+
+    if cell_list is not None:
+        cellid = cell_list[0]
+        options['cellid'] = cell_list
+
+    elif siteid is not None:
+        celldata = db.get_batch_cells(batch=batch, cellid=siteid)
+        cell_list = list(celldata['cellid'])
+        cellid = cell_list[0]
+        options['cellid'] = cell_list
+
+    elif cellid is not None:
+        siteid = cellid.split("-")[0]
+        if siteid == cellid:
+            celldata = db.get_batch_cells(batch=batch, cellid=siteid)
+            cell_list = list(celldata['cellid'])
+            cellid = cell_list[0]
+            options['cellid'] = cell_list
+
+    # set default options if missing
+    options['rasterfs'] = int(options.get('rasterfs', 100))
+    options['stimfmt'] = options.get('stimfmt', 'ozgf')
+    options['chancount'] = int(options.get('chancount', 18))
+    options['pertrial'] = int(options.get('pertrial', False))
+    options['includeprestim'] = options.get('includeprestim', 1)
+    options['pupil'] = int(options.get('pupil', False))
+    options['pupil_deblink'] = int(options.get('pupil_deblink', 1))
+    options['pupil_median'] = int(options.get('pupil_median', 1))
+    options['stim'] = int(options.get('stim', True))
+    options['runclass'] = options.get('runclass', None)
+    options['cellid'] = options.get('cellid', cellid)
+    options['batch'] = int(batch)
+    options['rawid'] = options.get('rawid', None)
+
+    if options['stimfmt'] in ['envelope', 'parm']:
+        log.info("Setting chancount=0 for stimfmt=%s", options['stimfmt'])
+        options['chancount'] = 0
+
+    return options
 
 
 def baphy_load_recording(cellid, batch, **options):
     """
     query NarfData to find baphy files for specified cell/batch and then load
+
+    TODO : call baphy_load_recording_nonrasterized and then rasterize all
+    signals.
     """
+    raise NotImplementedError
 
     # print(options)
     options['rasterfs'] = int(options.get('rasterfs', 100))
@@ -1169,7 +1232,7 @@ def baphy_load_recording(cellid, batch, **options):
                                cellid=cellid,
                                rawid=options['rawid'],
                                label='parm')
-    if len(d)==0:
+    if len(d) == 0:
         raise ValueError('cellid/batch entry not found in NarfData')
 
     files = list(d['parm'])
@@ -1314,16 +1377,13 @@ def baphy_load_recording_nonrasterized(**options):
         rec: recording
 
     """
+    options = fill_default_options(options)
+    meta = options
+
     cellid = options.get('cellid', None)
     batch = options.get('batch', None)
     cell_list = options.get('cell_list', None)
     siteid = options.get('siteid', None)
-    meta = options
-
-    if (cellid is None) and (cell_list is None) and (siteid is None):
-        raise ValueError("must provide cellid, cell_list or siteid")
-    if batch is None:
-        raise ValueError("must provide batch")
 
     if type(cellid) is list:
         cell_list = cellid
@@ -1351,29 +1411,6 @@ def baphy_load_recording_nonrasterized(**options):
             options['cellid'] = cell_list
         else:
             rec_name = cellid
-
-    else:
-        raise ValueError("Does this ever execute?")
-        celldata = db.get_batch_cells(batch=batch, cellid=siteid)
-        cell_list = list(celldata['cellid'])
-        cellid = cell_list[0]
-        rec_name = siteid
-        options['cellid'] = cell_list
-
-    # set default options if missing
-    options['rasterfs'] = int(options.get('rasterfs', 100))
-    options['stimfmt'] = options.get('stimfmt', 'ozgf')
-    options['chancount'] = int(options.get('chancount', 18))
-    options['pertrial'] = int(options.get('pertrial', False))
-    options['includeprestim'] = options.get('includeprestim', 1)
-    options['pupil'] = int(options.get('pupil', False))
-    options['pupil_deblink'] = int(options.get('pupil_deblink', 1))
-    options['pupil_median'] = int(options.get('pupil_median', 1))
-    options['stim'] = int(options.get('stim', True))
-    options['runclass'] = options.get('runclass', None)
-    options['cellid'] = options.get('cellid', cellid)
-    options['batch'] = int(batch)
-    options['rawid'] = options.get('rawid', None)
 
     # query database to find all baphy files that belong to this cell/batch
     d = db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm',
@@ -1502,7 +1539,19 @@ def baphy_data_path(**options):
         chancount
     """
 
-    options['recache'] = options.get('recache', 0)
+    if (options.get('cellid') is None) or \
+       (options.get('batch') is None) or \
+       (options.get('rasterfs') is None) or \
+       (options.get('stimfmt') is None) or \
+       (options.get('chancount') is None):
+        raise ValueError("cellid,batch,rasterfs,stimfmt,chancount options required")
+
+    recache = options.get('recache', 0)
+    if 'recache' in options:
+        del options['recache']
+
+    options = fill_default_options(options)
+    print(options)
 
     # three ways to select cells
     cellid = options.get('cellid', None)
@@ -1511,31 +1560,21 @@ def baphy_data_path(**options):
 
     elif cellid is None and options.get('siteid') is not None:
         cellid = options.get('siteid')
-
-    if options['stimfmt'] in ['envelope', 'parm']:
-        log.info("Setting chancount=0 for stimfmt=%s", options['stimfmt'])
-        options['chancount'] = 0
-
-    if (options.get('cellid') is None) or \
-       (options.get('batch') is None) or \
-       (options.get('rasterfs') is None) or \
-       (options.get('stimfmt') is None) or \
-       (options.get('chancount') is None):
-        raise ValueError("cellid,batch,rasterfs,stimfmt,chancount options required")
+    siteid = options.get('siteid', cellid.split("-")[0])
 
     # TODO : base filename on siteid/cellid plus hash from JSON-ized options
     #data_path = ("/auto/data/nems_db/recordings/{0}/{1}{2}_fs{3}/"
     #             .format(options["batch"], options['stimfmt'],
     #                     options["chancount"], options["rasterfs"]))
     #data_file = data_path + cellid + '.tgz'
-    siteid = options.get('siteid', cellid.split("-")[0])
-    data_file = recording_filename_hash(siteid, options,
-                                        uri_path="/auto/data/nems_db/recordings/")
+
+    data_file = recording_filename_hash(
+            siteid, options, uri_path="/auto/data/nems_db/recordings/")
 
     log.info(data_file)
     log.info(options)
 
-    if not os.path.exists(data_file) or options['recache'] is True:
+    if not os.path.exists(data_file) or recache is True:
         #  rec = baphy_load_recording(
         #          options['cellid'], options['batch'], options
         #          )
