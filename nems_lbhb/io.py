@@ -366,6 +366,7 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
     rasterfs = options.get('rasterfs', 100)
     pupil_offset = options.get('pupil_offset', 0.75)
     pupil_deblink = options.get('pupil_deblink', True)
+    pupil_deblink_dur = options.get('pupil_deblink_dur', (1/3))
     pupil_median = options.get('pupil_median', 0)
     pupil_smooth = options.get('pupil_smooth', 0)
     pupil_highpass = options.get('pupil_highpass', 0)
@@ -389,7 +390,6 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
                 exptevents, sortinfo, spikefs, rasterfs
                 )
 
-
     if pupil_smooth:
         raise ValueError('pupil_smooth not implemented. try pupil_median?')
     if pupil_highpass:
@@ -400,8 +400,6 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
         raise ValueError('pupil_bandpass not implemented.')
     if pupil_derivative:
         raise ValueError('pupil_derivative not implemented.')
-    if pupil_mm:
-        raise ValueError('pupil_mm not implemented.')
 
     matdata = scipy.io.loadmat(pupilfilepath)
 
@@ -424,7 +422,7 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
     if pupil_eyespeed:
         eye_speed = np.array(results[0]['eye_speed'][0][0])
 
-    fs_approximate = 10  # approx video framerate
+    fs_approximate = 30  # approx video framerate
     if pupil_deblink:
         dp = np.abs(np.diff(pupil_diameter, axis=0))
         blink = np.zeros(dp.shape)
@@ -432,8 +430,8 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
         # CRH add following line 7-19-2019
         # (blink should be = 1 if pupil_dia goes to 0)
         blink[[isclose(p, 0, abs_tol=0.5) for p in pupil_diameter[:-1]]] = 1
-        box = np.ones([fs_approximate]) / (fs_approximate)
-        # print(blink.shape)
+        smooth_width = int(fs_approximate*pupil_deblink_dur)
+        box = np.ones([smooth_width]) / smooth_width
         blink = np.convolve(blink[:, 0], box, mode='same')
         blink[blink > 0] = 1
         blink[blink <= 0] = 0
@@ -566,6 +564,12 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
 
     # shape to 1 x T to match NEMS signal specs
     big_rs = big_rs[np.newaxis, :]
+
+    if pupil_mm:
+        #convert measurements from pixels to mm
+        eye_width_px = matdata['pupil_data']['results'][0][0]['eye_width'][0][0][0]
+        eye_width_mm = matdata['pupil_data']['params'][0][0]['eye_width_mm'][0][0][0]
+        big_rs = big_rs*(eye_width_mm/eye_width_px)
 
     if verbose:
         #plot framerate for each trial (for checking camera performance)
