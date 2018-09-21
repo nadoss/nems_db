@@ -817,7 +817,7 @@ def get_results_file(batch, modelnames=None, cellids=None):
         return results
 
 
-def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
+def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
                              label ='parm'):
     '''
     Used to return only the information for units that were stable across all
@@ -857,8 +857,7 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
         sql += " AND rawid IN %s"
         params = params+(rawid,)
 
-    print('returning cellids stable across rawids:')
-    print(rawid)
+    print('returning cellids stable across rawids: {0}'.format(rawid))
 
     d = pd.read_sql(sql=sql, con=engine, params=params)
 
@@ -871,6 +870,7 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
         cellids = list(cellids)
     else:
         pass
+    
     return cellids, list(rawid)
 
 
