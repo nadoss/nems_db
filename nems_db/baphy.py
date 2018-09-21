@@ -1184,12 +1184,11 @@ def fill_default_options(options):
 
     elif cellid is not None:
         siteid = cellid.split("-")[0]
-        if siteid == cellid:
-            cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=siteid,
-                                              rawid=rawid)
-            cellid = cell_list[0]
-            options['cellid'] = cell_list
-            options['rawid'] = rawid
+        cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=siteid,
+                                          rawid=rawid)
+        cellid = cell_list[0]
+        options['cellid'] = cell_list
+        options['rawid'] = rawid
 
     # set default options if missing
     options['rasterfs'] = int(options.get('rasterfs', 100))
