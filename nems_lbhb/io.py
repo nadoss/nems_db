@@ -430,7 +430,7 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
         # CRH add following line 7-19-2019
         # (blink should be = 1 if pupil_dia goes to 0)
         blink[[isclose(p, 0, abs_tol=0.5) for p in pupil_diameter[:-1]]] = 1
-        smooth_width = fs_approximate*pupil_deblink_dur
+        smooth_width = int(fs_approximate*pupil_deblink_dur)
         box = np.ones([smooth_width]) / smooth_width
         blink = np.convolve(blink[:, 0], box, mode='same')
         blink[blink > 0] = 1
