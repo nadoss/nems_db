@@ -13,7 +13,7 @@ from nems.modules.nonlinearity import (_logistic_sigmoid, _double_exponential,
 from nems.initializers import prefit_to_target, prefit_mod_subset
 from nems.analysis.api import fit_basic
 import nems.fitters.api
-import nems.metrics.api
+import nems.metrics.api as metrics
 from nems import priors
 
 log = logging.getLogger(__name__)
@@ -199,9 +199,14 @@ def dynamic_sigmoid(rec, i, o, c, base, amplitude, shift, kappa,
                     base_mod=0, amplitude_mod=0, shift_mod=0,
                     kappa_mod=0, eq='logsig'):
 
-    # TODO: Really this could be used with any signal, doesn't have to be
-    #       a contrast signal. So rename maybe?
-    contrast = rec[c].as_continuous()
+    if not rec[c]:
+        # If there's no ctpred yet (like during initialization),
+        base_mod = np.nan
+        amplitude_mod = np.nan
+        shift_mod = np.nan
+        kappa_mod = np.nan
+    else:
+        contrast = rec[c].as_continuous()
 
     if np.isnan(base_mod):
         b = base
@@ -246,22 +251,13 @@ def init_dsig(rec, modelspec):
         return modelspec
 
     modelspec = copy.deepcopy(modelspec)
+    rec = copy.deepcopy(rec)
 
     if modelspec[dsig_idx]['fn_kwargs'].get('eq', '') in \
             ['dexp', 'd', 'double_exponential']:
         modelspec = _init_double_exponential(rec, modelspec, dsig_idx)
     else:
         modelspec = _init_logistic_sigmoid(rec, modelspec, dsig_idx)
-
-    # TODO: This doesn't seem to help so far, but might want to revisit
-    #       later. Currently just fitting all parameters together.
-    # Start with modulation forced to 0, then release bounds after prefit.
-#    modelspec[dsig_idx]['bounds'] = {
-#            'amplitude_mod': (0, 0),
-#            'base_mod': (0, 0),
-#            'kappa_mod': (0, 0),
-#            'shift_mod': (0, 0),
-#            }
 
     return modelspec
 
@@ -308,13 +304,17 @@ def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
 
     # generate prediction from module preceeding dexp
 
-    # HACK to get phi for ctwc, ctfir, ctlvl
+    # HACK to get phi for ctwc, ctfir, ctlvl which have not been prefit yet
     for i, m in enumerate(fit_portion):
         if not m.get('phi', None):
-            old = m.get('prior', {})
-            m = priors.set_mean_phi([m])[0]
-            m['prior'] = old
-            fit_portion[i] = m
+            if [k in m['id'] for k in ['ctwc', 'ctfir', 'ctlvl']]:
+                old = m.get('prior', {})
+                m = priors.set_mean_phi([m])[0]
+                m['prior'] = old
+                fit_portion[i] = m
+            else:
+                log.warning("unexpected module missing phi during init step\n:"
+                            "%s, #%d", m['id'], i)
 
     ms.fit_mode_on(fit_portion)
     rec = ms.evaluate(rec, fit_portion)
@@ -347,17 +347,9 @@ def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
     shift = ('Normal', {'mean': shift0, 'sd': pred_range})
     kappa = ('Exponential', {'beta': kappa0})
 
-    #mod = ('Normal', {'mean': 0, 'sd': 1})
-
-    # TODO: Forcing mods to start at 0 wasn't working very well, but
-    #       maybe try just Normal(0, 1) or something?
-    #       Does seem odd to set these like this, b/c it makes the model
-    #       start off with pretty big modulators some times.
     modelspec[dsig_idx]['prior'].update({
             'base': base, 'amplitude': amplitude, 'shift': shift,
             'kappa': kappa,
-#            'base_mod': mod, 'amplitude_mod': mod, 'shift_mod': mod,
-#            'kappa_mod': mod,
             })
 
     modelspec[dsig_idx]['bounds'] = {
@@ -433,7 +425,6 @@ def _init_double_exponential(rec, modelspec, target_i):
 
     modelspec[target_i]['prior'].update({
             'base': base, 'amplitude': amp, 'shift': shift, 'kappa': kappa,
-#            'base_mod': 0, 'amplitude_mod': 0, 'shift_mod': 0, 'kappa_mod': 0,
             })
 
 
@@ -461,20 +452,28 @@ def dsig_phi_to_prior(modelspec):
 
 
 def init_contrast_model(est, modelspecs, IsReload=False,
-                        tolerance=10**-5.5, max_iter=1000,
+                        tolerance=10**-5.5, max_iter=700,
                         fitter='scipy_minimize', metric='nmse', **context):
+
     if IsReload:
         return {}
 
     modelspec = copy.deepcopy(modelspecs[0])
+
+    # If there's no dynamic_sigmoid module, try doing
+    # the normal linear-nonlinear initialization instead.
     if not find_module('dynamic_sigmoid', modelspec):
         new_ms = nems.initializers.prefit_LN(est, modelspec, max_iter=max_iter,
                                              tolerance=tolerance)
         return {'modelspecs': [new_ms]}
 
+    # Set up kwargs for prefit function.
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
     fitter_fn = getattr(nems.fitters.api, fitter)
-    metric_fn = lambda d: getattr(nems.metrics.api, metric)(d, 'pred', 'resp')
+    if metric is not None:
+        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
+    else:
+        metric_fn = None
 
     # fit without STP module first (if there is one)
     modelspec = prefit_to_target(est, modelspec, fit_basic,
@@ -491,17 +490,21 @@ def init_contrast_model(est, modelspecs, IsReload=False,
             modelspec[i] = m
             break
 
+
     log.info("initializing priors and bounds for dsig ...\n")
     modelspec = init_dsig(est, modelspec)
 
-    for i, m in enumerate(modelspec):
-        if not m.get('phi'):
-            log.info('\n\nIntializing phi for module %d (%s)', i, m['fn'])
-            old = m.get('prior', {})
-            m = priors.set_mean_phi([m])[0]  # Inits phi
-            m['prior'] = old
-            modelspec[i] = m
+    # prefit only the static nonlinearity parameters first
+    modelspec = _prefit_dsig_only(
+                    est, modelspec, fit_basic,
+                    fitter=fitter_fn,
+                    metric=metric_fn,
+                    fit_kwargs=fit_kwargs
+                    )
 
+    # Now prefit all of the contrast modules together.
+    # Before this step, result of initialization should be identical
+    # to prefit_LN
     modelspec = _prefit_contrast_modules(
                     est, modelspec, fit_basic,
                     fitter=fitter_fn,
@@ -509,29 +512,14 @@ def init_contrast_model(est, modelspecs, IsReload=False,
                     fit_kwargs=fit_kwargs
                     )
 
-    # TODO: only necessary if we start initializing bounds at 0 again.
-    # Unlock bonds on modulators, then freeze values for statics,
-    # then prefit modulators only, then unlock everything again.
-#    modelspec = remove_dsig_bounds(modelspec)
-#    modelspec = freeze_dsig_statics(modelspec)
-#    modelspec = prefit_mod_subset(
-#            est, modelspec, fit_basic,
-#            fit_set=['dynamic_sigmoid'],
-#            fitter=fitter_fn,
-#            metric=metric_fn,
-#            fit_kwargs=fit_kwargs)
-#    modelspec = remove_dsig_bounds(modelspec)
-
-
     # after prefitting contrast modules, update priors to reflect the
     # prefit values so that random sample fits incorporate the prefit info.
     modelspec = dsig_phi_to_prior(modelspec)
 
-    return {'modelspecs': [modelspec],
-            'est': est}
+    return {'modelspecs': [modelspec]}
 
 
-def _prefit_contrast_modules(rec, modelspec, analysis_function,
+def _prefit_contrast_modules(est, modelspec, analysis_function,
                              fitter, metric=None, fit_kwargs={}):
     # preserve input modelspec
     modelspec = copy.deepcopy(modelspec)
@@ -568,34 +556,64 @@ def _prefit_contrast_modules(rec, modelspec, analysis_function,
         m['phi'] = {}
         tmodelspec[i] = m
 
-#    # Also only prefit the static nonlinearity parameters
-#    dynamic_phi = {'amplitude_mod': False, 'base_mod': False,
-#                   'kappa_mod': False, 'shift_mod': False}
-#    dsig_idx = fit_idx[-1]
-#    for p in dynamic_phi:
-#        v = modelspec[dsig_idx]['prior'].pop(p, False)
-#        if v:
-#            modelspec[dsig_idx]['fn_kwargs'][p] = 0
-#            dynamic_phi[p] = v
-
     # fit the subset of modules
     if metric is None:
-        tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
+        tmodelspec = analysis_function(est, tmodelspec, fitter=fitter,
                                        fit_kwargs=fit_kwargs)[0]
     else:
-        tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
+        tmodelspec = analysis_function(est, tmodelspec, fitter=fitter,
                                        metric=metric, fit_kwargs=fit_kwargs)[0]
 
     # reassemble the full modelspec with updated phi values from tmodelspec
     for i in fit_idx:
         modelspec[i] = tmodelspec[i]
 
-#    # reset dynamic sigmoid parameters if they were frozen
-#    for p, v in dynamic_phi.items():
-#        if v:
-#            prior = priors._tuples_to_distributions({p: v})[p]
-#            modelspec[dsig_idx]['fn_kwargs'].pop(p, None)
-#            modelspec[dsig_idx]['prior'][p] = v
-#            modelspec[dsig_idx]['phi'][p] = prior.mean()
+    return modelspec
+
+
+def _prefit_dsig_only(est, modelspec, analysis_function,
+                      fitter, metric=None, fit_kwargs={}):
+
+    dsig_idx = find_module('dynamic_sigmoid', modelspec)
+
+    # freeze all non-static dynamic sigmoid parameters
+    dynamic_phi = {'amplitude_mod': False, 'base_mod': False,
+                   'kappa_mod': False, 'shift_mod': False}
+    for p in dynamic_phi:
+        v = modelspec[dsig_idx]['prior'].pop(p, False)
+        if v:
+            modelspec[dsig_idx]['fn_kwargs'][p] = 0
+            dynamic_phi[p] = v
+
+    # Remove ctwc, ctfir, and ctlvl if they exist
+    temp = []
+    for i, m in enumerate(copy.deepcopy(modelspec)):
+        if 'ct' in m['id']:
+            log.warning("skipping index: %d", i)
+            pass
+        else:
+            log.warning("appending index: %d", i)
+            temp.append(m)
+
+    temp = prefit_mod_subset(est, temp, analysis_function,
+                             fit_set=['dynamic_sigmoid'], fitter=fitter,
+                             metric=metric, fit_kwargs=fit_kwargs)
+
+    # Put ctwc, ctfir, and ctlvl back in where applicable
+    for i, m in enumerate(modelspec):
+        if 'ct' in m['id']:
+            log.warning("skipping index: %d", i)
+            pass
+        else:
+            log.warning("adding back in at index: %d", i)
+            modelspec[i] = temp.pop(0)
+
+    # reset dynamic sigmoid parameters if they were frozen
+    for p, v in dynamic_phi.items():
+        if v:
+            prior = priors._tuples_to_distributions({p: v})[p]
+            modelspec[dsig_idx]['fn_kwargs'].pop(p, None)
+            modelspec[dsig_idx]['prior'][p] = v
+            modelspec[dsig_idx]['phi'][p] = prior.mean()
 
     return modelspec
