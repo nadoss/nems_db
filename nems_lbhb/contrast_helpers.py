@@ -589,10 +589,8 @@ def _prefit_dsig_only(est, modelspec, analysis_function,
     temp = []
     for i, m in enumerate(copy.deepcopy(modelspec)):
         if 'ct' in m['id']:
-            log.warning("skipping index: %d", i)
             pass
         else:
-            log.warning("appending index: %d", i)
             temp.append(m)
 
     temp = prefit_mod_subset(est, temp, analysis_function,
@@ -602,10 +600,8 @@ def _prefit_dsig_only(est, modelspec, analysis_function,
     # Put ctwc, ctfir, and ctlvl back in where applicable
     for i, m in enumerate(modelspec):
         if 'ct' in m['id']:
-            log.warning("skipping index: %d", i)
             pass
         else:
-            log.warning("adding back in at index: %d", i)
             modelspec[i] = temp.pop(0)
 
     # reset dynamic sigmoid parameters if they were frozen
