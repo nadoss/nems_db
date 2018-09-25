@@ -1,6 +1,7 @@
 import logging
 
 import numpy as np
+from scipy import integrate
 
 import nems
 import nems.metrics.api as metrics
@@ -28,24 +29,38 @@ def lnp_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
     return {'modelspecs': modelspecs}
 
 
-def _lnp_metric(data, prediction_name, response_name):
-    # Pass pred into poisson spike generator (optional)
+def _lnp_metric(data, rate_name, spikes_name):
+    # NOTE : don't do the averaging step when fitting this model
+    # NOTE : 200hz (or maybe higher?) sampling encouraged to get
+    #        at most 1 spike per bin as much as possible.
 
-    # TODO: currently using scipy_minimize, so would want negative likelihood?
-    #       or just make a wrapper for scipy_maximize (presumably that exists)
-    # Assess likelihood to calculate error
+    # For stephen's lab: rate_name usually 'pred'
+    rate_vector = data[rate_name]
+    spike_train = data[spikes_name]
+    spikes = np.argwhere(spike_train).flatten()
 
     # negative logikelihood: (1-integral of mu dt)(mu dt) (product for all spikes)
     # pseudocode:
 
-    loglikes = []
-    t0 = 0
-    for st in spkes:
-        loglike = log(pred(st) - np.trapz(pred(...)))
-        loglikes.append(loglike)
-        t0 = st
+    stim_errors = []
+    for stim in _stack_reps(spike_train):
+        trial_errors = []
 
-    error = sum(loglikes)*-1
+        for trial in stim:
+            loglikes = []
+            t0 = 0
+            # TODO: what to set initial to? keep it as 0? random? ISI-based?
+            integral = integrate.cumtrapz(rate_vector, initial=0)
+            for st in spikes:
+                loglike = np.log((integral[st] - integral[t0])*(rate_vector[st]))
+                loglikes.append(loglike)
+                t0 = st
+
+            trial_errors.append(sum(loglikes)*-1)
+
+        stim_errors.append(np.nanmean(trial_errors))
+
+    error = np.nanmean(stim_errors)
 
     # TODO: vectorize/broadcast with numpy to improve speed
 
@@ -68,6 +83,4 @@ def _lnp_metric(data, prediction_name, response_name):
     # integrate for long time?
     # supposed to recover spikes of response
 
-
-    pass
-
+    return error
