@@ -47,8 +47,9 @@ def fitted_params_per_cell(cellids, batch, modelname, mod_key='id',
         raise NotImplementedError
         # Flatten sublists of modelspecs
         modelspecs = [m for ms in modelspecs for m in ms]
-    stats = ms.summary_stats(modelspecs, mod_key=mod_key, meta_include=meta)
 
+    stats = ms.summary_stats(modelspecs, mod_key=mod_key,
+                             meta_include=meta, stats_keys=stats_keys)
     index = list(stats.keys())
     try:
         columns = [m[0].get('meta').get('cellid') for m in modelspecs]

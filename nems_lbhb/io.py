@@ -338,9 +338,10 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
                     ff = (st[0, :] == trialidx)
                     this_spike_events = (st[1, ff]
                                          + Offset_spikefs[np.int(trialidx-1)])
-                    if comment == 'PC-cluster sorted by mespca.m':
-                        # remove last spike, which is stray
-                        this_spike_events = this_spike_events[:-1]
+                    if (comment != []):
+                        if (comment == 'PC-cluster sorted by mespca.m'):
+                            # remove last spike, which is stray
+                            this_spike_events = this_spike_events[:-1]
                     unit_spike_events = np.concatenate(
                             (unit_spike_events, this_spike_events), axis=0
                             )
@@ -636,6 +637,10 @@ def get_rem(pupilfilepath, **params):
     load_params = {}
     if units == 'mm':
         load_params['pupil_mm'] = True
+    elif units == 'norm_max':
+        raise ValueError("TODO: support for norm pupil diam/speed by max")
+        load_params['norm_max'] = True
+
     load_params['rasterfs'] = rasterfs
     pupil_size, _ = load_pupil_trace(pupilfilepath, **load_params)
 
@@ -657,9 +662,10 @@ def get_rem(pupilfilepath, **params):
     #these appear as large, fast spikes in the speed at which pupil moves.
     #To mark epochs when eye is moving more quickly than usual, threshold
     #eye speed, then smooth by calculating the rate of saccades per minute.
-    saccades = -np.nan_to_num(eye_speed) < min_saccade_speed
+    saccades = np.nan_to_num(eye_speed) > min_saccade_speed
     minute = np.ones(rasterfs*60)/(rasterfs*60)
     saccades_per_minute = np.convolve(saccades, minute, mode='same')
+
 
     #(3) To distinguish REM sleep from waking - since it seeems that ferrets
     #can sleep with their eyes open - look for periods when pupil is constricted
@@ -674,7 +680,7 @@ def get_rem(pupilfilepath, **params):
     pupil_sd = np.array(pupil_sd)
     rem_episodes = (np.nan_to_num(smooth_pupil_size) < max_pupil) & \
                    (np.nan_to_num(pupil_sd) < max_pupil_sd) & \
-                   (-np.nan_to_num(saccades_per_minute) < min_saccades_per_minute)
+                   (np.nan_to_num(saccades_per_minute) > min_saccades_per_minute)
 
     #(4) Connect episodes that are separated by a brief gap.
     rem_episodes = run_length_encode(rem_episodes)
