@@ -1154,6 +1154,7 @@ def fill_default_options(options):
     batch = options.get('batch', None)
     cell_list = options.get('cell_list', None)
     siteid = options.get('siteid', None)
+    rawid = options.get('rawid', None)
 
     if (cellid is None) and (cell_list is None) and (siteid is None):
         raise ValueError("must provide cellid, cell_list or siteid")
@@ -1163,23 +1164,32 @@ def fill_default_options(options):
     if type(cellid) is list:
         cell_list = cellid
 
+    # No matter what the cell_list is, always want to set cell_list to be all
+    # stable cells at the site/rawids. No point in caching different recs for 
+    # [cell1, cell2] and [cell3, cell4] if all four come from same recording
     if cell_list is not None:
         cellid = cell_list[0]
+        siteid = cellid.split('-')[0]
+        cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=siteid,
+                                             rawid=rawid)
+        options['rawid'] = rawid
         options['cellid'] = cell_list
-
+        
     elif siteid is not None:
-        celldata = db.get_batch_cells(batch=batch, cellid=siteid)
-        cell_list = list(celldata['cellid'])
+        cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=siteid,
+                                             rawid=rawid)
         cellid = cell_list[0]
         options['cellid'] = cell_list
+        options['rawid'] = rawid
 
     elif cellid is not None:
         siteid = cellid.split("-")[0]
         if siteid == cellid:
-            celldata = db.get_batch_cells(batch=batch, cellid=siteid)
-            cell_list = list(celldata['cellid'])
+            cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=siteid,
+                                              rawid=rawid)
             cellid = cell_list[0]
             options['cellid'] = cell_list
+            options['rawid'] = rawid
 
     # set default options if missing
     options['rasterfs'] = int(options.get('rasterfs', 100))
@@ -1584,123 +1594,57 @@ def baphy_data_path(**options):
     return data_file
 
 
-def baphy_load_multichannel_recording(**options):
+def baphy_load_recording_uri(**options):
     """
-    TESTING - CRH 6/29/2018
-    Meant to function as a wrapper around baphy_data_path. Will find all cellids
-    matching the batch and site specified (and rawids if given). Then, will
-    load all cells for this batch/rawids at this site, then
-    cache it and return the recording uri.
-    The cache will also save a json file containing all the options information
-    for the recording. If the recording has been loaded before with the same
-    cellids and options, it will just be re-loaded from cache.
-    IMPORTANT, we include the check for cellids because it's possible that data
-    could get resorted and the same batch/site/options might no longer mean the
-    same cellids!
+    CRH - 9/21/2018
+    Meant to be a "universal loader" for baphy recordings. Given an options 
+    dictionary, find the corresponding rec_uri and return it. To load a specific 
+    subset of the site (a single cell, list of cells, etc.) call 
+    baphy.load_recordings(rec_uri_list, cellid, **context).
     """
 
-    try:
-        batch = options.get('batch')
-        site = options.get('site')
-        if site is None:
-            site = options.get('siteid')
-    except ValueError:
-        raise ValueError("must provide site and batch parameters")
+    batch = options.get('batch', None)
+    siteid = options.get('siteid', None)
+    cellid = options.get('cellid', None)
+    
+    if siteid is None and cellid is not None:
+        if type(cellid) == list:
+            siteid = cellid[0].split('-')[0]
+        elif type(cellid) == str:
+            siteid = cellid.split('-')[0]
 
-    options['rasterfs'] = int(options.get('rasterfs', 100))
-    options['stimfmt'] = options.get('stimfmt', 'ozgf')
-    options['chancount'] = int(options.get('chancount', 18))
-    options['pertrial'] = int(options.get('pertrial', False))
-    options['includeprestim'] = options.get('includeprestim', 1)
+    if batch is None or siteid is None:
+        raise ValueError("options dict must include siteid and batch")
 
-    options['pupil'] = int(options.get('pupil', False))
-    options['pupil_deblink'] = int(options.get('pupil_deblink', 1))
-    options['pupil_median'] = int(options.get('pupil_median', 1))
-    options['stim'] = int(options.get('stim', False))
-    options['runclass'] = options.get('runclass', None)
-    options['recache'] = options.get('recache', False)
+    # fill in default options
+    options = fill_default_options(options)
+    
+    recache = options.get('recache', 0)
+    if 'recahce' in options:
+        del options['recache']
+    
+    data_file = recording_filename_hash(siteid, options,
+                                    uri_path='/auto/data/nems_db/recordings/')
+    log.info(data_file)
+    log.info(options)
 
-    # TODO - this really should be smarter - pad with Nans or something...
-    # For the time being...
-    # If rawids are not specificed, will only load cellids that are stable across
-    # all rawids matching this batch and site.
-    if options.get('rawid') is None:
-        # Query database to get the matching cellids and rawids
-        cellids, all_rawids = db.get_stable_batch_cellids(batch=batch,
-                                                          cellid=site)
-        options['rawid'] = options.get('rawid', all_rawids)
-    else:
-        cellids, _ = db.get_stable_batch_cellids(batch=batch,
-                                                 cellid=site,
-                                                 rawid=options['rawid'])
-    if type(cellids[0]) is np.ndarray:
-        cellids = list(cellids[0])  # full list of cellids stored
-    elif type(cellids[0]) is str and type(cellids) is np.ndarray:
-        cellids = list(cellids)
-    elif type(cellids) is list:
-        cellids = cellids
-    else:
-        raise ValueError("what's going on?")
-
-    unique_id = str(datetime.datetime.now()).split('.')[0].replace(' ', '-').replace(':', '_')
-    full_rec_uri = '/auto/users/hellerc/recordings/'+str(batch)+'/'+site+'_'+unique_id+'.tgz'
-    full_rec_meta = full_rec_uri.split('.')[0:-1][0]+'.json'
-
-    # since all uri's will have a unique id, we don't check for the exact name existing, we look
-    # for something with the same batch/site and identical meta data (load options)
-    search_str = full_rec_meta.split('_')[0]
-    meta_data_files = glob.glob(search_str+'*'+'.json')
-    cache_exists=None
-
-    options['cellid'] = cellids
-
-    if options['rawid'] is not None:
-        options['rawid'] = [str(i) for i in options['rawid']]
-
-    t_options = options.copy()
-    # just so that recache field doesn't mess up caching system check (CRH)
-    if 'recache' in t_options:
-        del t_options['recache']
-    for mdf in meta_data_files:
-        with open(mdf,'r') as fp:
-            x = json.load(fp)
-        if x == t_options:
-            if options['recache'] == True:
-                print('Found cached recording with given options, deleting and regenerating...')
-                os.remove(mdf)
-                os.remove(mdf.split('.')[0:-1][0]+'.tgz')
-            else:
-                full_rec_meta = mdf
-                full_rec_uri = mdf.split('.')[0:-1][0]+'.tgz'
-                print('Found cached recording, returning {0}'.format(full_rec_uri))
-                cache_exists = True
-                continue
-
-    if cache_exists is None or options['recache'] == True:
-
-        print('No cache recording found. Calling baphy_data path to generate new rec')
-        rec_uri = baphy_data_path(**options)
-        rec = Recording.load(rec_uri)
-
-        # rec['resp']  = rec['resp'].rasterize()
-
-        rec.save(full_rec_uri)
-
-        with open(full_rec_meta,'w') as fp:
-            json.dump(t_options, fp)
-
-        return full_rec_uri
+    if not os.path.exists(data_file) or recache == True:
+        log.info("Generating recording")
+        # rec.meta is set = options in the following function
+        rec = baphy_load_recording_nonrasterized(**options)
+        rec.save(data_file)
 
     else:
-        return full_rec_uri
+        log.info('Cached recording found')
+
+    return data_file
 
 
-def load_recordings(recording_uri_list, cellid, **context):
+def load_recordings(recording_uri_list, cellid=None, **context):
     """
     cellid can be single cell, or list of cells. Whatever it is, the cellids
     must exist in the resp channels of the recordings that are being loaded.
-
-    crh - testing this for use w/ xforms... 7/11/2018
+    If cellid is None, load the entire site.
     """
 
     rec = load_recording(recording_uri_list[0])
@@ -1708,17 +1652,22 @@ def load_recordings(recording_uri_list, cellid, **context):
     if other_recordings:
         rec.concatenate_recordings(other_recordings)
 
-    if not isinstance(cellid, list):
-        cellid = [cellid]
-
-    # check to see if only a siteid was passed. If this is the case, load entire
-    # recording
-    if re.search(r'\d+$', cellid[0]) is None:
-        print('loading all cellids at site')
+    if cellid is not None:
+        if not isinstance(cellid, list):
+            cellid = [cellid]
+        
+        # check to see if only a siteid was passed. If this is the case, load entire
+        # recording
+        if re.search(r'\d+$', cellid[0]) is None:
+            log.info("loading all cellids at this site")
+        else:
+            log.info("extracting channels: {0}".format(cellid))
+            r = rec['resp'].extract_channels(cellid)
+            rec.add_signal(r)
+            
     else:
-        print('extracting channels: {0}'.format(cellid))
-        r = rec['resp'].extract_channels(cellid)
-        rec.add_signal(r)
+        log.info("loading all cellids at this site")
+
 
     if 'pupil' in rec.signals.keys() and np.any(np.isnan(rec['pupil'].as_continuous())):
                 log.info('Padding {0} with the last non-nan value'.format('pupil'))

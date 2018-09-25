@@ -171,33 +171,23 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
     if siteid is not None:
         options['siteid'] = siteid
 
-    # check for use of new loading key (ldb - load baphy) - recording_uri
-    # will point towards cached recording holding all stable cells at that
-    # site/batch
-    # else will load the rec_uri for the single cell specified in fn args
-    if 'ldb' in loadkey:
-        options['batch'] = batch
-        options['recache'] = options.get('recache', False)
-
+    if 'ldb' in loadkey:   
+        import pdb
+        pdb.set_trace()
         # check for run_num specifier
         if len(cellid.split('_'))>1:
             run_num = cellid.split('_')[-1]
             cellid = cellid.split('_')[0]
             options['rawid'] = nd.get_rawid(cellid, run_num)
+            
+        options["batch"] = batch
+        options["cellid"] = cellid
+        recording_uri = nb.baphy_load_recording_uri(**options)
 
-        if type(cellid) is not list:
-            cellid = [cellid]
-
-        if re.search(r'\d+$', cellid[0]) is None:
-            options['site'] = cellid[0]
-        else:
-            options['site'] = cellid[0][:-5]
-
-        recording_uri = nb.baphy_load_multichannel_recording(**options)
     else:
         recording_uri = get_recording_file(cellid, batch, options)
         #recording_uri = get_recording_uri(cellid, batch, options)
-
+       
     return recording_uri
 
 
