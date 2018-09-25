@@ -1551,7 +1551,6 @@ def baphy_data_path(**options):
         del options['recache']
 
     options = fill_default_options(options)
-    print(options)
 
     # three ways to select cells
     cellid = options.get('cellid', None)

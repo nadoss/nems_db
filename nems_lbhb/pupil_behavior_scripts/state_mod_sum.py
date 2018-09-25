@@ -9,6 +9,7 @@ Created on Tue Apr 24 11:59:38 2018
 import os
 import sys
 import pandas as pd
+import scipy.signal as ss
 
 import nems_db.params
 import numpy as np
@@ -120,6 +121,44 @@ d['cellid']=cellids
 d['p_state_mod']=u_state_mod[0,:,1]
 d['b_state_mod']=u_state_mod[1,:,2]
 
-d_tuning['ref_mean']
-r = np.array([np.array(val(_r)) for _r in d_tuning['ref_mean']])
-t = np.array([np.array(_t) for _t in d_tuning['tar_mean']])
+pmod = u_state_mod[0,:,1]
+bmod = u_state_mod[1,:,2]
+
+ii=[]
+for i in np.argsort(np.array(bmod)):
+    if u_r_good[1,i]:
+        ii.append(i)
+
+r = np.array([np.array(eval(_r.replace('nan','np.nan'))) for _r in d_tuning['ref_mean']])
+t = np.array([np.array(eval(_t.replace('nan','np.nan'))) for _t in d_tuning['tar_mean']])
+
+spont=np.nanmean(np.abs(np.concatenate((r[:,:30],t[:,:30]),axis=1)),
+                                        axis=1, keepdims=True)
+
+
+r-=spont
+t-=spont
+
+r=ss.decimate(r,2,axis=1)
+t=ss.decimate(t,2,axis=1)
+
+t=t[:,:r.shape[1]]
+m=np.nanmax(np.abs(np.concatenate((r,t),axis=1)),axis=1)
+m=np.reshape(m,(-1, 1))
+r /= m
+t /= m
+plt.figure()
+plt.subplot(1,3,1)
+plt.imshow(r[ii,:], aspect='auto', clim=[-1, 1])
+plt.title('ref')
+plt.subplot(1,3,2)
+plt.imshow(t[ii,:], aspect='auto', clim=[-1, 1])
+plt.title('tar')
+plt.subplot(1,3,3)
+plt.imshow(t[ii,:]-r[ii,:], aspect='auto', clim=[-1, 1])
+plt.title('tar-ref')
+
+plt.figure()
+plt.plot(np.array(tvr)[ii])
+plt.plot(pmod[ii])
+plt.plot(bmod[ii])
