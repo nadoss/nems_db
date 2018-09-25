@@ -168,10 +168,13 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
     else:
         raise ValueError('unknown loader string: %s' % loader)
 
+    if int(batch) == 294:
+        options["runclass"] = "VOC"
+
     if siteid is not None:
         options['siteid'] = siteid
 
-    if 'ldb' in loadkey:   
+    if 'ldb' in loadkey:
         import pdb
         pdb.set_trace()
         # check for run_num specifier
@@ -179,7 +182,7 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
             run_num = cellid.split('_')[-1]
             cellid = cellid.split('_')[0]
             options['rawid'] = nd.get_rawid(cellid, run_num)
-            
+
         options["batch"] = batch
         options["cellid"] = cellid
         recording_uri = nb.baphy_load_recording_uri(**options)
@@ -187,7 +190,7 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
     else:
         recording_uri = get_recording_file(cellid, batch, options)
         #recording_uri = get_recording_uri(cellid, batch, options)
-       
+
     return recording_uri
 
 

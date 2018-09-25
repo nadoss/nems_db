@@ -35,6 +35,8 @@ batch = 307
 #statevars0 = ['pup0','beh0','far0.hit0']
 statevars = ['pup','beh']
 statevars0 = ['pup0','beh0']
+statevars = ['pup','fil']
+statevars0 = ['pup0','fil0']
 
 sv_len=len(statevars)
 if sv_len==2:
