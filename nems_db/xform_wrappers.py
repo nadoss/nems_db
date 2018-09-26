@@ -58,7 +58,8 @@ def get_recording_uri(cellid, batch, options={}):
     return url
 
 
-def generate_recording_uri(cellid=None, batch=None, loadkey=None, siteid=None):
+def generate_recording_uri(cellid=None, batch=None, loadkey=None,
+                           siteid=None, **options):
     """
     required parameters (passed through to nb.baphy_data_path):
         cellid: string or list
@@ -76,8 +77,6 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None, siteid=None):
     # TODO: A lot of the parsing is copy-pasted from nems_lbhb/loaders/,
     #       need to figure out which role goes where and delete the
     #       repeated code.
-
-    options = {}
 
     def _parm_helper(fs, pupil):
         options = {'rasterfs': fs, 'stimfmt': 'parm',
@@ -169,23 +168,25 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None, siteid=None):
     else:
         raise ValueError('unknown loader string: %s' % loader)
 
+    if int(batch) == 294:
+        options["runclass"] = "VOC"
+
     if siteid is not None:
         options['siteid'] = siteid
 
-    # check for use of new loading key (ldb - load baphy) - recording_uri
-    # will point towards cached recording holding all stable cells at that
-    # site/batch
-    # else will load the rec_uri for the single cell specified in fn args
     if 'ldb' in loadkey:
-        options['batch'] = batch
-        options['recache'] = options.get('recache', False)
-        if type(cellid) is not list:
-            cellid = [cellid]
-        if re.search(r'\d+$', cellid[0]) is None:
-            options['site'] = cellid[0]
-        else:
-            options['site'] = cellid[0][:-5]
-        recording_uri = nb.baphy_load_multichannel_recording(**options)
+        import pdb
+        pdb.set_trace()
+        # check for run_num specifier
+        if len(cellid.split('_'))>1:
+            run_num = cellid.split('_')[-1]
+            cellid = cellid.split('_')[0]
+            options['rawid'] = nd.get_rawid(cellid, run_num)
+
+        options["batch"] = batch
+        options["cellid"] = cellid
+        recording_uri = nb.baphy_load_recording_uri(**options)
+
     else:
         recording_uri = get_recording_file(cellid, batch, options)
         #recording_uri = get_recording_uri(cellid, batch, options)
@@ -256,7 +257,10 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     else:
         uri_key = nems.utils.escaped_split(loadkey, '-')[0]
         recording_uri = generate_recording_uri(cellid, batch, uri_key)
-        xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta)
+        registry_args = {'cellid': cellid, 'batch': int(batch)}
+        xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta,
+                                            xforms_kwargs=registry_args)
+
 
     # actually do the fit
     ctx, log_xf = xforms.evaluate(xfspec)
@@ -356,7 +360,7 @@ def fit_pop_model_xforms_baphy(cellid, batch, modelname, saveInDB=False):
 
 def load_model_baphy_xform(cellid, batch=271,
         modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
-        eval_model=True):
+        eval_model=True, only=None):
 
     kws = nems.utils.escaped_split(modelname, '_')
     old = False
@@ -370,12 +374,14 @@ def load_model_baphy_xform(cellid, batch=271,
     filepath = d['modelpath'][0]
 
     if old:
-        return oxf.load_analysis(filepath, eval_model=eval_model)
+        xfspec, ctx = oxf.load_analysis(filepath, eval_model=eval_model)
     else:
-        return xforms.load_analysis(filepath, eval_model=eval_model)
+        xfspec, ctx = xforms.load_analysis(filepath, eval_model=eval_model,
+                                           only=only)
+    return xfspec, ctx
 
 
-def model_pred_comp(cellid, batch, modelnames, occurrence=0,
+def model_pred_comp(cellid, batch, modelnames, occurrence=None,
                     pre_dur=None, dur=None):
     """
     return ccd12, ccd13, ccd23
@@ -384,19 +390,17 @@ def model_pred_comp(cellid, batch, modelnames, occurrence=0,
     modelcount = len(modelnames)
     epoch = 'REFERENCE'
     c = 0
-
-    legend = ['LN','GC','STP','act']
+    plot_colors = ['lightgray', 'g', 'lightgray', 'r', 'lightgray', 'b']
+    legend = ['act','LN','act','GC','act','STP']
     times = []
     values = []
-    values_all = []
-    times_all = []
     r_test = []
     for i, m in enumerate(modelnames):
         xf, ctx = load_model_baphy_xform(cellid, batch, m)
 
         val = ctx['val'][0]
 
-        if i==0:
+        if i == 0:
             d = val['resp'].get_epoch_bounds('PreStimSilence')
             if len(d):
                 PreStimSilence = np.mean(np.diff(d))
@@ -405,41 +409,42 @@ def model_pred_comp(cellid, batch, modelnames, occurrence=0,
             if pre_dur is None:
                 pre_dur = PreStimSilence
 
-            # Get values from specified occurrence and channel
-            extracted = val['resp'].extract_epoch(epoch)
-            r_vector = extracted[occurrence][c]
-            r_vector = nems.utils.smooth(r_vector, window_len=7)[3:-3]
+            if occurrence is not None:
+                # Get values from specified occurrence and channel
+                extracted = val['resp'].extract_epoch(epoch)
+                r_vector = extracted[occurrence][c]
+            else:
+                r_vector = val['resp'].as_continuous()[0, :]
 
-            r_all = val['resp'].as_continuous()
+            validbins = np.isfinite(r_vector)
+            r_vector = nems.utils.smooth(r_vector[validbins], 7)
+            r_vector = r_vector[3:-3]
 
             # Convert bins to time (relative to start of epoch)
             # TODO: want this to be absolute time relative to start of data?
             time_vector = np.arange(0, len(r_vector)) / val['resp'].fs - PreStimSilence
-            time_all_vector = np.arange(0, np.sum(np.isfinite(r_all[0,:]))) / val['resp'].fs - PreStimSilence
 
             # limit time range if specified
             good_bins = (time_vector >= -pre_dur)
             if dur is not None:
                 good_bins[time_vector > dur] = False
 
-        extracted = val['pred'].extract_epoch(epoch)
-        p_vector = extracted[occurrence][c] + i + 1
-        p_all = val['pred'].as_continuous()
-        p_all = p_all[0,np.isfinite(r_all[0,:])] + i + 1
+        if occurrence is not None:
+            extracted = val['pred'].extract_epoch(epoch)
+            p_vector = extracted[occurrence][c]
+        else:
+            p_vector = val['pred'].as_continuous()
+            p_vector = p_vector[0, validbins]
 
         times.append(time_vector[good_bins])
-        values.append(p_vector[good_bins])
-        values_all.append(p_all)
-        times_all.append(time_all_vector)
+        values.append(r_vector[good_bins] + i)
+        times.append(time_vector[good_bins])
+        values.append(p_vector[good_bins] + i)
 
         r_test.append(ctx['modelspecs'][0][0]['meta']['r_test'][0])
 
-    times.append(time_vector[good_bins])
-    values.append(r_vector[good_bins])
-    ra=nems.utils.smooth(r_all[0,np.isfinite(r_all[0,:])], 7)
-    ra=ra[3:-3]
-    values_all.append(ra)
-    times_all.append(time_all_vector)
+    times_all = times
+    values_all = values
 
     cc12 = np.corrcoef(values_all[0], values_all[1])[0, 1]
     cc13 = np.corrcoef(values_all[0], values_all[2])[0, 1]
@@ -461,16 +466,22 @@ def model_pred_comp(cellid, batch, modelnames, occurrence=0,
 
     plt.figure()
     ax = plt.subplot(2, 1, 1)
-    extracted = val['stim'].extract_epoch(epoch)
-    sg = extracted[occurrence]
+    if occurrence is not None:
+        extracted = val['stim'].extract_epoch(epoch)
+        sg = extracted[occurrence]
+    else:
+        sg = val['stim'].as_continuous()
+        sg = sg[:, validbins]
+    sg = sg[:, good_bins]
     nplt.plot_spectrogram(sg, val['resp'].fs, ax=ax,
                           title='{} Stim {}'.format(cellid, occurrence),
-                          time_offset=PreStimSilence)
+                          time_offset=pre_dur, cmap='gist_yarg')
 
     ax = plt.subplot(2, 1, 2)
     title = 'Preds LN {:.3f} GC {:.3f} STP {:.3f} /CC LN-GC: {:.3f}  LN-STP: {:.3f} STP-GC: {:.3f} dSTP-dGC: {:.3f}'.format(
             r_test[0],r_test[1],r_test[2],cc12,cc13,cc23,ccd23)
-    nplt.plot_timeseries(times_all, values_all, ax=ax, legend=legend, title=title)
+    nplt.plot_timeseries(times_all, values_all, ax=ax, legend=legend,
+                         title=title, colors=plot_colors)
 
     plt.tight_layout()
 

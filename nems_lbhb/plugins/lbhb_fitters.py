@@ -11,6 +11,10 @@ def srec(fitkey):
     return [['nems_lbhb.contrast_helpers.reset_single_recording', {}]]
 
 
+def passthrough(fitkey):
+    return [['nems_lbhb.contrast_helpers.pass_nested_modelspec', {}]]
+
+
 def _aliased_fitter(fn, fitkey):
     '''Forces the keyword fn to use the given fitkey. Used for implementing
     backwards compatibility with old keywords that did not follow the

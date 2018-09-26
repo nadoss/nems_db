@@ -214,7 +214,7 @@ save_fig = True
 if save_fig:
     plt.close('all')
 
-if 1:
+if 0:
     # figure 6, SPN
     batch = 259
     #modelname="env100_dlog_stp2_fir2x15_lvl1_dexp1_basic"
@@ -234,9 +234,15 @@ if 1:
 elif 1:
     # figure 9, NAT
 
+    # old
     batch = 271
     modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15_init-basic"
     modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15_init-basic"
+
+    # new
+    #batch=289
+    #modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x3-fir.3x15-lvl.1-dexp.1_init-basic"
+    #modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x3-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
     fileprefix="fig9.NAT"
 
 

@@ -142,21 +142,20 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
     if script_path in [None, 'None', 'NONE', '']:
         script_path = get_setting('DEFAULT_SCRIPT_PATH')
 
-    existing_results = psql.read_sql_query(
-            session.query(NarfResults.cellid, NarfResults.modelname,
-                          NarfResults.batch)
-            .filter(NarfResults.cellid.in_(celllist))
-            .filter(NarfResults.batch == batch)
-            .filter(NarfResults.modelname.in_(modellist))
-            .statement,
-            session.bind
-            )
-
     # Convert to list of tuples b/c product object only useable once.
     combined = [(c, b, m) for c, b, m in
                 itertools.product(celllist, [batch], modellist)]
 
     if not force_rerun:
+        existing_results = psql.read_sql_query(
+                session.query(NarfResults.cellid, NarfResults.modelname,
+                              NarfResults.batch)
+                .filter(NarfResults.cellid.in_(celllist))
+                .filter(NarfResults.batch == batch)
+                .filter(NarfResults.modelname.in_(modellist))
+                .statement,
+                session.bind
+                )
         removals = [r for r in existing_results.itertuples()]
         combined = [t for t in combined if t not in removals]
 
@@ -413,6 +412,22 @@ def save_results(stack, preview_file, queueid=None):
 
 #########    Start new nems functions here
 
+def pd_query(sql=None, params=()):
+    """
+    execture an SQL command and return the results in a dataframe
+    params:
+        sql: string
+            query to execute
+    """
+
+    if sql is None:
+        raise ValueError ("parameter sql required")
+    engine = Engine()
+    print(sql)
+    print(params)
+    d = pd.read_sql(sql=sql, con=engine, params=params)
+
+    return d
 
 def update_results_table(modelspec, preview=None,
                          username="svd", labgroup="lbhb"):
@@ -619,6 +634,7 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
     if label is not None:
         sql += " AND label like %s"
         params = params + (label,)
+    sql += " ORDER BY filepath"
     print(sql)
     d = pd.read_sql(sql=sql, con=engine, params=params)
     d.set_index(['cellid', 'groupid', 'label', 'rawid'], inplace=True)
@@ -801,7 +817,7 @@ def get_results_file(batch, modelnames=None, cellids=None):
         return results
 
 
-def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
+def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
                              label ='parm'):
     '''
     Used to return only the information for units that were stable across all
@@ -830,6 +846,8 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
 
     if not rawid is None:
         sql += " AND rawid IN %s"
+        if type(rawid) is not list:
+            rawid = [rawid]
         rawid=tuple([str(i) for i in rawid])
         params = params+(rawid,)
 
@@ -839,8 +857,7 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
         sql += " AND rawid IN %s"
         params = params+(rawid,)
 
-    print('returning cellids stable across rawids:')
-    print(rawid)
+    print('returning cellids stable across rawids: {0}'.format(rawid))
 
     d = pd.read_sql(sql=sql, con=engine, params=params)
 
@@ -853,6 +870,7 @@ def get_stable_batch_cellids(batch=None, cellid=None, rawid=None,
         cellids = list(cellids)
     else:
         pass
+    
     return cellids, list(rawid)
 
 
@@ -875,6 +893,36 @@ def get_wft(cellid=None):
 
     return celltype
 
+
+def get_rawid(cellid, run_num):
+    """
+    Used to return the rawid corresponding to given run number. To be used if
+    you have two files at a given site that belong to the same batch but were
+    sorted separately and you only want to load cellids from one of the files.
+
+    ex. usage in practice would be to pass a sys arg cellid followed by the
+    run_num:
+
+        cellid = 'TAR017b-04-1_04'
+
+        This specifies cellid and run_num. So parse this string and pass as args
+        to this function to return rawid
+    """
+    engine = Engine()
+    params = ()
+    sql = "SELECT rawid FROM sCellFile WHERE 1"
+
+    if cellid is not None:
+        sql += " AND cellid like %s"
+        params = params+(cellid+"%",)
+
+    if run_num is not None:
+        sql += " AND respfile like %s"
+        params = params+(cellid[:-5]+run_num+"%",)
+
+    d = pd.read_sql(sql=sql, con=engine, params=params)
+
+    return [d['rawid'].values[0]]
 
 # TODO
 # Old enqueu_models function, remove this once new version

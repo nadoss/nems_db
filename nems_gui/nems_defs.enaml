@@ -1,0 +1,162 @@
+#------------------------------------------------------------------------------
+# Copyright (c) 2013, Nucleic Development Team.
+#
+# Distributed under the terms of the Modified BSD License.
+#
+# The full license is in the file COPYING.txt, distributed with this software.
+#------------------------------------------------------------------------------
+
+from enaml.core.api import Looper
+from enaml.layout.api import (
+    HSplitLayout, VSplitLayout, TabLayout, InsertItem, hbox, vbox, spacer
+)
+from enaml.stdlib.dock_area_styles import available_styles
+from enaml.stdlib.fields import IntField
+from enaml.stdlib.message_box import question
+from enaml.widgets.api import (
+    Window, Label, Form,
+    Container, DockArea, DockItem, PushButton, Field, Html, Slider,
+    ObjectCombo, CheckBox, MultilineField, HGroup, VGroup,
+)
+
+import enamlx
+enamlx.install()
+
+from enamlx.widgets.table_view import (
+    TableView, TableViewRow, TableViewItem
+)
+
+
+enamldef NemsForm(Container): container:
+    attr browser
+
+    # You could achieve the same thing using HGroup/VGroup, but
+    # this is just an example of how to specify precise constraints
+    # as needed. This is a list of constraints and then Enaml will try to solve
+    # them.
+    constraints << [
+        form.left == contents_left,
+        form.width <= 300,
+        cell_list.left == form.right + 20,
+        cell_list.width <= 150,
+        cell_list.top == form.top + 5,
+        cell_list.bottom == contents_bottom,
+        cell_list.top == contents_top + 5,
+
+        model_list.left == cell_list.right + 20,
+        model_list.right == contents_right,
+        model_list.bottom == contents_bottom,
+        model_list.top == contents_top + 5,
+
+        actions.top + 5 == form.bottom,
+        #cell_list.width == 300,
+        #model_list.width == cell_list.width / 2,
+    ]
+
+    Form: form:
+        Label:
+            text = 'Batch'
+        Field:
+            text := browser.batch
+            text ::
+                # This is only triggered if you update batch via the GUI
+                # This is one way
+                print('value was updated')
+                #browser.update_batch()
+        Label:
+            text = 'CellID'
+        Field:
+            text := browser.cell_search_string
+        Label:
+            text = 'Modelname'
+        Field:
+            text := browser.model_search_string
+
+    VGroup: actions:
+        PushButton:
+            text = 'Tell me what\'s selected'
+            clicked ::
+                cell_selection = [s.parent.row for s in cell_list.selection]
+                print(cell_selection)
+                print('Cell list: ', cell_list.selection)
+                print('Model list: ', model_list.selection)
+
+        PushButton:
+            text = 'View Model'
+            clicked ::
+                browser.view_model()
+
+        PushButton:
+            text = 'View Recording'
+            clicked ::
+                browser.view_recording()
+
+        PushButton:
+            text = 'Status'
+            clicked ::
+                browser.print_status()
+                #for cell in browser.cell_list:
+                #    print(cell.id)
+
+    TableView: cell_list:
+        show_vertical_header = False
+        show_grid = False
+        items << browser.cell_list
+        horizontal_headers = ['Cell']
+        selection_mode = 'single'
+        selection_behavior = 'rows'
+        alternating_row_colors = True
+        horizontal_stretch = True
+        cell_padding = 0
+
+        Looper:
+            iterable << range(cell_list.visible_rows)
+
+            TableViewRow:
+                row = cell_list.visible_row + loop_index
+                attr cell << cell_list.items[self.row]
+
+                TableViewItem:
+                    editable = False
+                    text := cell.cellid
+                    clicked ::
+                        cell_selection = [s.parent.row for s in cell_list.selection]
+                        #print('Cell list: ', cell_list.selection.cellid)
+                        browser.selected_cell = browser.cell_list[cell_selection[0]].cellid
+                        print('cell list clicked', browser.selected_cell)
+
+    TableView: model_list:
+        show_vertical_header = False
+        show_grid = False
+        horizontal_headers = ['Model']
+        horizontal_stretch = True
+        items << browser.model_list
+        # Valid selection modes are extended, none, multi, single, continguous
+        selection_mode = 'single'
+        selection_behavior = 'rows'
+        alternating_row_colors = True
+        cell_padding = 0
+
+        Looper:
+            iterable << range(model_list.visible_rows)
+
+            TableViewRow:
+                row = model_list.visible_row + loop_index
+                attr model << model_list.items[self.row]
+
+                TableViewItem:
+                    text << model.name
+                    clicked ::
+                        model_selection = [s.parent.row for s in model_list.selection]
+                        browser.selected_model = browser.model_list[model_selection[0]].name
+                        print('model list clicked', browser.selected_model)
+
+
+enamldef NEMSWindow(Window):
+
+    attr browser
+
+    NemsForm:
+        browser := parent.browser
+
+    initial_size = (900, 300)

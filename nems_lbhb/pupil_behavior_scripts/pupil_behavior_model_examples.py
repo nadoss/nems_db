@@ -24,6 +24,8 @@ import nems.plots.api as nplt
 sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
 
 
+
+
 def plot_save_examples(batch, compare, loader, basemodel, fitter, RELOAD=False):
 
     if batch in [301, 307]:
@@ -38,7 +40,7 @@ def plot_save_examples(batch, compare, loader, basemodel, fitter, RELOAD=False):
     root_path = '/auto/users/svd/projects/pupil-behavior'
 
     modelset = '{}_{}_{}_{}_{}_{}'.format(compare, area,
-                                       batch, loader, basemodel, fitter)
+                batch, loader, basemodel, fitter)
     out_path = '{}/{}/'.format(root_path, modelset)
 
     if os.access(root_path, os.W_OK) and not(os.path.exists(out_path)):
@@ -169,19 +171,20 @@ def plot_save_examples(batch, compare, loader, basemodel, fitter, RELOAD=False):
 # BEGIN main code
 
 # User parameters:
-RELOAD = True
+RELOAD = False
 loader = "psth.fs20.pup"
 fitter = "jk.nf10-init.st-basic"
 
 batches = [301, 303, 307, 309]
-basemodels = ["psthfr_sdexp.S", "psthfr_stategain.S",
-              "psthfr.s_sdexp.S", "psthfr.s_stategain.S"]
+basemodels = ["ref.b-psthfr_sdexp.S", "ref.b-psthfr_stategain.S",
+              "ref.b-psthfr.s_sdexp.S", "ref.b-psthfr.s_stategain.S"]
 comparisons = ["pb", "ppas"]
 
-batches = [303, 307, 309]
-basemodels = ["psthfr_sdexp.S"]
+#batches = [301]
+basemodels = ["ref.b-psthfr_sdexp.S", "ref.b-psthfr.s_sdexp.S"]
+#basemodels = ["ref.b-psthfr_sdexp.S"]
 comparisons = ["pb"]
-#
+##
 for batch in batches:
     for basemodel in basemodels:
         for compare in comparisons:

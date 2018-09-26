@@ -66,6 +66,13 @@ def ctfir(kw):
     return template
 
 
+def OOfir(kw):
+    kw = 'ct' + kw[2:]
+    template = ctfir(kw)
+    template['fn_kwargs']['i'] = 'contrast'
+    return template
+
+
 def ctlvl(kw):
     '''
     Same as nems.plugins.keywords.lvl but renamed for
@@ -118,11 +125,7 @@ def dsig(kw):
         'prior': {'base': ('Exponential', {'beta': [0.1]}),
                   'amplitude': ('Exponential', {'beta': [2.0]}),
                   'shift': ('Normal', {'mean': [1.0], 'sd': [1.0]}),
-                  'kappa': ('Exponential', {'beta': [0.5]})}
-#                  'base_mod': ('Exponential', {'beta': [0.1]}),
-#                  'amplitude_mod': ('Exponential', {'beta': [2.0]}),
-#                  'shift_mod': ('Normal', {'mean': [1.0], 'sd': [1.0]}),
-#                  'kappa_mod': ('Exponential', {'beta': [0.5]})}
+                  'kappa': ('Exponential', {'beta': [0.1]})}
         }
 
     zero_norm = ('Normal', {'mean': [0.0], 'sd': [1.0]})

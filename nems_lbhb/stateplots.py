@@ -16,6 +16,7 @@ import nems.plots.api as nplt
 import nems.xforms as xforms
 import nems.epoch as ep
 import nems_lbhb.plots as lplt
+from nems.metrics.state import state_mod_index
 
 font_size=8
 params = {'legend.fontsize': font_size-2,
@@ -424,38 +425,6 @@ def beta_comp_cols(g, b, n1='A', n2='B', hist_bins=20,
     plt.tight_layout()
 
 
-def state_mod_index(rec, epoch='REFERENCE', psth_name='resp',
-                    state_sig='pupil'):
-
-    full_psth = rec[psth_name]
-    folded_psth = full_psth.extract_epoch(epoch)
-
-    full_var = rec['state'].loc[state_sig]
-    folded_var = np.squeeze(full_var.extract_epoch(epoch))
-
-    # compute the mean state for each occurrence
-    m = np.nanmean(folded_var, axis=1)
-
-    # compute the mean state across all occurrences
-    mean = np.nanmean(m)
-    gtidx = (m >= mean)
-    ltidx = np.logical_not(gtidx)
-
-    # low = response on epochs when state less than mean
-    if np.sum(ltidx):
-        low = np.nanmean(folded_psth[ltidx, :, :], axis=0).T
-    else:
-        low = np.ones(folded_psth[0, :, :].shape).T * np.nan
-
-    # high = response on epochs when state greater than or equal to mean
-    if np.sum(gtidx):
-        high = np.nanmean(folded_psth[gtidx, :, :], axis=0).T
-    else:
-        high = np.ones(folded_psth[0, :, :].shape).T * np.nan
-
-    mod = np.sum(high - low) / np.sum(high + low)
-
-    return mod
 
 
 def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
@@ -746,10 +715,10 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301,
     # modelname_p0b = loader + "20pup0beh_stategain3_" + fitter
     # modelname_pb0 = loader + "20pupbeh0_stategain3_" + fitter
     # modelname_pb = loader + "20pupbeh_stategain3_" + fitter
-    modelname_p0b0 = loader + "-ld-st.pup0.beh0-ref-" + basemodel + "_" + fitter
-    modelname_p0b = loader + "-ld-st.pup0.beh-ref-" + basemodel + "_" + fitter
-    modelname_pb0 = loader + "-ld-st.pup.beh0-ref-" + basemodel + "_" + fitter
-    modelname_pb = loader + "-ld-st.pup.beh-ref-" + basemodel + "_" + fitter
+    modelname_p0b0 = loader + "-ld-st.pup0.beh0-" + basemodel + "_" + fitter
+    modelname_p0b = loader + "-ld-st.pup0.beh-" + basemodel + "_" + fitter
+    modelname_pb0 = loader + "-ld-st.pup.beh0-" + basemodel + "_" + fitter
+    modelname_pb = loader + "-ld-st.pup.beh-" + basemodel + "_" + fitter
 
     factor0 = "baseline"
     factor1 = "pupil"
@@ -760,6 +729,43 @@ def pb_model_plot(cellid='TAR010c-06-1', batch=301,
     factors = [factor0, factor1, factor2]
     state_colors = [[line_colors['small'], line_colors['large']],
                     [line_colors['passive'], line_colors['active']]]
+
+    fh, stats = _model_step_plot(cellid, batch, modelnames, factors,
+                                 state_colors=state_colors)
+
+    return fh, stats
+
+
+def bperf_model_plot(cellid='TAR010c-06-1', batch=307,
+                     loader="psth.fs20.pup",
+                     basemodel="ref-psthfr.s_stategain.S",
+                     fitter="jk.nf10-init.st-basic"):
+    """
+    test for engagement-performance interaction.
+    loader : string
+      can be 'psth' or 'psths'
+    fitter : string
+      can be 'basic-nf' or 'cd-nf'
+
+    """
+    global line_colors
+
+    modelname_p0b0 = loader + "-ld-st.pup.beh0.far0.hit0-" + basemodel + "_" + fitter
+    modelname_p0b = loader + "-ld-st.pup.beh.far0.hit0-" + basemodel + "_" + fitter
+    modelname_pb0 = loader + "-ld-st.pup.beh0.far.hit-" + basemodel + "_" + fitter
+    modelname_pb = loader + "-ld-st.pup.beh.far.hit-" + basemodel + "_" + fitter
+
+    factor0 = "baseline"
+    factor1 = "active"
+    factor2 = "hit"
+
+    modelnames = [modelname_p0b0, modelname_p0b, modelname_pb0,
+                  modelname_pb]
+    factors = [factor0, factor1, factor2]
+    state_colors = [[line_colors['passive'], line_colors['active']],
+                    [line_colors['passive'], line_colors['active']],
+                    [line_colors['passive'], line_colors['active']],
+                    [line_colors['easy'], line_colors['hard']]]
 
     fh, stats = _model_step_plot(cellid, batch, modelnames, factors,
                                  state_colors=state_colors)

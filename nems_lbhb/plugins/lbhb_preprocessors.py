@@ -23,7 +23,19 @@ def pas(loadkey, recording_uri):
 
 
 def ref(kw):
-    return [['nems.xforms.mask_all_but_correct_references', {}]]
+    ops = kw.split('.')[1:]
+
+    balance_rep_count = False
+    include_incorrect = False
+    for op in ops:
+        if op.startswith('b'):
+            balance_rep_count = True
+        if op.startswith('a'):
+            include_incorrect = True
+
+    return [['nems.xforms.mask_all_but_correct_references',
+             {'balance_rep_count': balance_rep_count,
+              'include_incorrect': include_incorrect}]]
 
 
 def evs(loadkey):
@@ -101,12 +113,18 @@ def st(loadkey, recording_uri):
             this_sig = ["pupil_ev"]
         elif l.startswith("pas"):
             this_sig = ["each_passive"]
+        elif l.startswith("fil"):
+            this_sig = ["each_file"]
         elif l.startswith("r1"):
             this_sig = ["r1"]
         elif l.startswith("r2"):
             this_sig = ["r2"]
         elif l.startswith('ttp'):
             this_sig = ['hit_trials','miss_trials']
+        elif l.startswith('far'):
+            this_sig = ['far']
+        elif l.startswith('hit'):
+            this_sig = ['hit']
         else:
             raise ValueError("unknown signal code %s for state variable initializer", l)
 
@@ -144,13 +162,17 @@ def contrast(loadkey):
     return [['nems_lbhb.contrast_helpers.add_contrast', kwargs]]
 
 
+def onoff(loadkey):
+    return [['nems_lbhb.contrast_helpers.add_onoff', {}]]
+
+
 def hrc(load_key, recording_uri):
     """
     Mask only data during stimuli that were repeated 10 or greater times.
     hrc = high rep count
     """
     # c_preprocessing is in Charlie's auto users directory
-    xfspec = [['c_preprocessing.mask_high_repetion_stims',
+    xfspec = [['nems_lbhb.preprocessing.mask_high_repetion_stims',
                {'epoch_regex':'^STIM_'}, ['rec'], ['rec']]]
 
     return xfspec
@@ -162,9 +184,23 @@ def psthfr(load_key):
     """
     options = load_key.split('.')[1:]
     smooth = ('s' in options)
+    hilo = ('hilo' in options)
+    jackknife = ('j' in options)
     epoch_regex = '^STIM_'
-    xfspec=[['nems.xforms.generate_psth_from_resp',
-                   {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
+    if hilo:
+        if jackknife:
+             xfspec=[['nems_lbhb.preprocessing.hi_lo_psth_jack',
+                     {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
+        else:
+            xfspec=[['nems_lbhb.preprocessing.hi_lo_psth',
+                     {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
+    else:
+        if jackknife:
+            xfspec=[['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold',
+                     {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
+        else:
+            xfspec=[['nems.xforms.generate_psth_from_resp',
+                     {'smooth_resp': smooth, 'epoch_regex': epoch_regex}]]
     return xfspec
 
 
@@ -191,31 +227,3 @@ def rscsw(load_key, cellid, batch):
                     'batch': batch},
                    ['rec'], ['rec']]]
     return xfspec
-
-# TODO: Maybe can keep splitep and avgep as one thing?
-#       Would they ever be done separately?
-def splitep(kw):
-    ops = kw.split('.')[1:]
-    epoch_regex = '^STIM' if not ops else ops[0]
-    xfspec = [['nems.xforms.split_by_occurrence_counts',
-               {'epoch_regex': epoch_regex}]]
-    return xfspec
-
-
-def avgep(kw):
-    ops = kw.split('.')[1:]
-    epoch_regex = '^STIM' if not ops else ops[0]
-    return [['nems.xforms.average_away_stim_occurrences',
-             {'epoch_regex': epoch_regex}]]
-
-
-def sev(kw):
-    ops = kw.split('.')[1:]
-    epoch_regex = '^STIM' if not ops else ops[0]
-    xfspec = [['nems.xforms.split_by_occurrence_counts',
-               {'epoch_regex': epoch_regex}],
-        ['nems.xforms.average_away_stim_occurrences',
-         {'epoch_regex': epoch_regex}]]
-    return xfspec
-
-
