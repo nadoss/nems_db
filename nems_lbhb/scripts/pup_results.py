@@ -24,15 +24,20 @@ import nems.plots.api as nplt
 import nems.modelspec as ms
 
 # User parameters:
-modelnames = [
-        "psth.fs20.pup-ld-st.pup_stategain.S_jk.nf10-psthfr.j-basic",
-        "psth.fs20.pup-ld-st.pup0_stategain.S_jk.nf10-psthfr.j-basic"
-        ]
+batch = 294  # VOC + pupil
+#batch 289  # NAT + pupil
+fs = 4   # 20 Hz or 4 Hz
 
-batch = 294
-
-outpath = "{}/selectivity_{}/".format(
-        '/auto/users/svd/docs/current/pupil_behavior',batch)
+if batch == 294:
+    modelnames = [
+            "psth.fs{}.pup-ld-st.pup_stategain.S_jk.nf10-psthfr.j-basic".format(fs),
+            "psth.fs{}.pup-ld-st.pup0_stategain.S_jk.nf10-psthfr.j-basic".format(fs)
+            ]
+elif batch == 289:
+    modelnames = [
+            "psth.fs{}.pup-ld-st.pup-hrc_stategain.S_jk.nf10-psthfr.j-basic".format(fs),
+            "psth.fs{}.pup-ld-st.pup0-hrc_stategain.S_jk.nf10-psthfr.j-basic".format(fs)
+            ]
 
 celldata = nd.get_batch_cells(batch=batch)
 cellids = celldata['cellid'].tolist()
@@ -67,15 +72,12 @@ for mod_i, m in enumerate(modelnames):
             d.loc[ii, 'r_pup0'] = (meta['r_test'][0])
             d.loc[ii, 'r_se_pup0'] = (meta['se_test'][0])
 
-r = d['r'].values.astype(float)
-r0 = d['r_pup0'].values.astype(float)
-se = d['r_se'].values.astype(float)
-se0 = d['r_se_pup0'].values.astype(float)
+d['goodcells'] = ((d['r']-d['r_se']) > (d['r_pup0']+d['r_se_pup0']))
 
-goodcells = ((r-se) > (r0+se))
+goodcells = ((r-se) > (r0+se0))
 ax = None
 stateplots.beta_comp(r0, r, n1="r pup0", n2="r pup",
                      title='stategain', hist_range=[-0.05, 0.95],
-                     ax=ax, highlight=goodcells)
+                     ax=ax, highlight=d['goodcells'])
 
 
