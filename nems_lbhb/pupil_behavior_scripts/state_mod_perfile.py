@@ -26,14 +26,15 @@ import nems.modelspec as ms
 # User parameters:
 loader = "psth.fs20.pup-ld-"
 fitter = "_jk.nf10-init.st-basic"
-basemodel = "-ref-psthfr.s_stategain.S"
+basemodel = "-ref.a-psthfr.s_stategain.S"
 
 batch = 307
 
-#statevars = ['pup','beh','far.hit']
-#statevars0 = ['pup0','beh0','far0.hit0']
-statevars = ['pup','beh']
-statevars0 = ['pup0','beh0']
+outpath = "{}/selectivity_{}/".format(
+        '/auto/users/svd/docs/current/pupil_behavior',batch)
+
+statevars = ['pup','fil']
+statevars0 = ['pup0','fil0']
 
 sv_len=len(statevars)
 if sv_len==2:
@@ -41,16 +42,51 @@ if sv_len==2:
 else:
     sv_pairs = [(0,1),(1,2),(2,0)]
 
-states = []
+states = ["st."+".".join(statevars)]
 for i,s in enumerate(statevars0):
     st = statevars.copy()
     st[i]=s
     states.append("st."+".".join(st))
-states.append("st."+".".join(statevars))
 modelnames = [loader + s + basemodel + fitter for s in states]
 
-outpath = "{}/selectivity_{}/".format(
-        '/auto/users/svd/docs/current/pupil_behavior',batch)
+
+celldata = nd.get_batch_cells(batch=batch)
+cellids = celldata['cellid'].tolist()
+
+d = pd.DataFrame(columns=['cellid','state_chan','MI','MI_fil0','MI_pup0','g','d',
+                          'r','r_fil0','r_pup0','r_se','r_se_fil0','r_se_pup0'])
+for mod_i, m in enumerate(modelnames):
+    print('Loading ', m)
+    modelspecs = nems_db.params._get_modelspecs(cellids, batch, m, multi='mean')
+    for modelspec in modelspecs:
+        c = modelspec[0]['meta']['cellid']
+        dc = modelspec[0]['phi']['d']
+        gain = modelspec[0]['phi']['g']
+        meta = ms.get_modelspec_metadata(modelspec)
+        state_mod = meta['state_mod']
+        state_mod_se = meta['se_state_mod']
+        state_chans = meta['state_chans']
+        for j, sc in enumerate(state_chans):
+            ii = ((d['cellid'] == c) & (d['state_chan'] == sc))
+            if np.sum(ii)==0:
+                d = d.append({'cellid': c, 'state_chan': sc, 'g': gain[0,j],
+                              'd': dc[0,j], 'MI': state_mod[j]},
+                            ignore_index=True)
+                ii = ((d['cellid'] == c) & (d['state_chan'] == sc))
+            if mod_i == 0:
+                d.loc[ii, 'MI'] = state_mod[j]
+                d.loc[ii, 'r'] = meta['r_test'][0]
+                d.loc[ii, 'r_se'] = meta['se_test'][0]
+            elif mod_i == 1:
+                d.loc[ii, 'MI_pup0'] = state_mod[j]
+                d.loc[ii, 'r_pup0'] = meta['r_test'][0]
+                d.loc[ii, 'r_se_pup0'] = meta['se_test'][0]
+            else:
+                d.loc[ii, 'MI_fil0'] = state_mod[j]
+                d.loc[ii, 'r_fil0'] = meta['r_test'][0]
+                d.loc[ii, 'r_se_fil0'] = meta['se_test'][0]
+
+
 csv_file = outpath+"selectivity.csv"
 d_tuning = pd.read_csv(csv_file)
 d_tuning = d_tuning.sort_values('cellid')
@@ -59,30 +95,7 @@ tvr = (d_tuning['tar_onset'] - d_tuning['ref_onset']) / \
 tvr = (d_tuning['tar_sust'] - d_tuning['ref_sust']) / \
    (d_tuning['tar_sust'] + d_tuning['ref_sust'])
 
-meta=['r_test', 'se_test', 'state_mod']
-stats_keys=[]
-state_mod = []
-r_test = []
-se_test = []
-
-celldata = nd.get_batch_cells(batch=batch)
-cellids = celldata['cellid'].tolist()
-
-for mod_i, m in enumerate(modelnames):
-
-    d = nems_db.params.fitted_params_per_batch(batch, m, meta=meta,
-                                               stats_keys=stats_keys)
-    d = d.reindex(sorted(d.columns), axis=1)
-    state_mod.append(np.stack(d.loc['meta--state_mod']))
-    r_test.append(np.stack(d.loc['meta--r_test']))
-    se_test.append(np.stack(d.loc['meta--se_test']))
-
-
-cellids = list(d.columns)
-state_mod = np.stack(state_mod)
-r_test = np.stack(r_test)
-se_test = np.stack(se_test)
-
+"""
 u_state_mod = state_mod[[sv_len],:] - state_mod[:sv_len, :]
 u_r_test = r_test[[sv_len],:] - r_test[:sv_len,:]
 u_r_good = u_r_test > se_test[:sv_len,:]
@@ -166,3 +179,4 @@ plt.figure()
 plt.plot(np.array(tvr)[ii])
 plt.plot(pmod[ii])
 plt.plot(bmod[ii])
+"""
