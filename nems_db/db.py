@@ -884,7 +884,7 @@ def get_wft(cellid=None):
 
     d = pd.read_sql(sql=sql, con=engine, params=params)
     if d.values[0][0] is None:
-        print('no waveform type information for {0}'.format(cellid))
+        print('no meta_data information for {0}'.format(cellid))
         return -1
 
     wft = json.loads(d.values[0][0])
@@ -894,6 +894,36 @@ def get_wft(cellid=None):
     return celltype
 
 
+def get_gSingleCell_meta(cellid=None, fields=None):
+    
+    engine = Engine()
+    params = ()
+    sql = "SELECT meta_data FROM gSingleCell WHERE 1"
+
+    sql += " and cellid =%s"
+    params = params+(cellid,)
+    
+    d = pd.read_sql(sql=sql, con=engine, params=params)
+    if d.values[0][0] is None:
+        print('no meta_data information for {0}'.format(cellid))
+        return -1
+    else:
+        dic = json.loads(d.values[0][0])
+        if type(fields) is list:
+            out = {}
+            for f in fields:
+                out[f] = dic[f]
+        
+        elif type(fields) is str:
+            out = dic[fields]
+        elif fields is None:
+            out = {}
+            fields = dic.keys()
+            for f in fields:
+                out[f] = dic[f]
+        
+        return out
+    
 def get_rawid(cellid, run_num):
     """
     Used to return the rawid corresponding to given run number. To be used if
