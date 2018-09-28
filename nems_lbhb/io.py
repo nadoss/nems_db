@@ -21,6 +21,7 @@ import datetime
 import glob
 from math import isclose
 import copy
+from itertools import groupby, repeat, chain
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -337,9 +338,10 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
                     ff = (st[0, :] == trialidx)
                     this_spike_events = (st[1, ff]
                                          + Offset_spikefs[np.int(trialidx-1)])
-                    if comment == 'PC-cluster sorted by mespca.m':
-                        # remove last spike, which is stray
-                        this_spike_events = this_spike_events[:-1]
+                    if (comment != []):
+                        if (comment == 'PC-cluster sorted by mespca.m'):
+                            # remove last spike, which is stray
+                            this_spike_events = this_spike_events[:-1]
                     unit_spike_events = np.concatenate(
                             (unit_spike_events, this_spike_events), axis=0
                             )
@@ -356,7 +358,7 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
     return exptevents, spiketimes, unit_names
 
 
-def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options):
+def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     """
     returns big_rs which is pupil trace resampled to options['rasterfs']
     and strialidx, which is the index into big_rs for the start of each
@@ -582,3 +584,227 @@ def baphy_load_pupil_trace_standalone(pupilfilepath, exptevents=None, **options)
         plt.show()
 
     return big_rs, strialidx
+
+def get_rem(pupilfilepath, **params):
+    """
+    Find rapid eye movements based on pupil and eye-tracking data.
+
+    Inputs:
+
+        pupilfilepath: Absolute path of the pupil file (to be loaded by
+        nems_lbhb.io.load_pupil_trace).
+
+        params: Dictionary of analysis parameters
+            rasterfs: Sampling rate (default: 100)
+            units: If 'mm', convert pupil to millimeters and eye speed to
+              mm/s while loading (default: 'mm')
+            min_pupil: Minimum pupil size during REM episodes (default: 0.2)
+            max_pupil: Maximum pupil size during REM episodes (mm, default: 1)
+            max_pupil_sd: Maximum pupil standard deviation during REM episodes
+             (default: 0.05)
+            min_saccade_speed: Minimum eye movement speed to consider eye
+             movement as saccade (default: 0.01)
+            min_saccades_per_minute: Minimum saccades per minute during REM
+             episodes (default: 0.01)
+            max_gap_s: Maximum gap to fill in between REM episodes
+             (seconds, default: 15)
+            min_episode_s: Minimum duration of REM episodes to keep
+             (seconds, default: 30)
+            verbose: Plot traces and identified REM episodes (default: True)
+
+    Returns:
+
+        is_rem: Numpy array of booleans, indicating which time bins occured
+         during REM episodes (True = REM).
+        params: Dictionary of parameters used in analysis
+
+    ZPS 2018-09-24: Initial version.
+    """
+
+    #Set analysis parameters from defaults, if necessary.
+    rasterfs = params.get('rasterfs', 100)
+    units = params.get('units', 'mm')
+    min_pupil = params.get('min_pupil', 0.2)
+    max_pupil = params.get('max_pupil', 1)
+    max_pupil_sd = params.get('max_pupil_sd', 0.05)
+    min_saccade_speed = params.get('min_saccade_speed', 0.5)
+    min_saccades_per_minute = params.get('min_saccades_per_minute', 0.01)
+    max_gap_s = params.get('max_gap_s', 15)
+    min_episode_s = params.get('min_episode_s', 30)
+    verbose = params.get('verbose', True)
+
+    #Load data.
+    load_params = {}
+    if units == 'mm':
+        load_params['pupil_mm'] = True
+    elif units == 'norm_max':
+        raise ValueError("TODO: support for norm pupil diam/speed by max")
+        load_params['norm_max'] = True
+
+    load_params['rasterfs'] = rasterfs
+    pupil_size, _ = load_pupil_trace(pupilfilepath, **load_params)
+
+    load_params['pupil_eyespeed'] = True
+    eye_speed, _ = load_pupil_trace(pupilfilepath, **load_params)
+
+    pupil_size = pupil_size[0,:]
+    eye_speed = eye_speed[0,:]
+
+    #Find REM episodes.
+
+    #(1) Very small pupil sizes often indicate that the pupil is occluded by the
+    #eyelid or underlit. In either case, measurements of eye position are
+    #unreliable, so we remove these frames of the trace before analysis.
+    pupil_size[np.nan_to_num(pupil_size) < min_pupil] = np.nan
+    eye_speed[np.nan_to_num(pupil_size) < min_pupil] = np.nan
+
+    #(2) Rapid eye movements are similar to saccades. In our data,
+    #these appear as large, fast spikes in the speed at which pupil moves.
+    #To mark epochs when eye is moving more quickly than usual, threshold
+    #eye speed, then smooth by calculating the rate of saccades per minute.
+    saccades = np.nan_to_num(eye_speed) > min_saccade_speed
+    minute = np.ones(rasterfs*60)/(rasterfs*60)
+    saccades_per_minute = np.convolve(saccades, minute, mode='same')
+
+
+    #(3) To distinguish REM sleep from waking - since it seeems that ferrets
+    #can sleep with their eyes open - look for periods when pupil is constricted
+    #and doesn't show slow oscillations (which may indicate a different sleep
+    #stage or quiet waking).
+    #  10-second moving average of pupil size:
+    ten_seconds = np.ones(rasterfs*10)/(rasterfs*10)
+    smooth_pupil_size = np.convolve(pupil_size, ten_seconds, mode='same');
+    # 10-second moving standard deviation of pupil size:
+    pupil_sd = pd.Series(smooth_pupil_size)
+    pupil_sd = pupil_sd.rolling(rasterfs*10).std()
+    pupil_sd = np.array(pupil_sd)
+    rem_episodes = (np.nan_to_num(smooth_pupil_size) < max_pupil) & \
+                   (np.nan_to_num(pupil_sd) < max_pupil_sd) & \
+                   (np.nan_to_num(saccades_per_minute) > min_saccades_per_minute)
+
+    #(4) Connect episodes that are separated by a brief gap.
+    rem_episodes = run_length_encode(rem_episodes)
+    brief_gaps = []
+    for i,episode in enumerate(rem_episodes):
+        is_gap = not(episode[0])
+        gap_time = episode[1]
+        if is_gap and gap_time/rasterfs < max_gap_s:
+            rem_episodes[i] = (True, gap_time)
+            brief_gaps.append((True, gap_time))
+        else:
+            brief_gaps.append((False, gap_time))
+
+    #(5) Remove brief REM episodes.
+    rem_episodes = run_length_encode(run_length_decode(rem_episodes))
+    brief_episodes = []
+    for i,episode in enumerate(rem_episodes):
+        is_rem_episode = episode[0]
+        episode_time = episode[1]
+        if is_rem_episode and episode_time/rasterfs < min_episode_s:
+            rem_episodes[i] = (False, episode_time)
+            brief_episodes.append((True, episode_time))
+        else:
+            brief_episodes.append((False, episode_time))
+
+    is_rem = run_length_decode(rem_episodes)
+
+    params['rasterfs'] = rasterfs
+    params['units'] = units
+    params['min_pupil'] = min_pupil
+    params['max_pupil'] = max_pupil
+    params['max_pupil_sd'] = max_pupil_sd
+    params['min_saccade_speed'] = min_saccade_speed
+    params['min_saccades_per_minute'] = min_saccades_per_minute
+    params['max_gap_s'] = max_gap_s
+    params['min_episode_s'] = params.get('min_episode_s', 30)
+
+    #Plot
+    if verbose:
+
+        samples = pupil_size.size
+        minutes = samples/(rasterfs*60)
+        time_ax = np.linspace(0, minutes, num=samples)
+
+        is_brief_gap = run_length_decode(brief_gaps)
+        is_brief_episode = run_length_decode(brief_episodes)
+        rem_dur = np.array([t for is_rem,t in rem_episodes if is_rem])/(rasterfs*60)
+
+        fig, ax = plt.subplots(4,1)
+        title_str = '{:s} \n {:d} REM episodes, mean duration: {:0.2f} minutes'.\
+            format(pupilfilepath, len(rem_dur), rem_dur.mean())
+        fig.suptitle(title_str)
+
+        ax[0].autoscale(axis='x', tight=True)
+        ax[0].plot(time_ax, eye_speed, color='0.5')
+        ax[0].plot([time_ax[0], time_ax[-1]], \
+                [min_saccade_speed, min_saccade_speed], 'k--')
+        ax[0].set_ylabel('Eye speed')
+
+        ax[1].autoscale(axis='x', tight=True)
+        ax[1].plot(time_ax, saccades_per_minute, color='0', linewidth=2)
+        ax[1].plot([time_ax[0], time_ax[-1]], \
+                [min_saccades_per_minute, min_saccades_per_minute], 'k--')
+        l0, = ax[1].plot(time_ax[is_rem.nonzero()], \
+                   saccades_per_minute[is_rem.nonzero()], 'r.')
+        l1, = ax[1].plot(time_ax[is_brief_episode.nonzero()], \
+                         saccades_per_minute[is_brief_episode.nonzero()], 'y.')
+        l2, = ax[1].plot(time_ax[is_brief_gap.nonzero()], \
+                         saccades_per_minute[is_brief_gap.nonzero()], 'b.')
+        ax[1].set_ylabel('Saccades per minute')
+
+        ax[0].legend((l0,l1,l2), \
+                     ('REM', 'Brief episodes (excluded)', 'Brief gaps (included)'), \
+                     frameon=False)
+
+        ax[2].autoscale(axis='x', tight=True)
+        ax[2].plot(time_ax, pupil_size, color='0.5')
+        ax[2].plot(time_ax, smooth_pupil_size, color='0', linewidth=2)
+        ax[2].plot([time_ax[0], time_ax[-1]], \
+                [max_pupil, max_pupil], 'k--')
+        ax[2].plot(time_ax[is_rem.nonzero()], \
+                smooth_pupil_size[is_rem.nonzero()], 'r.')
+        ax[2].plot(time_ax[is_brief_episode.nonzero()], \
+                smooth_pupil_size[is_brief_episode.nonzero()], 'y.')
+        ax[2].plot(time_ax[is_brief_gap.nonzero()], \
+                smooth_pupil_size[is_brief_gap.nonzero()], 'b.')
+        ax[2].set_ylabel('Pupil size')
+
+        ax[3].autoscale(axis='x', tight=True)
+        ax[3].plot(time_ax, pupil_sd, color='0', linewidth=2)
+        ax[3].plot([time_ax[0], time_ax[-1]], \
+                [max_pupil_sd, max_pupil_sd], 'k--')
+        ax[3].plot(time_ax[is_rem.nonzero()], \
+                pupil_sd[is_rem.nonzero()], 'r.')
+        ax[3].plot(time_ax[is_brief_episode.nonzero()], \
+                pupil_sd[is_brief_episode.nonzero()], 'y.')
+        ax[3].plot(time_ax[is_brief_gap.nonzero()], \
+                pupil_sd[is_brief_gap.nonzero()], 'b.')
+        ax[3].set_ylabel('Pupil SD')
+        ax[3].set_xlabel('Time (min)')
+
+        plt.show()
+
+    return is_rem, params
+
+def run_length_encode(a):
+    """
+    Takes a 1-dimensional array, returns a list of tuples (elem, n), where
+    elem is each symbol in the array, and n is the number of times it appears
+    consecutively. For example, if given the array:
+        np.array([False, True, True, True, False, False])
+    the function will return:
+        [(False, 1), (True, 3), (False, 2)]
+
+    ZPS 2018-09-24: Helper function for get_rem_trials.
+    """
+    return [(k, len(list(g))) for k,g in groupby(a)]
+
+def run_length_decode(a):
+    """
+    Reverses the operation performed by run_length_encode.
+
+    ZPS 2018-09-24: Helper function for get_rem_trials.
+    """
+    a = [list(repeat(elem,n)) for (elem,n) in a]
+    a = list(chain.from_iterable(a))
+    return np.array(a)

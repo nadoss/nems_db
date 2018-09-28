@@ -1150,6 +1150,8 @@ def fill_default_options(options):
     metadata hash
     """
 
+    options = options.copy()
+
     cellid = options.get('cellid', None)
     batch = options.get('batch', None)
     cell_list = options.get('cell_list', None)
@@ -1165,7 +1167,7 @@ def fill_default_options(options):
         cell_list = cellid
 
     # No matter what the cell_list is, always want to set cell_list to be all
-    # stable cells at the site/rawids. No point in caching different recs for 
+    # stable cells at the site/rawids. No point in caching different recs for
     # [cell1, cell2] and [cell3, cell4] if all four come from same recording
     if cell_list is not None:
         cellid = cell_list[0]
@@ -1174,7 +1176,7 @@ def fill_default_options(options):
                                              rawid=rawid)
         options['rawid'] = rawid
         options['cellid'] = cell_list
-        
+
     elif siteid is not None:
         cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=siteid,
                                              rawid=rawid)
@@ -1183,9 +1185,11 @@ def fill_default_options(options):
         options['rawid'] = rawid
 
     elif cellid is not None:
+        cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=cellid,
+                                                     rawid=rawid)
         siteid = cellid.split("-")[0]
         cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=siteid,
-                                          rawid=rawid)
+                                                     rawid=rawid)
         cellid = cell_list[0]
         options['cellid'] = cell_list
         options['rawid'] = rawid
@@ -1560,7 +1564,6 @@ def baphy_data_path(**options):
         del options['recache']
 
     options = fill_default_options(options)
-    print(options)
 
     # three ways to select cells
     cellid = options.get('cellid', None)
@@ -1597,16 +1600,16 @@ def baphy_data_path(**options):
 def baphy_load_recording_uri(**options):
     """
     CRH - 9/21/2018
-    Meant to be a "universal loader" for baphy recordings. Given an options 
-    dictionary, find the corresponding rec_uri and return it. To load a specific 
-    subset of the site (a single cell, list of cells, etc.) call 
+    Meant to be a "universal loader" for baphy recordings. Given an options
+    dictionary, find the corresponding rec_uri and return it. To load a specific
+    subset of the site (a single cell, list of cells, etc.) call
     baphy.load_recordings(rec_uri_list, cellid, **context).
     """
 
     batch = options.get('batch', None)
     siteid = options.get('siteid', None)
     cellid = options.get('cellid', None)
-    
+
     if siteid is None and cellid is not None:
         if type(cellid) == list:
             siteid = cellid[0].split('-')[0]
@@ -1618,11 +1621,11 @@ def baphy_load_recording_uri(**options):
 
     # fill in default options
     options = fill_default_options(options)
-    
+
     recache = options.get('recache', 0)
     if 'recahce' in options:
         del options['recache']
-    
+
     data_file = recording_filename_hash(siteid, options,
                                     uri_path='/auto/data/nems_db/recordings/')
     log.info(data_file)
@@ -1655,7 +1658,7 @@ def load_recordings(recording_uri_list, cellid=None, **context):
     if cellid is not None:
         if not isinstance(cellid, list):
             cellid = [cellid]
-        
+
         # check to see if only a siteid was passed. If this is the case, load entire
         # recording
         if re.search(r'\d+$', cellid[0]) is None:
@@ -1664,7 +1667,7 @@ def load_recordings(recording_uri_list, cellid=None, **context):
             log.info("extracting channels: {0}".format(cellid))
             r = rec['resp'].extract_channels(cellid)
             rec.add_signal(r)
-            
+
     else:
         log.info("loading all cellids at this site")
 

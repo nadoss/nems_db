@@ -26,12 +26,16 @@ def ref(kw):
     ops = kw.split('.')[1:]
 
     balance_rep_count = False
+    include_incorrect = False
     for op in ops:
         if op.startswith('b'):
             balance_rep_count = True
+        if op.startswith('a'):
+            include_incorrect = True
 
     return [['nems.xforms.mask_all_but_correct_references',
-             {'balance_rep_count': balance_rep_count}]]
+             {'balance_rep_count': balance_rep_count,
+              'include_incorrect': include_incorrect}]]
 
 
 def evs(loadkey):
@@ -109,6 +113,8 @@ def st(loadkey, recording_uri):
             this_sig = ["pupil_ev"]
         elif l.startswith("pas"):
             this_sig = ["each_passive"]
+        elif l.startswith("fil"):
+            this_sig = ["each_file"]
         elif l.startswith("r1"):
             this_sig = ["r1"]
         elif l.startswith("r2"):
