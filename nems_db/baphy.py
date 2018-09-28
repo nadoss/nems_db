@@ -29,7 +29,7 @@ import nems_db.db as db
 from nems.recording import Recording
 from nems.recording import load_recording
 from nems.utils import recording_filename_hash
-
+from nems_lbhb.io import (baphy_parm_read, baphy_align_time, load_pupil_trace)
 
 # TODO: Replace catch-all `except:` statements with except SpecificError,
 #       or add some other way to help with debugging them.
@@ -40,97 +40,6 @@ spk_subdir = 'sorted/'   # location of spk.mat files relative to parmfiles
 
 # TODO: Replace print() statements with log.info()?
 log = logging.getLogger(__name__)
-
-
-def baphy_mat2py(s):
-
-    s3 = re.sub(r';', r'', s.rstrip())
-    s3 = re.sub(r'%', r'#', s3)
-    s3 = re.sub(r'\\', r'/', s3)
-    s3 = re.sub(r"\.([a-zA-Z0-9]+)'", r"XX\g<1>'", s3)
-    s3 = re.sub(r"\.([a-zA-Z0-9]+)\+", r"XX\g<1>+", s3)
-    s3 = re.sub(r"\.([a-zA-Z0-9]+) ,", r"XX\g<1> ,", s3)
-    s3 = re.sub(r'globalparams\(1\)', r'globalparams', s3)
-    s3 = re.sub(r'exptparams\(1\)', r'exptparams', s3)
-
-    s4 = re.sub(r'\(([0-9]*)\)', r'[\g<1>]', s3)
-
-    s5 = re.sub(r'\.([A-Za-z][A-Za-z0-9_]+)', r"['\g<1>']", s4)
-
-    s6 = re.sub(r'([0-9]+) ', r"\g<0>,", s5)
-    s6 = re.sub(r'NaN ', r"np.nan,", s6)
-    s6 = re.sub(r'Inf ', r"np.inf,", s6)
-
-    s7 = re.sub(r"XX([a-zA-Z0-9]+)'", r".\g<1>'", s6)
-    s7 = re.sub(r"XX([a-zA-Z0-9]+)\+", r".\g<1>+", s7)
-    s7 = re.sub(r"XX([a-zA-Z0-9]+) ,", r".\g<1> ,", s7)
-    s7 = re.sub(r',,', r',', s7)
-    s7 = re.sub(r',Hz', r'Hz', s7)
-    s7 = re.sub(r'NaN', r'np.nan', s7)
-    s7 = re.sub(r'zeros\(([0-9,]+)\)', r'np.zeros([\g<1>])', s7)
-    s7 = re.sub(r'{(.*)}', r'[\g<1>]', s7)
-
-    return s7
-
-
-def baphy_parm_read(filepath):
-    print("Loading {0}".format(filepath))
-
-    f = io.open(filepath, "r")
-    s = f.readlines(-1)
-
-    globalparams = {}
-    exptparams = {}
-    exptevents = {}
-
-    for ts in s:
-        sout = baphy_mat2py(ts)
-        # print(sout)
-        try:
-            exec(sout)
-        except KeyError:
-            ts1 = sout.split('= [')
-            ts1 = ts1[0].split(',[')
-
-            s1 = ts1[0].split('[')
-            sout1 = "[".join(s1[:-1]) + ' = {}'
-            try:
-                exec(sout1)
-            except:
-                s2 = sout1.split('[')
-                sout2 = "[".join(s2[:-1]) + ' = {}'
-                try:
-                    exec(sout2)
-                except:
-                    s3 = sout2.split('[')
-                    sout3 = "[".join(s3[:-1]) + ' = {}'
-                    exec(sout3)
-                    exec(sout2)
-
-                exec(sout1)
-            exec(sout)
-        except NameError:
-            print("NameError on: {0}".format(sout))
-        except:
-            print("Other error on: {0} to {1}".format(ts,sout))
-
-    # special conversions
-
-    # convert exptevents to a DataFrame:
-    t = [exptevents[k] for k in exptevents]
-    d = pd.DataFrame(t)
-    if 'ClockStartTime' in d.columns:
-        exptevents = d.drop(['Rove', 'ClockStartTime'], axis=1)
-    else:
-        exptevents = d.drop(['Rove'], axis=1)
-
-    # rename columns to NEMS standard epoch names
-    exptevents.columns = ['name', 'start', 'end', 'Trial']
-    for i in range(len(exptevents)):
-        if exptevents.loc[i, 'end'] == []:
-            exptevents.loc[i, 'end'] = exptevents.loc[i, 'start']
-
-    return globalparams, exptparams, exptevents
 
 
 def baphy_load_specgram(stimfilepath):
@@ -357,178 +266,6 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
     return exptevents, spiketimes, unit_names
 
 
-def baphy_load_pupil_trace(pupilfilepath, exptevents, **options):
-    """
-    returns big_rs which is pupil trace resampled to options['rasterfs']
-    and strialidx, which is the index into big_rs for the start of each
-    trial. need to make sure the big_rs vector aligns with the other signals
-    """
-
-    rasterfs = options.get('rasterfs', 1000)
-    pupil_offset = options.get('pupil_offset', 0.75)
-    pupil_deblink = options.get('pupil_deblink', True)
-    pupil_median = options.get('pupil_median', 0)
-    pupil_smooth = options.get('pupil_smooth', 0)
-    pupil_highpass = options.get('pupil_highpass', 0)
-    pupil_lowpass = options.get('pupil_lowpass', 0)
-    pupil_bandpass = options.get('pupil_bandpass', 0)
-    pupil_derivative = options.get('pupil_derivative', '')
-    pupil_mm = options.get('pupil_mm', False)
-    verbose = options.get('verbose', False)
-
-    if pupil_smooth:
-        raise ValueError('pupil_smooth not implemented. try pupil_median?')
-    if pupil_highpass:
-        raise ValueError('pupil_highpass not implemented.')
-    if pupil_lowpass:
-        raise ValueError('pupil_lowpass not implemented.')
-    if pupil_bandpass:
-        raise ValueError('pupil_bandpass not implemented.')
-    if pupil_derivative:
-        raise ValueError('pupil_derivative not implemented.')
-    if pupil_mm:
-        raise ValueError('pupil_mm not implemented.')
-
-    matdata = scipy.io.loadmat(pupilfilepath)
-
-    p = matdata['pupil_data']
-    params = p['params']
-    if 'pupil_variable_name' not in options:
-        options['pupil_variable_name'] = params[0][0]['default_var'][0][0][0]
-        print("Using default pupil_variable_name: " +
-              options['pupil_variable_name'])
-    if 'pupil_algorithm' not in options:
-        options['pupil_algorithm'] = params[0][0]['default'][0][0][0]
-        print("Using default pupil_algorithm: " + options['pupil_algorithm'])
-
-    results = p['results'][0][0][-1][options['pupil_algorithm']]
-    pupil_diameter = np.array(results[0][options['pupil_variable_name']][0][0])
-    if pupil_diameter.shape[0] == 1:
-        pupil_diameter = pupil_diameter.T
-    print("pupil_diameter.shape: " + str(pupil_diameter.shape))
-
-    fs_approximate = 10  # approx video framerate
-    if pupil_deblink:
-        dp = np.abs(np.diff(pupil_diameter, axis=0))
-        blink = np.zeros(dp.shape)
-        blink[dp > np.nanmean(dp) + 6*np.nanstd(dp)] = 1
-        # CRH add following line 7-19-2019
-        # (blink should be = 1 if pupil_dia goes to 0)
-        blink[[isclose(p, 0, abs_tol=0.5) for p in pupil_diameter[:-1]]] = 1
-        box = np.ones([fs_approximate]) / (fs_approximate)
-        # print(blink.shape)
-        blink = np.convolve(blink[:, 0], box, mode='same')
-        blink[blink > 0] = 1
-        blink[blink <= 0] = 0
-        onidx, = np.where(np.diff(blink) > 0)
-        offidx, = np.where(np.diff(blink) < 0)
-
-        if onidx[0] > offidx[0]:
-            onidx = np.concatenate((np.array([0]), onidx))
-        if len(onidx) > len(offidx):
-            offidx = np.concatenate((offidx, np.array([len(blink)])))
-        deblinked = pupil_diameter.copy()
-        for i, x1 in enumerate(onidx):
-            x2 = offidx[i]
-            if x2 < x1:
-                print([i, x1, x2])
-                print("WHAT'S UP??")
-            else:
-                # print([i,x1,x2])
-                deblinked[x1:x2, 0] = np.linspace(
-                        deblinked[x1], deblinked[x2-1], x2-x1
-                        )
-
-        if verbose:
-            plt.figure()
-            plt.plot(pupil_diameter)
-            plt.plot(deblinked)
-            plt.xlabel('Frame')
-            plt.ylabel('Pupil')
-            plt.legend('Raw', 'Deblinked')
-            plt.title("Artifacts detected: {}".format(len(onidx)))
-        pupil_diameter = deblinked
-
-    # resample and remove dropped frames
-
-    # find and parse pupil events
-    pp = ['PUPIL,' in x['name'] for i, x in exptevents.iterrows()]
-    trials = list(exptevents.loc[pp, 'Trial'])
-    ntrials = len(trials)
-    timestamp = np.zeros([ntrials+1])
-    firstframe = np.zeros([ntrials+1])
-    for i, x in exptevents.loc[pp].iterrows():
-        t = x['Trial'] - 1
-        s = x['name'].split(",[")
-        p = eval("["+s[1])
-        # print("{0} p=[{1}".format(i,s[1]))
-        timestamp[t] = p[0]
-        firstframe[t] = int(p[1])
-    pp = ['PUPILSTOP' in x['name'] for i, x in exptevents.iterrows()]
-    lastidx = np.argwhere(pp)[-1]
-
-    s = exptevents.iloc[lastidx[0]]['name'].split(",[")
-    p = eval("[" + s[1])
-    timestamp[-1] = p[0]
-    firstframe[-1] = int(p[1])
-
-    # align pupil with other events, probably by
-    # removing extra bins from between trials
-    ff = exptevents['name'].str.startswith('TRIALSTART')
-    start_events = exptevents.loc[ff, ['start']].reset_index()
-    start_events['StartBin'] = (
-            np.round(start_events['start'] * options['rasterfs'])
-            ).astype(int)
-    start_e = list(start_events['StartBin'])
-    ff = (exptevents['name'] == 'TRIALSTOP')
-    stop_events = exptevents.loc[ff, ['start']].reset_index()
-    stop_events['StopBin'] = (
-            np.round(stop_events['start'] * options['rasterfs'])
-            ).astype(int)
-    stop_e = list(stop_events['StopBin'])
-
-    # calculate frame count and duration of each trial
-    duration = np.diff(timestamp) * 24*60*60
-    frame_count = np.diff(firstframe)
-
-    # warp/resample each trial to compensate for dropped frames
-    strialidx = np.zeros([ntrials + 1])
-    big_rs = np.array([])
-
-    for ii in range(0, ntrials):
-        d = pupil_diameter[
-                int(firstframe[ii]):int(firstframe[ii]+frame_count[ii]), 0
-                ]
-        fs = frame_count[ii] / duration[ii]
-        t = np.arange(0, len(d)) / fs
-        ti = np.arange(
-                (1/rasterfs)/2, duration[ii]+(1/rasterfs)/2, 1/rasterfs
-                )
-        # print("{0} len(d)={1} len(ti)={2} fs={3}"
-        #       .format(ii,len(d),len(ti),fs))
-        di = np.interp(ti, t, d)
-        big_rs = np.concatenate((big_rs, di), axis=0)
-        if (ii < ntrials-1) and (len(big_rs) > start_e[ii+1]):
-            big_rs = big_rs[:start_e[ii+1]]
-        elif ii == ntrials-1:
-            big_rs = big_rs[:stop_e[ii]]
-        strialidx[ii+1] = len(big_rs)
-
-    if pupil_median:
-        kernel_size = int(round(pupil_median*rasterfs/2)*2+1)
-        big_rs = scipy.signal.medfilt(big_rs, kernel_size=kernel_size)
-
-    # shift pupil trace by offset, usually 0.75 sec
-    offset_frames = int(pupil_offset*rasterfs)
-    big_rs = np.roll(big_rs, -offset_frames)
-    big_rs[-offset_frames:] = np.nan
-
-    # shape to 1 x T to match NEMS signal specs
-    big_rs = big_rs[np.newaxis, :]
-
-    return big_rs, strialidx
-
-
 def baphy_load_data(parmfilepath, **options):
     """
     this feeds into baphy_load_recording and baphy_load_recording_RDT (see
@@ -660,7 +397,8 @@ def baphy_load_data(parmfilepath, **options):
     if options['pupil']:
         try:
             pupilfilepath = re.sub(r"\.m$", ".pup.mat", parmfilepath)
-            pupiltrace, ptrialidx = baphy_load_pupil_trace(
+            options['verbose'] = False
+            pupiltrace, ptrialidx = load_pupil_trace(
                     pupilfilepath, exptevents, **options
                     )
             state_dict['pupiltrace'] = pupiltrace

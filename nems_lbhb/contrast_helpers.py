@@ -72,26 +72,40 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
         source_signal = source_signal.transform(fn)
         rec[source_name] = source_signal
 
-    array = source_signal.as_continuous().copy()
-
     if ms is not None:
         history = int((ms/1000)*source_signal.fs)
     elif bins is not None:
         history = int(bins)
     else:
         raise ValueError("Either ms or bins parameter must be specified.")
+    history = max(1,history)
     # TODO: Alternatively, base history length on some feature of signal?
     #       Like average length of some epoch ex 'TRIAL'
 
+    # SVD constrast is now std / mean in rolling window (duration ms),
+    # confined to each frequency channel
+    array = source_signal.as_continuous().copy()
     array[np.isnan(array)] = 0
-    filt = np.concatenate((np.zeros([1, max(2, history+1)]),
-                           np.ones([1, max(1, history)])), axis=1)
-    contrast = convolve2d(array, filt, mode='same')
+
+    #filt = np.ones([1, history]) / history
+    filt = np.concatenate((np.zeros([1, history+1]),
+                           np.ones([1, history])), axis=1) / history
+    mn = convolve2d(array, filt, mode='same')
+
+    var = convolve2d(array ** 2, filt, mode='same') - mn ** 2
+
+    contrast = np.sqrt(var) / (mn*.99 + mn.max()*0.01)
+
+    # old way, simply smooth amplitude of spectrogram
+    #filt = np.concatenate((np.zeros([1, max(2, history+1)]),
+    #                       np.ones([1, max(1, history)])), axis=1)
+    #contrast = convolve2d(array, filt, mode='same')
 
     if continuous:
         if normalize:
             # Map raw values to range 0 - 1
-            contrast /= np.max(np.abs(contrast), axis=0)
+            #contrast /= np.max(np.abs(contrast), axis=0)
+            contrast /= np.max(np.abs(contrast))
         rectified = contrast
 
     else:
