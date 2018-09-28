@@ -33,7 +33,9 @@ log = logging.getLogger(__name__)
 
 
 def get_recording_file(cellid, batch, options={}):
-
+    """
+    DEPRECATED?
+    """
     options["batch"] = batch
     options["cellid"] = cellid
     uri = nb.baphy_data_path(**options)
@@ -42,7 +44,10 @@ def get_recording_file(cellid, batch, options={}):
 
 
 def get_recording_uri(cellid, batch, options={}):
-
+    """
+    DEPRECATED?  but web functionality should be migrated to
+       baphy.baphy_load_recording_uri
+    """
     opts = []
     for i, k in enumerate(options):
         if type(options[k]) is bool:
@@ -174,22 +179,32 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
     if siteid is not None:
         options['siteid'] = siteid
 
-    if 'ldb' in loadkey:
-        import pdb
-        pdb.set_trace()
-        # check for run_num specifier
-        if len(cellid.split('_'))>1:
-            run_num = cellid.split('_')[-1]
-            cellid = cellid.split('_')[0]
-            options['rawid'] = nd.get_rawid(cellid, run_num)
+    # check for run_num specifier
+    if len(cellid.split('_'))>1:
+        run_num = cellid.split('_')[-1]
+        cellid = cellid.split('_')[0]
+        options['rawid'] = nd.get_rawid(cellid, run_num)
 
-        options["batch"] = batch
-        options["cellid"] = cellid
-        recording_uri = nb.baphy_load_recording_uri(**options)
+    options["batch"] = batch
+    options["cellid"] = cellid
+    recording_uri = nb.baphy_load_recording_uri(**options)
 
-    else:
-        recording_uri = get_recording_file(cellid, batch, options)
-        #recording_uri = get_recording_uri(cellid, batch, options)
+#    if 'ldb' in loadkey:
+#        import pdb
+#        pdb.set_trace()
+#        # check for run_num specifier
+#        if len(cellid.split('_'))>1:
+#            run_num = cellid.split('_')[-1]
+#            cellid = cellid.split('_')[0]
+#            options['rawid'] = nd.get_rawid(cellid, run_num)
+#
+#        options["batch"] = batch
+#        options["cellid"] = cellid
+#        recording_uri = nb.baphy_load_recording_uri(**options)
+#
+#    else:
+#        recording_uri = get_recording_file(cellid, batch, options)
+#        #recording_uri = get_recording_uri(cellid, batch, options)
 
     return recording_uri
 
@@ -225,6 +240,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
 
     # Segment modelname for meta information
     kws = nems.utils.escaped_split(modelname, '_')
+
     old = False
     if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')
                           and not kws[1].startswith('stategain.')):

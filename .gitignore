@@ -99,7 +99,6 @@ ENV/
 # mypy
 .mypy_cache/
 
-<<<<<<< HEAD
 # nems-specific
 saved_analysis/
 saved_images/
@@ -187,6 +186,9 @@ company-statistics-cache.el
 
 # anaconda-mode
 anaconda-mode/
+
+# enaml cache
+__enamlcache__
 
 ### Vim ###
 # swap
