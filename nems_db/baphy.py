@@ -1525,45 +1525,6 @@ def baphy_load_recording_uri(**options):
     return data_file
 
 
-def load_recordings(recording_uri_list, cellid=None, **context):
-    """
-    cellid can be single cell, or list of cells. Whatever it is, the cellids
-    must exist in the resp channels of the recordings that are being loaded.
-    If cellid is None, load the entire site.
-    """
-
-    rec = load_recording(recording_uri_list[0])
-    other_recordings = [load_recording(uri) for uri in recording_uri_list[1:]]
-    if other_recordings:
-        rec.concatenate_recordings(other_recordings)
-
-    if cellid is not None:
-        if not isinstance(cellid, list):
-            cellid = [cellid]
-
-        # check to see if only a siteid was passed. If this is the case, load entire
-        # recording
-        if re.search(r'\d+$', cellid[0]) is None:
-            log.info("loading all cellids at this site")
-        else:
-            log.info("extracting channels: {0}".format(cellid))
-            r = rec['resp'].extract_channels(cellid)
-            rec.add_signal(r)
-
-    else:
-        log.info("loading all cellids at this site")
-
-
-    if 'pupil' in rec.signals.keys() and np.any(np.isnan(rec['pupil'].as_continuous())):
-                log.info('Padding {0} with the last non-nan value'.format('pupil'))
-                inds = ~np.isfinite(rec['pupil'].as_continuous())
-                arr = copy.deepcopy(rec['pupil'].as_continuous())
-                arr[inds] = arr[~inds][-1]
-                rec['pupil'] = rec['pupil']._modified_copy(arr)
-
-    return {'rec': rec}
-
-
 def get_kilosort_template(batch=None, cellid=None):
     """
     return the waveform template for the given cellid. only works for cellids
