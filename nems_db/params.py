@@ -74,10 +74,6 @@ def fitted_params_per_cell(cellids, batch, modelname, mod_key='id',
             counter = 1
 
         for k in index:
-            print(k)
-            print(i)
-            print(stats[k]['values'])
-            print(c)
             val = ms.try_scalar(stats[k]['values'][i])
             if c in data.keys():
                 data[c].append(val)
