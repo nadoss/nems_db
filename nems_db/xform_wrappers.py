@@ -33,7 +33,9 @@ log = logging.getLogger(__name__)
 
 
 def get_recording_file(cellid, batch, options={}):
-
+    """
+    DEPRECATED?
+    """
     options["batch"] = batch
     options["cellid"] = cellid
     uri = nb.baphy_data_path(**options)
@@ -42,7 +44,10 @@ def get_recording_file(cellid, batch, options={}):
 
 
 def get_recording_uri(cellid, batch, options={}):
-
+    """
+    DEPRECATED?  but web functionality should be migrated to
+       baphy.baphy_load_recording_uri
+    """
     opts = []
     for i, k in enumerate(options):
         if type(options[k]) is bool:

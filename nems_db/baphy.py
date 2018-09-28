@@ -337,9 +337,10 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
                     ff = (st[0, :] == trialidx)
                     this_spike_events = (st[1, ff]
                                          + Offset_spikefs[np.int(trialidx-1)])
-                    if comment == 'PC-cluster sorted by mespca.m':
-                        # remove last spike, which is stray
-                        this_spike_events = this_spike_events[:-1]
+                    if (comment != []):
+                        if comment == 'PC-cluster sorted by mespca.m':
+                            # remove last spike, which is stray
+                            this_spike_events = this_spike_events[:-1]
                     unit_spike_events = np.concatenate(
                             (unit_spike_events, this_spike_events), axis=0
                             )
@@ -1216,168 +1217,31 @@ def fill_default_options(options):
     return options
 
 
-def baphy_load_recording(cellid, batch, **options):
+def baphy_load_recording_rasterized(**options):
     """
-    query NarfData to find baphy files for specified cell/batch and then load
+    Wrapper for baphy_load_recording
 
-    TODO : call baphy_load_recording_nonrasterized and then rasterize all
-    signals.
+    Calls baphy_load_recording (nonrasterized) and then rasterizes resp and
+    stim signals.
     """
-    raise NotImplementedError
+    rec = baphy_load_recording(**options)
 
-    # print(options)
-    options['rasterfs'] = int(options.get('rasterfs', 100))
-    options['stimfmt'] = options.get('stimfmt', 'ozgf')
-    options['chancount'] = int(options.get('chancount', 18))
-    options['pertrial'] = int(options.get('pertrial', False))
-    options['includeprestim'] = options.get('includeprestim', 1)
+    if 'resp' in rec.signals:
+        rec['resp'] = rec['resp'].rasterize()
+    if 'stim' in rec.signals:
+        rec['stim'] = rec['stim'].rasterize()
 
-    options['pupil'] = int(options.get('pupil', False))
-    options['pupil_deblink'] = int(options.get('pupil_deblink', 1))
-    options['pupil_median'] = int(options.get('pupil_median', 1))
-    options['stim'] = int(options.get('stim', True))
-    options['runclass'] = options.get('runclass', None)
-    options['cellid'] = options.get('cellid', cellid)
-    options['batch'] = int(batch)
-    options['rawid'] = options.get('rawid', None)
-
-    d = db.get_batch_cell_data(batch=batch,
-                               cellid=cellid,
-                               rawid=options['rawid'],
-                               label='parm')
-    if len(d) == 0:
-        raise ValueError('cellid/batch entry not found in NarfData')
-
-    files = list(d['parm'])
-
-    for i, parmfilepath in enumerate(files):
-
-        if options["runclass"] == "RDT":
-            event_times, spike_dict, stim_dict, \
-                state_dict, stim1_dict, stim2_dict = \
-                baphy_load_dataset_RDT(parmfilepath, **options)
-        else:
-            event_times, spike_dict, stim_dict, state_dict = \
-                baphy_load_dataset(parmfilepath, **options)
-
-            d2 = event_times.loc[0].copy()
-            if (i == 0) and (d2['name'] == 'PASSIVE_EXPERIMENT'):
-                d2['name'] = 'PRE_PASSIVE'
-                event_times = event_times.append(d2)
-            elif d2['name'] == 'PASSIVE_EXPERIMENT':
-                d2['name'] = 'POST_PASSIVE'
-                event_times = event_times.append(d2)
-
-        # generate spike raster
-        raster_all, cellids = spike_time_to_raster(
-                spike_dict, fs=options['rasterfs'], event_times=event_times
-                )
-
-        # generate response signal
-        t_resp = nems.signal.RasterizedSignal(
-                fs=options['rasterfs'], data=raster_all, name='resp',
-                recording=cellid, chans=cellids, epochs=event_times
-                )
-        if i == 0:
-            resp = t_resp
-        else:
-            resp = resp.concatenate_time([resp, t_resp])
-
-        if options['pupil']:
-
-            # create pupil signal if it exists
-            rlen = int(t_resp.ntimes)
-            pcount = state_dict['pupiltrace'].shape[0]
-            plen = state_dict['pupiltrace'].shape[1]
-            if plen > rlen:
-                state_dict['pupiltrace'] = \
-                    state_dict['pupiltrace'][:, 0:-(plen-rlen)]
-            elif rlen > plen:
-                state_dict['pupiltrace']=np.append(state_dict['pupiltrace'],
-                          np.ones([pcount,rlen-plen])*np.nan,
-                          axis=1)
-
-            # generate pupil signals
-            t_pupil = nems.signal.RasterizedSignal(
-                    fs=options['rasterfs'], data=state_dict['pupiltrace'],
-                    name='pupil', recording=cellid, chans=['pupil'],
-                    epochs=event_times
-                    )
-
-            if i == 0:
-                pupil = t_pupil
-            else:
-                pupil = pupil.concatenate_time([pupil, t_pupil])
-
-        if options['stim']:
-            t_stim = dict_to_signal(stim_dict, fs=options['rasterfs'],
-                                    event_times=event_times)
-            t_stim.recording = cellid
-
-            if i == 0:
-                print("i={0} starting".format(i))
-                stim = t_stim
-            else:
-                print("i={0} concatenating".format(i))
-                stim = stim.concatenate_time([stim, t_stim])
-
-        if options['stim'] and options["runclass"] == "RDT":
-            t_BigStimMatrix = state_dict['BigStimMatrix']
-            del state_dict['BigStimMatrix']
-
-            t_stim1 = dict_to_signal(
-                    stim1_dict, fs=options['rasterfs'],
-                    event_times=event_times, signal_name='stim1',
-                    recording_name=cellid
-                    )
-            t_stim2 = dict_to_signal(
-                    stim2_dict, fs=options['rasterfs'],
-                    event_times=event_times, signal_name='stim2',
-                    recording_name=cellid
-                    )
-            t_state = dict_to_signal(
-                    state_dict, fs=options['rasterfs'],
-                    event_times=event_times, signal_name='state',
-                    recording_name=cellid
-                    )
-            t_state.chans = ['repeating_phase', 'single_stream', 'targetid']
-
-            if i == 0:
-                print("i={0} starting".format(i))
-                stim1 = t_stim1
-                stim2 = t_stim2
-                state = t_state
-                BigStimMatrix = t_BigStimMatrix
-            else:
-                print("i={0} concatenating".format(i))
-                stim1 = stim1.concatenate_time([stim1, t_stim1])
-                stim2 = stim2.concatenate_time([stim2, t_stim2])
-                state = state.concatenate_time([state, t_state])
-                BigStimMatrix = np.concatenate(
-                        (BigStimMatrix, t_BigStimMatrix), axis=2
-                        )
-
-    resp.meta = options
-
-    signals = {'resp': resp}
-
-    if options['pupil']:
-        signals['pupil'] = pupil
-    if options['stim']:
-        signals['stim'] = stim
-
-    if options['stim'] and (options["runclass"] == "RDT"):
-        signals['stim1'] = stim1
-        signals['stim2'] = stim2
-    if options["runclass"] == "RDT":
-        signals['state'] = state
-        # signals['stim'].meta = {'BigStimMatrix': BigStimMatrix}
-
-    rec = nems.recording.Recording(signals=signals)
     return rec
 
 
 def baphy_load_recording_nonrasterized(**options):
+    """
+    DEPRECRATED, replaced by baphy_load_recording
+    """
+    return baphy_load_recording(**options)
+
+
+def baphy_load_recording(**options):
     """
     Input options must include
         batch: integer
@@ -1542,6 +1406,9 @@ def baphy_load_recording_nonrasterized(**options):
 
 def baphy_data_path(**options):
     """
+    DEPRECATED:
+        replaced by baphy_load_recording_uri
+
     required entries in options dictionary:
         cellid: string or list
             string can be a valid cellid or siteid
@@ -1590,7 +1457,7 @@ def baphy_data_path(**options):
         #  rec = baphy_load_recording(
         #          options['cellid'], options['batch'], options
         #          )
-        rec = baphy_load_recording_nonrasterized(**options)
+        rec = baphy_load_recording(**options)
         print(rec.name)
         rec.save(data_file)
 
@@ -1599,11 +1466,26 @@ def baphy_data_path(**options):
 
 def baphy_load_recording_uri(**options):
     """
-    CRH - 9/21/2018
-    Meant to be a "universal loader" for baphy recordings. Given an options
-    dictionary, find the corresponding rec_uri and return it. To load a specific
-    subset of the site (a single cell, list of cells, etc.) call
-    baphy.load_recordings(rec_uri_list, cellid, **context).
+    Meant to be a "universal loader" for baphy recordings.
+    First figure out hash for options dictionary
+    If cached file exists and return its name
+    If it doesn't exist, call baphy_load_recording, save the cache file and
+    return the filename.
+
+    input:
+        options: dictionary
+        required fields:
+            batch - (int) batch number
+            cellid (single string or list of cellids) or siteid
+
+
+    return:
+        data_file : string
+        URI for recording file specified in options
+
+    TODO: web-support for URI, currently just local filenames
+
+    (CRH - 9/21/2018)
     """
 
     batch = options.get('batch', None)
@@ -1623,7 +1505,7 @@ def baphy_load_recording_uri(**options):
     options = fill_default_options(options)
 
     recache = options.get('recache', 0)
-    if 'recahce' in options:
+    if 'recache' in options:
         del options['recache']
 
     data_file = recording_filename_hash(siteid, options,
@@ -1634,7 +1516,7 @@ def baphy_load_recording_uri(**options):
     if not os.path.exists(data_file) or recache == True:
         log.info("Generating recording")
         # rec.meta is set = options in the following function
-        rec = baphy_load_recording_nonrasterized(**options)
+        rec = baphy_load_recording(**options)
         rec.save(data_file)
 
     else:
