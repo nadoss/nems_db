@@ -617,27 +617,31 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
     engine = Engine()
     # eg, sql="SELECT * from NarfData WHERE batch=301 and cellid="
     params = ()
-    sql = "SELECT * FROM NarfData WHERE 1"
+    sql = ("SELECT NarfData.*,sCellFile.goodtrials" +
+           " FROM NarfData LEFT JOIN sCellFile " +
+           " ON (NarfData.rawid=sCellFile.rawid " +
+           " AND NarfData.cellid=sCellFile.cellid)" +
+           " WHERE 1")
     if batch is not None:
-        sql += " AND batch=%s"
+        sql += " AND NarfData.batch=%s"
         params = params+(batch,)
 
     if cellid is not None:
-        sql += " AND cellid like %s"
+        sql += " AND NarfData.cellid like %s"
         params = params+(cellid+"%",)
 
     if rawid is not None:
-        sql += " AND rawid IN %s"
+        sql += " AND NarfData.rawid IN %s"
         rawid = tuple([str(i) for i in list(rawid)])
         params = params+(rawid,)
 
     if label is not None:
-        sql += " AND label like %s"
+        sql += " AND NarfData.label like %s"
         params = params + (label,)
-    sql += " ORDER BY filepath"
+    sql += " ORDER BY NarfData.filepath"
     print(sql)
     d = pd.read_sql(sql=sql, con=engine, params=params)
-    d.set_index(['cellid', 'groupid', 'label', 'rawid'], inplace=True)
+    d.set_index(['cellid', 'groupid', 'label', 'rawid', 'goodtrials'], inplace=True)
     d = d['filepath'].unstack('label')
 
     return d
@@ -870,7 +874,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
         cellids = list(cellids)
     else:
         pass
-    
+
     return cellids, list(rawid)
 
 
@@ -895,14 +899,14 @@ def get_wft(cellid=None):
 
 
 def get_gSingleCell_meta(cellid=None, fields=None):
-    
+
     engine = Engine()
     params = ()
     sql = "SELECT meta_data FROM gSingleCell WHERE 1"
 
     sql += " and cellid =%s"
     params = params+(cellid,)
-    
+
     d = pd.read_sql(sql=sql, con=engine, params=params)
     if d.values[0][0] is None:
         print('no meta_data information for {0}'.format(cellid))
@@ -913,7 +917,7 @@ def get_gSingleCell_meta(cellid=None, fields=None):
             out = {}
             for f in fields:
                 out[f] = dic[f]
-        
+
         elif type(fields) is str:
             out = dic[fields]
         elif fields is None:
@@ -921,9 +925,9 @@ def get_gSingleCell_meta(cellid=None, fields=None):
             fields = dic.keys()
             for f in fields:
                 out[f] = dic[f]
-        
+
         return out
-    
+
 def get_rawid(cellid, run_num):
     """
     Used to return the rawid corresponding to given run number. To be used if

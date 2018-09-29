@@ -581,7 +581,9 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     # shift pupil (or eye speed) trace by offset, usually 0.75 sec
     offset_frames = int(pupil_offset*rasterfs)
     big_rs = np.roll(big_rs, -offset_frames)
-    big_rs[-offset_frames:] = np.nan
+
+    # svd pad with final pupil value (was np.nan before)
+    big_rs[-offset_frames:] = big_rs[-offset_frames]
 
     # shape to 1 x T to match NEMS signal specs
     big_rs = big_rs[np.newaxis, :]
@@ -822,6 +824,33 @@ def run_length_decode(a):
     return np.array(a)
 
 
+def cache_rem_options(pupilfilepath, cachepath=None, **options):
+
+    jsonfilepath = pupilfilepath.replace('.pup.mat', '.rem.json')
+    if cachepath is not None:
+        pp, bb = os.path.split(jsonfilepath)
+        jsonfilepath = os.path.join(cachepath, bb)
+
+    fh = open(jsonfilepath, 'w')
+    json.dump(options, fh)
+    fh.close()
+
+
+def load_rem_options(pupilfilepath, cachepath=None, **options):
+
+    jsonfilepath = pupilfilepath.replace('.pup.mat','.rem.json')
+    if cachepath is not None:
+        pp, bb = os.path.split(jsonfilepath)
+        jsonfilepath = os.path.join(cachepath, bb)
+
+    if os.path.exists(jsonfilepath):
+        fh = open(jsonfilepath, 'r')
+        options = json.load(fh)
+        fh.close()
+        return options
+    else:
+        raise ValueError("REM options file not found.")
+
 def baphy_pupil_uri(pupilfilepath, **options):
     """
     return uri to pupil signal file
@@ -838,26 +867,58 @@ def baphy_pupil_uri(pupilfilepath, **options):
         /auto/data/nems_db/recordings/pupil/
 
     """
+    options['rasterfs']=100
+    options['pupil_mm']=True
+    options['pupil_median']=0.5
+    options['pupil_deblink']=True
+    options['units']='mm'
+    options['verbose']=False
+
+    options = set_default_pupil_options(options)
+
+    cacheroot = "/auto/data/nems_db/recordings/pupil/"
+
+    pp, pupbb = os.path.split(pupilfilepath)
+    pp_animal, pen = os.path.split(pp)
+    pp_daq, animal = os.path.split(pp_animal)
+    cachebb = pupbb.replace(".pup.mat","")
+    cachepath = os.path.join(cacheroot, animal, )
 
     parmfilepath = pupilfilepath.replace(".pup.mat",".m")
-    globalparams, exptparams, exptevents = baphy_parm_read(parmfilepath)
     pp, bb = os.path.split(parmfilepath)
+
+    globalparams, exptparams, exptevents = baphy_parm_read(parmfilepath)
     spkfilepath = pp + '/' + spk_subdir + re.sub(r"\.m$", ".spk.mat", bb)
     log.info("Spike file: {0}".format(spkfilepath))
     # load spike times
     sortinfo, spikefs = baphy_load_spike_data_raw(spkfilepath)
     # adjust spike and event times to be in seconds since experiment started
 
-    options = set_default_pupil_options(options)
-
     exptevents, spiketimes, unit_names = baphy_align_time(
             exptevents, sortinfo, spikefs, options["rasterfs"])
+    print('Creating trial events')
+    tag_mask_start = "TRIALSTART"
+    tag_mask_stop = "TRIALSTOP"
+    ffstart = exptevents['name'].str.startswith(tag_mask_start)
+    ffstop = (exptevents['name'] == tag_mask_stop)
+    TrialCount = np.max(exptevents.loc[ffstart, 'Trial'])
+    event_times = pd.concat([exptevents.loc[ffstart, ['start']].reset_index(),
+                             exptevents.loc[ffstop, ['end']].reset_index()],
+                            axis=1)
+    event_times['name'] = "TRIAL"
+    event_times = event_times.drop(columns=['index'])
 
-
-    pupil_trace = load_pupil_trace(pupilfilepath=pupilfilepath,
+    pupil_trace, ptrialidx = load_pupil_trace(pupilfilepath=pupilfilepath,
                                    exptevents=exptevents, **options)
 
     is_rem, options = get_rem(pupilfilepath=pupilfilepath,
                               exptevents=exptevents, **options)
+
+    pupildata = np.stack([pupil_trace, is_rem], axis=1)
+    t_pupil = nems.signal.RasterizedSignal(
+            fs=options['rasterfs'], data=pupildata,
+            name='pupil', recording=cachebb, chans=['pupil', 'rem'],
+            epochs=event_times)
+
 
     return pupil_trace, is_rem, options

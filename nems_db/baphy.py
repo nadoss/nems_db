@@ -1030,7 +1030,7 @@ def baphy_load_recording(**options):
     # query database to find all baphy files that belong to this cell/batch
     d = db.get_batch_cell_data(batch=batch, cellid=cellid, label='parm',
                                rawid=options['rawid'])
-
+    dni = d.reset_index()
     files = list(set(list(d['parm'])))
     files.sort()
 
@@ -1039,6 +1039,13 @@ def baphy_load_recording(**options):
 
     for i, parmfilepath in enumerate(files):
         # load the file and do a bunch of preprocessing:
+        goodtrials = dni.loc[dni['parm']==parmfilepath, 'goodtrials'][0]
+        if len(goodtrials):
+            b = goodtrials.split(":")
+            goodtrials=np.arange(int(b[0])-1, int(b[1]))
+        else:
+            goodtrials=np.array([])
+
         if options["runclass"] == "RDT":
             event_times, spike_dict, stim_dict, \
                 state_dict, stim1_dict, stim2_dict = \
@@ -1139,6 +1146,14 @@ def baphy_load_recording(**options):
 
     rec = nems.recording.Recording(signals=signals, meta=meta, name=siteid)
 
+    if goodtrials.size > 0:
+        trial_epochs = rec['resp'].get_epoch_indices('TRIAL')
+        good_epochs = trial_epochs[goodtrials]
+        good_epochs[:, 1] += 1
+        rec = rec.create_mask(good_epochs)
+        print('masking and resetting epochs for good trials')
+        rec = rec.apply_mask(reset_epochs=True)
+        #raise ValueError("Not supporting goodtrials yet")
     return rec
 
 
