@@ -1039,7 +1039,7 @@ def baphy_load_recording(**options):
 
     for i, parmfilepath in enumerate(files):
         # load the file and do a bunch of preprocessing:
-        goodtrials = dni.loc[dni['parm']==parmfilepath, 'goodtrials'][0]
+        goodtrials = dni.loc[dni['parm']==parmfilepath, 'goodtrials'].values[0]
         if len(goodtrials):
             b = goodtrials.split(":")
             goodtrials=np.arange(int(b[0])-1, int(b[1]))

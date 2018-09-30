@@ -78,14 +78,14 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     histograms of marginals
     """
 
-    beta1 = np.array(beta1)
-    beta2 = np.array(beta2)
+    beta1 = np.array(beta1).astype(float)
+    beta2 = np.array(beta2).astype(float)
 
     nncells = np.isfinite(beta1) & np.isfinite(beta2)
     beta1 = beta1[nncells]
     beta2 = beta2[nncells]
     if highlight is not None:
-        highlight = np.array(highlight)
+        highlight = np.array(highlight).astype(float)
         highlight = highlight[nncells]
 
     if title is None:

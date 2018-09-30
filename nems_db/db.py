@@ -617,7 +617,7 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
     engine = Engine()
     # eg, sql="SELECT * from NarfData WHERE batch=301 and cellid="
     params = ()
-    sql = ("SELECT NarfData.*,sCellFile.goodtrials" +
+    sql = ("SELECT DISTINCT NarfData.*,sCellFile.goodtrials" +
            " FROM NarfData LEFT JOIN sCellFile " +
            " ON (NarfData.rawid=sCellFile.rawid " +
            " AND NarfData.cellid=sCellFile.cellid)" +
@@ -641,8 +641,11 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
     sql += " ORDER BY NarfData.filepath"
     print(sql)
     d = pd.read_sql(sql=sql, con=engine, params=params)
-    d.set_index(['cellid', 'groupid', 'label', 'rawid', 'goodtrials'], inplace=True)
-    d = d['filepath'].unstack('label')
+    if label == 'parm':
+        d['parm'] = d['filepath']
+    else:
+        d.set_index(['cellid', 'groupid', 'label', 'rawid', 'goodtrials'], inplace=True)
+        d = d['filepath'].unstack('label')
 
     return d
 

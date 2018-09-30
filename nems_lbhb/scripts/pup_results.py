@@ -74,9 +74,8 @@ for mod_i, m in enumerate(modelnames):
 
 d['goodcells'] = ((d['r']-d['r_se']) > (d['r_pup0']+d['r_se_pup0']))
 
-goodcells = ((r-se) > (r0+se0))
 ax = None
-stateplots.beta_comp(r0, r, n1="r pup0", n2="r pup",
+stateplots.beta_comp(d['r_pup0'], d['r'], n1="r pup0", n2="r pup",
                      title='stategain', hist_range=[-0.05, 0.95],
                      ax=ax, highlight=d['goodcells'])
 
