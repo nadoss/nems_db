@@ -88,9 +88,8 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
                    'chancount': 0, 'stim': False}
 
         if pupil:
-            pup_med = 2.0 if fs == 10 else 0.5
             options.update({'pupil': True, 'pupil_deblink': True,
-                            'pupil_median': pup_med})
+                            'pupil_median': 0.5})
         else:
             options['pupil'] = False
 
@@ -115,7 +114,7 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
         if pupil:
             options.update({'pupil': True, 'stim': True, 'pupil_deblink': True,
-                            'pupil_median': 2})
+                            'pupil_median': 0.5})
 
     elif loader.startswith('nostim'):
         raise(DeprecationWarning)
