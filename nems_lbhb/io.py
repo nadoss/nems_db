@@ -368,14 +368,14 @@ def set_default_pupil_options(options):
     options["pupil_derivative"] = options.get('pupil_derivative', '')
     options["pupil_mm"] = options.get('pupil_mm', False)
     options["pupil_eyespeed"] = options.get('pupil_eyespeed', False)
-    options["units"] = options.get('units', 'mm')
-    options["min_pupil"] = options.get('min_pupil', 0.2)
-    options["max_pupil"] = options.get('max_pupil', 1)
-    options["max_pupil_sd"] = options.get('max_pupil_sd', 0.05)
-    options["min_saccade_speed"] = options.get('min_saccade_speed', 0.5)
-    options["min_saccades_per_minute"] = options.get('min_saccades_per_minute', 0.01)
-    options["max_gap_s"] = options.get('max_gap_s', 15)
-    options["min_episode_s"] = options.get('min_episode_s', 30)
+    options["rem_units"] = options.get('units', 'mm')
+    options["rem_min_pupil"] = options.get('rem_min_pupil', 0.2)
+    options["rem_max_pupil"] = options.get('rem_max_pupil', 1)
+    options["rem_max_pupil_sd"] = options.get('rem_max_pupil_sd', 0.05)
+    options["rem_min_saccade_speed"] = options.get('rem_min_saccade_speed', 0.5)
+    options["rem_min_saccades_per_minute"] = options.get('rem_min_saccades_per_minute', 0.01)
+    options["rem_max_gap_s"] = options.get('rem_max_gap_s', 15)
+    options["rem_min_episode_s"] = options.get('rem_min_episode_s', 30)
     options["verbose"] = options.get('verbose', True)
 
     return options
@@ -389,14 +389,23 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     """
 
     options = set_default_pupil_options(options)
-    rasterfs = options.get('rasterfs', 100)
-    pupil_offset = options.get('pupil_offset', 0.75)
-    pupil_deblink = options.get('pupil_deblink', True)
-    pupil_deblink_dur = options.get('pupil_deblink_dur', (1/3))
-    pupil_median = options.get('pupil_median', 0)
-    pupil_mm = options.get('pupil_mm', False)
-    pupil_eyespeed = options.get('pupil_eyespeed', False)
-    verbose = options.get('verbose', False)
+
+    rasterfs = options["rasterfs"]
+    pupil_offset = options["pupil_offset"]
+    pupil_deblink = options["pupil_deblink"]
+    pupil_deblink_dur = options["pupil_deblink_dur"]
+    pupil_median = options["pupil_median"]
+    pupil_mm = options["pupil_mm"]
+    pupil_eyespeed = options["pupil_eyespeed"]
+    verbose = options["verbose"]
+    #rasterfs = options.get('rasterfs', 100)
+    #pupil_offset = options.get('pupil_offset', 0.75)
+    #pupil_deblink = options.get('pupil_deblink', True)
+    #pupil_deblink_dur = options.get('pupil_deblink_dur', (1/3))
+    #pupil_median = options.get('pupil_median', 0)
+    #pupil_mm = options.get('pupil_mm', False)
+    #pupil_eyespeed = options.get('pupil_eyespeed', False)
+    #verbose = options.get('verbose', False)
 
     if options["pupil_smooth"]:
         raise ValueError('pupil_smooth not implemented. try pupil_median?')
@@ -616,28 +625,31 @@ def get_rem(pupilfilepath, exptevents=None, **options):
         pupilfilepath: Absolute path of the pupil file (to be loaded by
         nems_lbhb.io.load_pupil_trace).
 
+        exptevents:
+
         options: Dictionary of analysis parameters
             rasterfs: Sampling rate (default: 100)
-            units: If 'mm', convert pupil to millimeters and eye speed to
+            rem_units: If 'mm', convert pupil to millimeters and eye speed to
               mm/s while loading (default: 'mm')
-            min_pupil: Minimum pupil size during REM episodes (default: 0.2)
-            max_pupil: Maximum pupil size during REM episodes (mm, default: 1)
-            max_pupil_sd: Maximum pupil standard deviation during REM episodes
+            rem_min_pupil: Minimum pupil size during REM episodes (default: 0.2)
+            rem_max_pupil: Maximum pupil size during REM episodes (mm, default: 1)
+            rem_max_pupil_sd: Maximum pupil standard deviation during REM episodes
              (default: 0.05)
-            min_saccade_speed: Minimum eye movement speed to consider eye
+            rem_min_saccade_speed: Minimum eye movement speed to consider eye
              movement as saccade (default: 0.01)
-            min_saccades_per_minute: Minimum saccades per minute during REM
+            rem_min_saccades_per_minute: Minimum saccades per minute during REM
              episodes (default: 0.01)
-            max_gap_s: Maximum gap to fill in between REM episodes
+            rem_max_gap_s: Maximum gap to fill in between REM episodes
              (seconds, default: 15)
-            min_episode_s: Minimum duration of REM episodes to keep
+            rem_min_episode_s: Minimum duration of REM episodes to keep
              (seconds, default: 30)
             verbose: Plot traces and identified REM episodes (default: True)
 
     Returns:
 
         is_rem: Numpy array of booleans, indicating which time bins occured
-         during REM episodes (True = REM).
+         during REM episodes (True = REM)
+
         options: Dictionary of parameters used in analysis
 
     ZPS 2018-09-24: Initial version.
@@ -645,30 +657,32 @@ def get_rem(pupilfilepath, exptevents=None, **options):
 
     #Set analysis parameters from defaults, if necessary.
     options = set_default_pupil_options(options)
+
     rasterfs = options["rasterfs"]
-    units = options["units"]
-    min_pupil = options["min_pupil"]
-    max_pupil = options["max_pupil"]
-    max_pupil_sd = options["max_pupil_sd"]
-    min_saccade_speed = options["min_saccade_speed"]
-    min_saccades_per_minute = options["min_saccades_per_minute"]
-    max_gap_s = options["max_gap_s"]
-    min_episode_s = options["min_episode_s"]
+    units = options["rem_units"]
+    min_pupil = options["rem_min_pupil"]
+    max_pupil = options["rem_max_pupil"]
+    max_pupil_sd = options["rem_max_pupil_sd"]
+    min_saccade_speed = options["rem_min_saccade_speed"]
+    min_saccades_per_minute = options["rem_min_saccades_per_minute"]
+    max_gap_s = options["rem_max_gap_s"]
+    min_episode_s = options["rem_min_episode_s"]
     verbose = options["verbose"]
 
     #Load data.
-    load_params = {}
+    load_options = options.copy()
+    load_options["verbose"] = False
     if units == 'mm':
-        load_params['pupil_mm'] = True
+        load_options["pupil_mm"] = True
     elif units == 'norm_max':
         raise ValueError("TODO: support for norm pupil diam/speed by max")
-        load_params['norm_max'] = True
+        load_options['norm_max'] = True
 
-    load_params['rasterfs'] = rasterfs
-    pupil_size, _ = load_pupil_trace(pupilfilepath, exptevents, **load_params)
+    load_options["pupil_eyespeed"] = False
+    pupil_size, _ = load_pupil_trace(pupilfilepath, exptevents, **load_options)
 
-    load_params['pupil_eyespeed'] = True
-    eye_speed, _ = load_pupil_trace(pupilfilepath, exptevents, **load_params)
+    load_options["pupil_eyespeed"] = True
+    eye_speed, _ = load_pupil_trace(pupilfilepath, exptevents, **load_options)
 
     pupil_size = pupil_size[0,:]
     eye_speed = eye_speed[0,:]
@@ -688,7 +702,6 @@ def get_rem(pupilfilepath, exptevents=None, **options):
     saccades = np.nan_to_num(eye_speed) > min_saccade_speed
     minute = np.ones(rasterfs*60)/(rasterfs*60)
     saccades_per_minute = np.convolve(saccades, minute, mode='same')
-
 
     #(3) To distinguish REM sleep from waking - since it seeems that ferrets
     #can sleep with their eyes open - look for periods when pupil is constricted
@@ -743,8 +756,15 @@ def get_rem(pupilfilepath, exptevents=None, **options):
         rem_dur = np.array([t for is_rem,t in rem_episodes if is_rem])/(rasterfs*60)
 
         fig, ax = plt.subplots(4,1)
-        title_str = '{:s} \n {:d} REM episodes, mean duration: {:0.2f} minutes'.\
-            format(pupilfilepath, len(rem_dur), rem_dur.mean())
+        if len(rem_dur) == 0:
+            title_str = 'no REM episodes'
+        elif len(rem_dur) == 1:
+            title_str = '1 REM episode, duration: {:0.2f} minutes'.\
+                format(rem_dur[0])
+        else:
+            title_str = '{:d} REM episodes, mean duration: {:0.2f} minutes'.\
+                format(len(rem_dur), rem_dur.mean())
+        title_str = '{:s}\n{:s}'.format(pupilfilepath, title_str)
         fig.suptitle(title_str)
 
         ax[0].autoscale(axis='x', tight=True)
@@ -759,14 +779,14 @@ def get_rem(pupilfilepath, exptevents=None, **options):
                 [min_saccades_per_minute, min_saccades_per_minute], 'k--')
         l0, = ax[1].plot(time_ax[is_rem.nonzero()], \
                    saccades_per_minute[is_rem.nonzero()], 'r.')
-        l1, = ax[1].plot(time_ax[is_brief_episode.nonzero()], \
-                         saccades_per_minute[is_brief_episode.nonzero()], 'y.')
-        l2, = ax[1].plot(time_ax[is_brief_gap.nonzero()], \
+        l1, = ax[1].plot(time_ax[is_brief_gap.nonzero()], \
                          saccades_per_minute[is_brief_gap.nonzero()], 'b.')
+        l2, = ax[1].plot(time_ax[is_brief_episode.nonzero()], \
+                         saccades_per_minute[is_brief_episode.nonzero()], 'y.')
         ax[1].set_ylabel('Saccades per minute')
 
         ax[0].legend((l0,l1,l2), \
-                     ('REM', 'Brief episodes (excluded)', 'Brief gaps (included)'), \
+                     ('REM', 'Brief gaps (included)', 'Brief episodes (excluded)'), \
                      frameon=False)
 
         ax[2].autoscale(axis='x', tight=True)
@@ -776,10 +796,10 @@ def get_rem(pupilfilepath, exptevents=None, **options):
                 [max_pupil, max_pupil], 'k--')
         ax[2].plot(time_ax[is_rem.nonzero()], \
                 smooth_pupil_size[is_rem.nonzero()], 'r.')
-        ax[2].plot(time_ax[is_brief_episode.nonzero()], \
-                smooth_pupil_size[is_brief_episode.nonzero()], 'y.')
         ax[2].plot(time_ax[is_brief_gap.nonzero()], \
                 smooth_pupil_size[is_brief_gap.nonzero()], 'b.')
+        ax[2].plot(time_ax[is_brief_episode.nonzero()], \
+                smooth_pupil_size[is_brief_episode.nonzero()], 'y.')
         ax[2].set_ylabel('Pupil size')
 
         ax[3].autoscale(axis='x', tight=True)
@@ -788,10 +808,10 @@ def get_rem(pupilfilepath, exptevents=None, **options):
                 [max_pupil_sd, max_pupil_sd], 'k--')
         ax[3].plot(time_ax[is_rem.nonzero()], \
                 pupil_sd[is_rem.nonzero()], 'r.')
-        ax[3].plot(time_ax[is_brief_episode.nonzero()], \
-                pupil_sd[is_brief_episode.nonzero()], 'y.')
         ax[3].plot(time_ax[is_brief_gap.nonzero()], \
                 pupil_sd[is_brief_gap.nonzero()], 'b.')
+        ax[3].plot(time_ax[is_brief_episode.nonzero()], \
+                pupil_sd[is_brief_episode.nonzero()], 'y.')
         ax[3].set_ylabel('Pupil SD')
         ax[3].set_xlabel('Time (min)')
 
@@ -809,7 +829,7 @@ def run_length_encode(a):
     the function will return:
         [(False, 1), (True, 3), (False, 2)]
 
-    ZPS 2018-09-24: Helper function for get_rem_trials.
+    ZPS 2018-09-24: Helper function for get_rem.
     """
     return [(k, len(list(g))) for k,g in groupby(a)]
 
@@ -817,7 +837,7 @@ def run_length_decode(a):
     """
     Reverses the operation performed by run_length_encode.
 
-    ZPS 2018-09-24: Helper function for get_rem_trials.
+    ZPS 2018-09-24: Helper function for get_rem.
     """
     a = [list(repeat(elem,n)) for (elem,n) in a]
     a = list(chain.from_iterable(a))
@@ -867,12 +887,12 @@ def baphy_pupil_uri(pupilfilepath, **options):
         /auto/data/nems_db/recordings/pupil/
 
     """
-    options['rasterfs']=100
-    options['pupil_mm']=True
-    options['pupil_median']=0.5
-    options['pupil_deblink']=True
-    options['units']='mm'
-    options['verbose']=False
+    #options['rasterfs']=100
+    #options['pupil_mm']=True
+    #options['pupil_median']=0.5
+    #options['pupil_deblink']=True
+    #options['units']='mm'
+    #options['verbose']=False
 
     options = set_default_pupil_options(options)
 
