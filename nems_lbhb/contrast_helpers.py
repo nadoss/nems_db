@@ -253,6 +253,35 @@ def dynamic_sigmoid(rec, i, o, c, base, amplitude, shift, kappa,
     return [rec[i].transform(fn, o)]
 
 
+def add_gc_signal(rec, modelspec, name='GC'):
+
+    modelspec = copy.deepcopy(modelspec)
+    rec = copy.deepcopy(rec)
+
+    dsig_idx = find_module('dynamic_sigmoid', modelspec)
+#    if dsig_idx is None:
+#        log.warning("No dsig module was found, can't add GC signal.")
+#        return rec
+
+    phi = modelspec[dsig_idx]['phi']
+    phi.update(modelspec[dsig_idx]['fn_kwargs'])
+    pred = rec['pred'].as_continuous()
+    b = phi['base'] + pred*phi['base_mod']
+    a = phi['amplitude'] + pred*phi['amplitude_mod']
+    s = phi['shift'] + pred*phi['shift_mod']
+    k = phi['kappa'] + pred*phi['kappa_mod']
+    array = np.squeeze(np.stack([b, a, s, k], axis=0))
+
+
+    fs = rec['stim'].fs
+    signal = nems.signal.RasterizedSignal(
+            fs, array, name, rec['stim'].recording,
+            chans=['B', 'A', 'S', 'K'], epochs=rec['stim'].epochs)
+    rec[name] = signal
+
+    return rec
+
+
 def init_dsig(rec, modelspec):
     '''
     Initialization of priors for logistic_sigmoid,
