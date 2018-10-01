@@ -29,7 +29,8 @@ import nems_db.db as db
 from nems.recording import Recording
 from nems.recording import load_recording
 from nems.utils import recording_filename_hash
-from nems_lbhb.io import (baphy_parm_read, baphy_align_time, load_pupil_trace)
+from nems_lbhb.io import (baphy_parm_read, baphy_align_time, load_pupil_trace,
+                          get_rem)
 
 # TODO: Replace catch-all `except:` statements with except SpecificError,
 #       or add some other way to help with debugging them.
@@ -405,6 +406,10 @@ def baphy_load_data(parmfilepath, **options):
 
         except ValueError:
             raise ValueError("Error loading pupil data: " + pupilfilepath)
+    if options['rem']:
+        is_rem, options = get_rem(pupilfilepath=pupilfilepath,
+                          exptevents=exptevents, **options)
+
 
     return (exptevents, stim, spike_dict, state_dict,
             tags, stimparam, exptparams)
@@ -942,7 +947,8 @@ def fill_default_options(options):
     options['pupil'] = int(options.get('pupil', False))
     options['pupil_deblink'] = int(options.get('pupil_deblink', 1))
     options['pupil_deblink_dur'] = options.get('pupil_deblink_dur', 0.75)
-    options['pupil_median'] = int(options.get('pupil_median', 0.5))
+    options['pupil_median'] = options.get('pupil_median', 0.5)
+    options["pupil_offset"] = options.get('pupil_offset', 0.75)
     options['stim'] = int(options.get('stim', True))
     options['runclass'] = options.get('runclass', None)
     options['cellid'] = options.get('cellid', cellid)
@@ -1148,13 +1154,15 @@ def baphy_load_recording(**options):
     rec = nems.recording.Recording(signals=signals, meta=meta, name=siteid)
 
     if goodtrials.size > 0:
+        # mask out trials outside of goodtrials range, specified in celldb
+        # usually during meska save
         trial_epochs = rec['resp'].get_epoch_indices('TRIAL')
         good_epochs = trial_epochs[goodtrials]
         good_epochs[:, 1] += 1
         rec = rec.create_mask(good_epochs)
         print('masking and resetting epochs for good trials')
         rec = rec.apply_mask(reset_epochs=True)
-        #raise ValueError("Not supporting goodtrials yet")
+
     return rec
 
 

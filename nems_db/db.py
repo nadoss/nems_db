@@ -81,6 +81,142 @@ def _get_db_uri():
 
 ###### Functions that access / manipulate the job queue. #######
 
+def enqueue_models_new(celllist, batch, modellist, force_rerun=False,
+                   user="nems", codeHash="master", jerbQuery='',
+                   executable_path=None, script_path=None,
+                   priority=1):
+    """Call enqueue_single_model for every combination of cellid and modelname
+    contained in the user's selections.
+
+    for each cellid in celllist and modelname in modellist, will create jobs
+    that execute this command on a cluster machine:
+
+    <executable_path> <script_path> <cellid> <batch> <modelname>
+
+    e.g.:
+    /home/nems/anaconda3/bin/python /home/nems/nems/fit_single_model.py \
+       TAR010c-18-1 271 ozgf100ch18_dlog_wcg18x1_stp1_fir1x15_lvl1_dexp1_basic
+
+    Arguments:
+    ----------
+    celllist : list
+        List of cellid selections made by user.
+    batch : string
+        batch number selected by user.
+    modellist : list
+        List of modelname selections made by user.
+    force_rerun : boolean (default=False)
+        If true, models will be fit even if a result already exists.
+        If false, models with existing results will be skipped.
+    user : string (default="nems")
+        Typically the login name of the user who owns the job
+    codeHash : string (default="master")
+        Git hash string identifying a commit for the specific version of the
+        code repository that should be used to run the model fit.
+        Can also accept the name of a branch.
+    jerbQuery : dict
+        Dict that will be used by 'jerb find' to locate matching jerbs
+    executable_path : string (defaults to nems' python3 executable)
+        Path to executable python (or other command line program)
+    script_path : string (defaults to nems' copy of nems/nems_fit_single.py)
+        First parameter to pass to executable
+
+    Returns:
+    --------
+    (queueids, messages) : list
+        Returns a tuple of the tQueue id and results message for each
+        job that was either updated in or added to the queue.
+
+    See Also:
+    ---------
+    Narf_Analysis : enqueue_models_callback
+
+    """
+
+    # some parameter values, mostly for backwards compatibility with other
+    # queueing approaches
+    if user:
+        user = user
+    else:
+        user = 'None'
+    linux_user = 'nems'
+    allowqueuemaster = 1
+    waitid = 0
+    parmstring = ''
+    rundataid = 0
+
+    engine = Engine()
+    conn = engine.connect()
+
+    if executable_path in [None, 'None', 'NONE', '']:
+        executable_path = get_setting('DEFAULT_EXEC_PATH')
+    if script_path in [None, 'None', 'NONE', '']:
+        script_path = get_setting('DEFAULT_SCRIPT_PATH')
+
+    # Convert to list of tuples b/c product object only useable once.
+    combined = [(c, b, m) for c, b, m in
+                itertools.product(celllist, [batch], modellist)]
+
+    notes = ['%s/%s/%s' % (c, b, m) for c, b, m in combined]
+    commandPrompts = ["%s %s %s %s %s" % (executable_path, script_path,
+                                          c, b, m)
+                      for c, b, m in combined]
+
+    queueids = []
+    messages = []
+    for note, commandPrompt in zip(notes, commandPrompts):
+        sql = 'SELECT * FROM tQueue WHERE note="' + note +'"'
+
+        r = conn.execute(sql)
+        if r.rowcount:
+            # existing job, figure out what to do with it
+
+            x=r.fetchone()
+            queueid = x['id']
+            complete = x['complete']
+            if force_rerun:
+                if complete == 1:
+                    message = "Resetting existing queue entry for: %s\n" % note
+                    sql = "UPDATE tQueue SET complete=0, killnow=0 WHERE id={}".format(queueid)
+                    r = conn.execute(sql)
+
+                elif complete == 2:
+                    message = "Dead queue entry for: %s exists, resetting.\n" % note
+                    sql = "UPDATE tQueue SET complete=0, killnow=0 WHERE id={}".format(queueid)
+                    r = conn.execute(sql)
+
+                else:  # complete in [-1, 0] -- already running or queued
+                    message = "Incomplete entry for: %s exists, skipping.\n" % note
+
+            else:
+
+                if complete == 1:
+                    message = "Completed entry for: %s exists, skipping.\n"  % note
+                elif complete == 2:
+                    message = "Dead entry for: %s exists, skipping.\n"  % note
+                else:  # complete in [-1, 0] -- already running or queued
+                    message = "Incomplete entry for: %s exists, skipping.\n" % note
+
+        else:
+            # new job
+            sql = "INSERT INTO tQueue (rundataid,progname,priority," +\
+                   "parmstring,allowqueuemaster,user," +\
+                   "linux_user,note,waitid,codehash,queuedate) VALUES"+\
+                   " ({},'{}',{}," +\
+                   "'{}',{},'{}'," +\
+                   "'{}','{}',{},'{}',NOW())"
+            sql = sql.format(rundataid, commandPrompt, priority, parmstring,
+                  allowqueuemaster, user, linux_user, note, waitid, codeHash)
+            r = conn.execute(sql)
+            queueid = r.lastrowid
+
+        queueids.append(queueid)
+        messages.append(message)
+
+    conn.close()
+
+    return zip(queueids, messages)
+
 
 def enqueue_models(celllist, batch, modellist, force_rerun=False,
                    user="nems", codeHash="master", jerbQuery='',
