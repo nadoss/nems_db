@@ -94,6 +94,11 @@ tvr = (d_tuning['tar_onset'] - d_tuning['ref_onset']) / \
    (d_tuning['tar_onset'] + d_tuning['ref_onset'])
 tvr = (d_tuning['tar_sust'] - d_tuning['ref_sust']) / \
    (d_tuning['tar_sust'] + d_tuning['ref_sust'])
+   
+   
+#save the  data frame
+path = '/auto/users/daniela/code/python_ACIC_proj'
+d.to_csv(os.path.join(path,'all_nems_data.csv'))
 
 """
 u_state_mod = state_mod[[sv_len],:] - state_mod[:sv_len, :]
