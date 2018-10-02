@@ -102,22 +102,22 @@ def get_model_results(batch=307, state_list=None,
                     ii = ((d['cellid'] == c) & (d['state_chan'] == sc))
                 if mod_i == 3:
                     # full model
-                    d.loc[ii, ['modelname','state_sig', 'g', 'd', 'MI',
+                    d.loc[ii, ['modelname', 'state_sig', 'g', 'd', 'MI',
                                'r', 'r_se']] = \
-                       [m, state_list[mod_i], gain[0,j], dc[0,j], state_mod[j],
-                        meta['r_test'][0], meta['se_test'][0]]
-                elif (mod_i == 1) & (sc=='pupil'):
+                       [m, state_list[mod_i], gain[0, j], dc[0, j],
+                        state_mod[j], meta['r_test'][0], meta['se_test'][0]]
+                elif (mod_i == 1) & (sc == 'pupil'):
                     # pupil shuffled model
                     d.loc[ii, ['state_sig0', 'MI0', 'r0', 'r0_se']] = \
                        [state_list[mod_i], state_mod[j],
                         meta['r_test'][0], meta['se_test'][0]]
-                elif (mod_i == 0) & (sc=='baseline'):
+                elif (mod_i == 0) & (sc == 'baseline'):
                     d.loc[ii, ['state_sig0', 'r0', 'r0_se']] = \
                        [state_list[mod_i],
                         meta['r_test'][0], meta['se_test'][0]]
                 elif (mod_i == 2) & (sc not in ['baseline', 'pupil']):
                     # pupil shuffled model
-                    d.loc[ii, ['state_sig0', 'MI0','r0', 'r0_se']] = \
+                    d.loc[ii, ['state_sig0', 'MI0', 'r0', 'r0_se']] = \
                        [state_list[mod_i], state_mod[j],
                         meta['r_test'][0], meta['se_test'][0]]
 
