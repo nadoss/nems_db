@@ -89,7 +89,8 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
         if pupil:
             options.update({'pupil': True, 'pupil_deblink': True,
-                            'pupil_median': 0.5})
+                            'pupil_deblink_dur': 1,
+                            'pupil_median': 0})
         else:
             options['pupil'] = False
 
