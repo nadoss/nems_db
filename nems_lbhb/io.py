@@ -715,6 +715,7 @@ def get_rem(pupilfilepath, exptevents=None, **options):
     pupil_sd = pupil_sd.rolling(rasterfs*10).std()
     pupil_sd = np.array(pupil_sd)
     rem_episodes = (np.nan_to_num(smooth_pupil_size) < max_pupil) & \
+                   (np.isfinite(smooth_pupil_size)) % \
                    (np.nan_to_num(pupil_sd) < max_pupil_sd) & \
                    (np.nan_to_num(saccades_per_minute) > min_saccades_per_minute)
 
