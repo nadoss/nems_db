@@ -31,16 +31,11 @@ import nems_db.db as db
 from nems.recording import Recording
 from nems.recording import load_recording
 
-
-# TODO: Replace catch-all `except:` statements with except SpecificError,
-#       or add some other way to help with debugging them.
+log = logging.getLogger(__name__)
 
 # paths to baphy data -- standard locations on elephant
 stim_cache_dir = '/auto/data/tmp/tstim/'  # location of cached stimuli
 spk_subdir = 'sorted/'   # location of spk.mat files relative to parmfiles
-
-# TODO: Replace print() statements with log.info()?
-log = logging.getLogger(__name__)
 
 
 def baphy_mat2py(s):
@@ -75,7 +70,7 @@ def baphy_mat2py(s):
 
 
 def baphy_parm_read(filepath):
-    print("Loading {0}".format(filepath))
+    log.info("Loading {0}".format(filepath))
 
     f = io.open(filepath, "r")
     s = f.readlines(-1)
@@ -111,9 +106,9 @@ def baphy_parm_read(filepath):
                 exec(sout1)
             exec(sout)
         except NameError:
-            print("NameError on: {0}".format(sout))
+            log.info("NameError on: {0}".format(sout))
         except:
-            print("Other error on: {0} to {1}".format(ts,sout))
+            log.info("Other error on: {0} to {1}".format(ts,sout))
 
     # special conversions
 
@@ -283,8 +278,8 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
 
     # using the trial lengths, figure out adjustments to trial event times.
     if finalfs:
-        print('rounding Trial offset spike times'
-              ' to even number of rasterfs bins')
+        log.info('rounding Trial offset spike times'
+                 ' to even number of rasterfs bins')
         # print(TrialLen_spikefs)
         TrialLen_spikefs = (
                 np.ceil(TrialLen_spikefs / spikefs*finalfs)
@@ -311,7 +306,7 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
         # print("{0} events past end of trial?".format(len(badevents)))
         # exptevents.drop(badevents)
 
-    print("{0} trials totaling {1:.2f} sec".format(TrialCount, Offset_sec[-1]))
+    log.info("{0} trials totaling {1:.2f} sec".format(TrialCount, Offset_sec[-1]))
 
     # convert spike times from samples since trial started to
     # (approximate) seconds since experiment started (matched to exptevents)
@@ -358,6 +353,34 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
     return exptevents, spiketimes, unit_names
 
 
+def set_default_pupil_options(options):
+
+    options = options.copy()
+    options["rasterfs"] = options.get('rasterfs', 100)
+    options["pupil_offset"] = options.get('pupil_offset', 0.75)
+    options["pupil_deblink"] = options.get('pupil_deblink', True)
+    options["pupil_deblink_dur"] = options.get('pupil_deblink_dur', (1/3))
+    options["pupil_median"] = options.get('pupil_median', 0)
+    options["pupil_smooth"] = options.get('pupil_smooth', 0)
+    options["pupil_highpass"] = options.get('pupil_highpass', 0)
+    options["pupil_lowpass"] = options.get('pupil_lowpass', 0)
+    options["pupil_bandpass"] = options.get('pupil_bandpass', 0)
+    options["pupil_derivative"] = options.get('pupil_derivative', '')
+    options["pupil_mm"] = options.get('pupil_mm', False)
+    options["pupil_eyespeed"] = options.get('pupil_eyespeed', False)
+    options["rem_units"] = options.get('units', 'mm')
+    options["rem_min_pupil"] = options.get('rem_min_pupil', 0.2)
+    options["rem_max_pupil"] = options.get('rem_max_pupil', 1)
+    options["rem_max_pupil_sd"] = options.get('rem_max_pupil_sd', 0.05)
+    options["rem_min_saccade_speed"] = options.get('rem_min_saccade_speed', 0.5)
+    options["rem_min_saccades_per_minute"] = options.get('rem_min_saccades_per_minute', 0.01)
+    options["rem_max_gap_s"] = options.get('rem_max_gap_s', 15)
+    options["rem_min_episode_s"] = options.get('rem_min_episode_s', 30)
+    options["verbose"] = options.get('verbose', True)
+
+    return options
+
+
 def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     """
     returns big_rs which is pupil trace resampled to options['rasterfs']
@@ -365,26 +388,42 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     trial. need to make sure the big_rs vector aligns with the other signals
     """
 
-    rasterfs = options.get('rasterfs', 100)
-    pupil_offset = options.get('pupil_offset', 0.75)
-    pupil_deblink = options.get('pupil_deblink', True)
-    pupil_deblink_dur = options.get('pupil_deblink_dur', (1/3))
-    pupil_median = options.get('pupil_median', 0)
-    pupil_smooth = options.get('pupil_smooth', 0)
-    pupil_highpass = options.get('pupil_highpass', 0)
-    pupil_lowpass = options.get('pupil_lowpass', 0)
-    pupil_bandpass = options.get('pupil_bandpass', 0)
-    pupil_derivative = options.get('pupil_derivative', '')
-    pupil_mm = options.get('pupil_mm', False)
-    pupil_eyespeed = options.get('pupil_eyespeed', False)
-    verbose = options.get('verbose', False)
+    options = set_default_pupil_options(options)
+
+    rasterfs = options["rasterfs"]
+    pupil_offset = options["pupil_offset"]
+    pupil_deblink = options["pupil_deblink"]
+    pupil_deblink_dur = options["pupil_deblink_dur"]
+    pupil_median = options["pupil_median"]
+    pupil_mm = options["pupil_mm"]
+    pupil_eyespeed = options["pupil_eyespeed"]
+    verbose = options["verbose"]
+    #rasterfs = options.get('rasterfs', 100)
+    #pupil_offset = options.get('pupil_offset', 0.75)
+    #pupil_deblink = options.get('pupil_deblink', True)
+    #pupil_deblink_dur = options.get('pupil_deblink_dur', (1/3))
+    #pupil_median = options.get('pupil_median', 0)
+    #pupil_mm = options.get('pupil_mm', False)
+    #pupil_eyespeed = options.get('pupil_eyespeed', False)
+    #verbose = options.get('verbose', False)
+
+    if options["pupil_smooth"]:
+        raise ValueError('pupil_smooth not implemented. try pupil_median?')
+    if options["pupil_highpass"]:
+        raise ValueError('pupil_highpass not implemented.')
+    if options["pupil_lowpass"]:
+        raise ValueError('pupil_lowpass not implemented.')
+    if options["pupil_bandpass"]:
+        raise ValueError('pupil_bandpass not implemented.')
+    if options["pupil_derivative"]:
+        raise ValueError('pupil_derivative not implemented.')
 
     if exptevents is None:
         parmfilepath = pupilfilepath.replace(".pup.mat",".m")
         globalparams, exptparams, exptevents = baphy_parm_read(parmfilepath)
         pp, bb = os.path.split(parmfilepath)
         spkfilepath = pp + '/' + spk_subdir + re.sub(r"\.m$", ".spk.mat", bb)
-        print("Spike file: {0}".format(spkfilepath))
+        log.info("Spike file: {0}".format(spkfilepath))
         # load spike times
         sortinfo, spikefs = baphy_load_spike_data_raw(spkfilepath)
         # adjust spike and event times to be in seconds since experiment started
@@ -392,34 +431,23 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
                 exptevents, sortinfo, spikefs, rasterfs
                 )
 
-    if pupil_smooth:
-        raise ValueError('pupil_smooth not implemented. try pupil_median?')
-    if pupil_highpass:
-        raise ValueError('pupil_highpass not implemented.')
-    if pupil_lowpass:
-        raise ValueError('pupil_lowpass not implemented.')
-    if pupil_bandpass:
-        raise ValueError('pupil_bandpass not implemented.')
-    if pupil_derivative:
-        raise ValueError('pupil_derivative not implemented.')
-
     matdata = scipy.io.loadmat(pupilfilepath)
 
     p = matdata['pupil_data']
     params = p['params']
     if 'pupil_variable_name' not in options:
         options['pupil_variable_name'] = params[0][0]['default_var'][0][0][0]
-        print("Using default pupil_variable_name: " +
+        log.info("Using default pupil_variable_name: " +
               options['pupil_variable_name'])
     if 'pupil_algorithm' not in options:
         options['pupil_algorithm'] = params[0][0]['default'][0][0][0]
-        print("Using default pupil_algorithm: " + options['pupil_algorithm'])
+        log.info("Using default pupil_algorithm: " + options['pupil_algorithm'])
 
     results = p['results'][0][0][-1][options['pupil_algorithm']]
     pupil_diameter = np.array(results[0][options['pupil_variable_name']][0][0])
     if pupil_diameter.shape[0] == 1:
         pupil_diameter = pupil_diameter.T
-    print("pupil_diameter.shape: " + str(pupil_diameter.shape))
+    log.info("pupil_diameter.shape: " + str(pupil_diameter.shape))
 
     if pupil_eyespeed:
         eye_speed = np.array(results[0]['eye_speed'][0][0])
@@ -450,8 +478,8 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
         for i, x1 in enumerate(onidx):
             x2 = offidx[i]
             if x2 < x1:
-                print([i, x1, x2])
-                print("WHAT'S UP??")
+                log.info([i, x1, x2])
+                log.info("WHAT'S UP??")
             else:
                 # print([i,x1,x2])
                 deblinked[x1:x2, 0] = np.linspace(
@@ -463,7 +491,7 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
         if verbose:
             plt.figure()
             if pupil_eyespeed:
-                plt.subplot(2,1,1)
+                plt.subplot(2, 1, 1)
             plt.plot(pupil_diameter, label='Raw')
             plt.plot(deblinked, label='Deblinked')
             plt.xlabel('Frame')
@@ -471,7 +499,7 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
             plt.legend()
             plt.title("Artifacts detected: {}".format(len(onidx)))
             if pupil_eyespeed:
-                plt.subplot(2,1,2)
+                plt.subplot(2, 1, 2)
                 plt.plot(eye_speed, label='Raw')
                 plt.plot(deblinked_eye_speed, label='Deblinked')
                 plt.xlabel('Frame')
@@ -541,7 +569,7 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
         all_fs[ii] = fs
         t = np.arange(0, len(d)) / fs
         if pupil_eyespeed:
-            d = d*fs #convert to px/s before resampling
+            d = d * fs  # convert to px/s before resampling
         ti = np.arange(
                 (1/rasterfs)/2, duration[ii]+(1/rasterfs)/2, 1/rasterfs
                 )
@@ -562,7 +590,9 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     # shift pupil (or eye speed) trace by offset, usually 0.75 sec
     offset_frames = int(pupil_offset*rasterfs)
     big_rs = np.roll(big_rs, -offset_frames)
-    big_rs[-offset_frames:] = np.nan
+
+    # svd pad with final pupil value (was np.nan before)
+    big_rs[-offset_frames:] = big_rs[-offset_frames]
 
     # shape to 1 x T to match NEMS signal specs
     big_rs = big_rs[np.newaxis, :]
@@ -585,7 +615,8 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
 
     return big_rs, strialidx
 
-def get_rem(pupilfilepath, **params):
+
+def get_rem(pupilfilepath, exptevents=None, **options):
     """
     Find rapid eye movements based on pupil and eye-tracking data.
 
@@ -594,58 +625,64 @@ def get_rem(pupilfilepath, **params):
         pupilfilepath: Absolute path of the pupil file (to be loaded by
         nems_lbhb.io.load_pupil_trace).
 
-        params: Dictionary of analysis parameters
+        exptevents:
+
+        options: Dictionary of analysis parameters
             rasterfs: Sampling rate (default: 100)
-            units: If 'mm', convert pupil to millimeters and eye speed to
+            rem_units: If 'mm', convert pupil to millimeters and eye speed to
               mm/s while loading (default: 'mm')
-            min_pupil: Minimum pupil size during REM episodes (default: 0.2)
-            max_pupil: Maximum pupil size during REM episodes (mm, default: 1)
-            max_pupil_sd: Maximum pupil standard deviation during REM episodes
+            rem_min_pupil: Minimum pupil size during REM episodes (default: 0.2)
+            rem_max_pupil: Maximum pupil size during REM episodes (mm, default: 1)
+            rem_max_pupil_sd: Maximum pupil standard deviation during REM episodes
              (default: 0.05)
-            min_saccade_speed: Minimum eye movement speed to consider eye
+            rem_min_saccade_speed: Minimum eye movement speed to consider eye
              movement as saccade (default: 0.01)
-            min_saccades_per_minute: Minimum saccades per minute during REM
+            rem_min_saccades_per_minute: Minimum saccades per minute during REM
              episodes (default: 0.01)
-            max_gap_s: Maximum gap to fill in between REM episodes
+            rem_max_gap_s: Maximum gap to fill in between REM episodes
              (seconds, default: 15)
-            min_episode_s: Minimum duration of REM episodes to keep
+            rem_min_episode_s: Minimum duration of REM episodes to keep
              (seconds, default: 30)
             verbose: Plot traces and identified REM episodes (default: True)
 
     Returns:
 
         is_rem: Numpy array of booleans, indicating which time bins occured
-         during REM episodes (True = REM).
-        params: Dictionary of parameters used in analysis
+         during REM episodes (True = REM)
+
+        options: Dictionary of parameters used in analysis
 
     ZPS 2018-09-24: Initial version.
     """
 
     #Set analysis parameters from defaults, if necessary.
-    rasterfs = params.get('rasterfs', 100)
-    units = params.get('units', 'mm')
-    min_pupil = params.get('min_pupil', 0.2)
-    max_pupil = params.get('max_pupil', 1)
-    max_pupil_sd = params.get('max_pupil_sd', 0.05)
-    min_saccade_speed = params.get('min_saccade_speed', 0.5)
-    min_saccades_per_minute = params.get('min_saccades_per_minute', 0.01)
-    max_gap_s = params.get('max_gap_s', 15)
-    min_episode_s = params.get('min_episode_s', 30)
-    verbose = params.get('verbose', True)
+    options = set_default_pupil_options(options)
+
+    rasterfs = options["rasterfs"]
+    units = options["rem_units"]
+    min_pupil = options["rem_min_pupil"]
+    max_pupil = options["rem_max_pupil"]
+    max_pupil_sd = options["rem_max_pupil_sd"]
+    min_saccade_speed = options["rem_min_saccade_speed"]
+    min_saccades_per_minute = options["rem_min_saccades_per_minute"]
+    max_gap_s = options["rem_max_gap_s"]
+    min_episode_s = options["rem_min_episode_s"]
+    verbose = options["verbose"]
 
     #Load data.
-    load_params = {}
+    load_options = options.copy()
+    load_options["verbose"] = False
     if units == 'mm':
-        load_params['pupil_mm'] = True
+        load_options["pupil_mm"] = True
     elif units == 'norm_max':
         raise ValueError("TODO: support for norm pupil diam/speed by max")
-        load_params['norm_max'] = True
+        load_options['norm_max'] = True
 
-    load_params['rasterfs'] = rasterfs
-    pupil_size, _ = load_pupil_trace(pupilfilepath, **load_params)
+    load_options["pupil_eyespeed"] = False
+    pupil_size, _ = load_pupil_trace(pupilfilepath, exptevents, **load_options)
 
-    load_params['pupil_eyespeed'] = True
-    eye_speed, _ = load_pupil_trace(pupilfilepath, **load_params)
+    load_options["pupil_eyespeed"] = True
+    eye_speed, _ = load_pupil_trace(pupilfilepath, exptevents, **load_options)
 
     pupil_size = pupil_size[0,:]
     eye_speed = eye_speed[0,:]
@@ -665,7 +702,6 @@ def get_rem(pupilfilepath, **params):
     saccades = np.nan_to_num(eye_speed) > min_saccade_speed
     minute = np.ones(rasterfs*60)/(rasterfs*60)
     saccades_per_minute = np.convolve(saccades, minute, mode='same')
-
 
     #(3) To distinguish REM sleep from waking - since it seeems that ferrets
     #can sleep with their eyes open - look for periods when pupil is constricted
@@ -708,16 +744,6 @@ def get_rem(pupilfilepath, **params):
 
     is_rem = run_length_decode(rem_episodes)
 
-    params['rasterfs'] = rasterfs
-    params['units'] = units
-    params['min_pupil'] = min_pupil
-    params['max_pupil'] = max_pupil
-    params['max_pupil_sd'] = max_pupil_sd
-    params['min_saccade_speed'] = min_saccade_speed
-    params['min_saccades_per_minute'] = min_saccades_per_minute
-    params['max_gap_s'] = max_gap_s
-    params['min_episode_s'] = params.get('min_episode_s', 30)
-
     #Plot
     if verbose:
 
@@ -730,8 +756,15 @@ def get_rem(pupilfilepath, **params):
         rem_dur = np.array([t for is_rem,t in rem_episodes if is_rem])/(rasterfs*60)
 
         fig, ax = plt.subplots(4,1)
-        title_str = '{:s} \n {:d} REM episodes, mean duration: {:0.2f} minutes'.\
-            format(pupilfilepath, len(rem_dur), rem_dur.mean())
+        if len(rem_dur) == 0:
+            title_str = 'no REM episodes'
+        elif len(rem_dur) == 1:
+            title_str = '1 REM episode, duration: {:0.2f} minutes'.\
+                format(rem_dur[0])
+        else:
+            title_str = '{:d} REM episodes, mean duration: {:0.2f} minutes'.\
+                format(len(rem_dur), rem_dur.mean())
+        title_str = '{:s}\n{:s}'.format(pupilfilepath, title_str)
         fig.suptitle(title_str)
 
         ax[0].autoscale(axis='x', tight=True)
@@ -746,14 +779,14 @@ def get_rem(pupilfilepath, **params):
                 [min_saccades_per_minute, min_saccades_per_minute], 'k--')
         l0, = ax[1].plot(time_ax[is_rem.nonzero()], \
                    saccades_per_minute[is_rem.nonzero()], 'r.')
-        l1, = ax[1].plot(time_ax[is_brief_episode.nonzero()], \
-                         saccades_per_minute[is_brief_episode.nonzero()], 'y.')
-        l2, = ax[1].plot(time_ax[is_brief_gap.nonzero()], \
+        l1, = ax[1].plot(time_ax[is_brief_gap.nonzero()], \
                          saccades_per_minute[is_brief_gap.nonzero()], 'b.')
+        l2, = ax[1].plot(time_ax[is_brief_episode.nonzero()], \
+                         saccades_per_minute[is_brief_episode.nonzero()], 'y.')
         ax[1].set_ylabel('Saccades per minute')
 
         ax[0].legend((l0,l1,l2), \
-                     ('REM', 'Brief episodes (excluded)', 'Brief gaps (included)'), \
+                     ('REM', 'Brief gaps (included)', 'Brief episodes (excluded)'), \
                      frameon=False)
 
         ax[2].autoscale(axis='x', tight=True)
@@ -763,10 +796,10 @@ def get_rem(pupilfilepath, **params):
                 [max_pupil, max_pupil], 'k--')
         ax[2].plot(time_ax[is_rem.nonzero()], \
                 smooth_pupil_size[is_rem.nonzero()], 'r.')
-        ax[2].plot(time_ax[is_brief_episode.nonzero()], \
-                smooth_pupil_size[is_brief_episode.nonzero()], 'y.')
         ax[2].plot(time_ax[is_brief_gap.nonzero()], \
                 smooth_pupil_size[is_brief_gap.nonzero()], 'b.')
+        ax[2].plot(time_ax[is_brief_episode.nonzero()], \
+                smooth_pupil_size[is_brief_episode.nonzero()], 'y.')
         ax[2].set_ylabel('Pupil size')
 
         ax[3].autoscale(axis='x', tight=True)
@@ -775,16 +808,17 @@ def get_rem(pupilfilepath, **params):
                 [max_pupil_sd, max_pupil_sd], 'k--')
         ax[3].plot(time_ax[is_rem.nonzero()], \
                 pupil_sd[is_rem.nonzero()], 'r.')
-        ax[3].plot(time_ax[is_brief_episode.nonzero()], \
-                pupil_sd[is_brief_episode.nonzero()], 'y.')
         ax[3].plot(time_ax[is_brief_gap.nonzero()], \
                 pupil_sd[is_brief_gap.nonzero()], 'b.')
+        ax[3].plot(time_ax[is_brief_episode.nonzero()], \
+                pupil_sd[is_brief_episode.nonzero()], 'y.')
         ax[3].set_ylabel('Pupil SD')
         ax[3].set_xlabel('Time (min)')
 
         plt.show()
 
-    return is_rem, params
+    return is_rem, options
+
 
 def run_length_encode(a):
     """
@@ -795,7 +829,7 @@ def run_length_encode(a):
     the function will return:
         [(False, 1), (True, 3), (False, 2)]
 
-    ZPS 2018-09-24: Helper function for get_rem_trials.
+    ZPS 2018-09-24: Helper function for get_rem.
     """
     return [(k, len(list(g))) for k,g in groupby(a)]
 
@@ -803,8 +837,108 @@ def run_length_decode(a):
     """
     Reverses the operation performed by run_length_encode.
 
-    ZPS 2018-09-24: Helper function for get_rem_trials.
+    ZPS 2018-09-24: Helper function for get_rem.
     """
     a = [list(repeat(elem,n)) for (elem,n) in a]
     a = list(chain.from_iterable(a))
     return np.array(a)
+
+
+def cache_rem_options(pupilfilepath, cachepath=None, **options):
+
+    jsonfilepath = pupilfilepath.replace('.pup.mat', '.rem.json')
+    if cachepath is not None:
+        pp, bb = os.path.split(jsonfilepath)
+        jsonfilepath = os.path.join(cachepath, bb)
+
+    fh = open(jsonfilepath, 'w')
+    json.dump(options, fh)
+    fh.close()
+
+
+def load_rem_options(pupilfilepath, cachepath=None, **options):
+
+    jsonfilepath = pupilfilepath.replace('.pup.mat','.rem.json')
+    if cachepath is not None:
+        pp, bb = os.path.split(jsonfilepath)
+        jsonfilepath = os.path.join(cachepath, bb)
+
+    if os.path.exists(jsonfilepath):
+        fh = open(jsonfilepath, 'r')
+        options = json.load(fh)
+        fh.close()
+        return options
+    else:
+        raise ValueError("REM options file not found.")
+
+def baphy_pupil_uri(pupilfilepath, **options):
+    """
+    return uri to pupil signal file
+    if cache file doesn't exists, process the pupil data based on the contents
+    of the relevant pup.mat file (pupilfilepath) and save to cache file.
+    Then return cached filename.
+
+    Processing:
+        pull out pupil trace determined with specified algorithm
+        warp time to match trial times in baphy paramter file
+        extract REM trace if velocity signal exists
+
+    Cache file location currently hard-coded to:
+        /auto/data/nems_db/recordings/pupil/
+
+    """
+    #options['rasterfs']=100
+    #options['pupil_mm']=True
+    #options['pupil_median']=0.5
+    #options['pupil_deblink']=True
+    #options['units']='mm'
+    #options['verbose']=False
+
+    options = set_default_pupil_options(options)
+
+    cacheroot = "/auto/data/nems_db/recordings/pupil/"
+
+    pp, pupbb = os.path.split(pupilfilepath)
+    pp_animal, pen = os.path.split(pp)
+    pp_daq, animal = os.path.split(pp_animal)
+    cachebb = pupbb.replace(".pup.mat","")
+    cachepath = os.path.join(cacheroot, animal, )
+
+    parmfilepath = pupilfilepath.replace(".pup.mat",".m")
+    pp, bb = os.path.split(parmfilepath)
+
+    globalparams, exptparams, exptevents = baphy_parm_read(parmfilepath)
+    spkfilepath = pp + '/' + spk_subdir + re.sub(r"\.m$", ".spk.mat", bb)
+    log.info("Spike file: {0}".format(spkfilepath))
+    # load spike times
+    sortinfo, spikefs = baphy_load_spike_data_raw(spkfilepath)
+    # adjust spike and event times to be in seconds since experiment started
+
+    exptevents, spiketimes, unit_names = baphy_align_time(
+            exptevents, sortinfo, spikefs, options["rasterfs"])
+    print('Creating trial events')
+    tag_mask_start = "TRIALSTART"
+    tag_mask_stop = "TRIALSTOP"
+    ffstart = exptevents['name'].str.startswith(tag_mask_start)
+    ffstop = (exptevents['name'] == tag_mask_stop)
+    TrialCount = np.max(exptevents.loc[ffstart, 'Trial'])
+    event_times = pd.concat([exptevents.loc[ffstart, ['start']].reset_index(),
+                             exptevents.loc[ffstop, ['end']].reset_index()],
+                            axis=1)
+    event_times['name'] = "TRIAL"
+    event_times = event_times.drop(columns=['index'])
+
+    pupil_trace, ptrialidx = load_pupil_trace(pupilfilepath=pupilfilepath,
+                                   exptevents=exptevents, **options)
+
+    is_rem, options = get_rem(pupilfilepath=pupilfilepath,
+                              exptevents=exptevents, **options)
+
+    pupildata = np.stack([pupil_trace, is_rem], axis=1)
+    t_pupil = nems.signal.RasterizedSignal(
+            fs=options['rasterfs'], data=pupildata,
+            name='pupil', recording=cachebb, chans=['pupil', 'rem'],
+            epochs=event_times)
+
+
+    return pupil_trace, is_rem, options

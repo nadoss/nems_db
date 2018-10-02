@@ -81,6 +81,142 @@ def _get_db_uri():
 
 ###### Functions that access / manipulate the job queue. #######
 
+def enqueue_models_new(celllist, batch, modellist, force_rerun=False,
+                   user="nems", codeHash="master", jerbQuery='',
+                   executable_path=None, script_path=None,
+                   priority=1):
+    """Call enqueue_single_model for every combination of cellid and modelname
+    contained in the user's selections.
+
+    for each cellid in celllist and modelname in modellist, will create jobs
+    that execute this command on a cluster machine:
+
+    <executable_path> <script_path> <cellid> <batch> <modelname>
+
+    e.g.:
+    /home/nems/anaconda3/bin/python /home/nems/nems/fit_single_model.py \
+       TAR010c-18-1 271 ozgf100ch18_dlog_wcg18x1_stp1_fir1x15_lvl1_dexp1_basic
+
+    Arguments:
+    ----------
+    celllist : list
+        List of cellid selections made by user.
+    batch : string
+        batch number selected by user.
+    modellist : list
+        List of modelname selections made by user.
+    force_rerun : boolean (default=False)
+        If true, models will be fit even if a result already exists.
+        If false, models with existing results will be skipped.
+    user : string (default="nems")
+        Typically the login name of the user who owns the job
+    codeHash : string (default="master")
+        Git hash string identifying a commit for the specific version of the
+        code repository that should be used to run the model fit.
+        Can also accept the name of a branch.
+    jerbQuery : dict
+        Dict that will be used by 'jerb find' to locate matching jerbs
+    executable_path : string (defaults to nems' python3 executable)
+        Path to executable python (or other command line program)
+    script_path : string (defaults to nems' copy of nems/nems_fit_single.py)
+        First parameter to pass to executable
+
+    Returns:
+    --------
+    (queueids, messages) : list
+        Returns a tuple of the tQueue id and results message for each
+        job that was either updated in or added to the queue.
+
+    See Also:
+    ---------
+    Narf_Analysis : enqueue_models_callback
+
+    """
+
+    # some parameter values, mostly for backwards compatibility with other
+    # queueing approaches
+    if user:
+        user = user
+    else:
+        user = 'None'
+    linux_user = 'nems'
+    allowqueuemaster = 1
+    waitid = 0
+    parmstring = ''
+    rundataid = 0
+
+    engine = Engine()
+    conn = engine.connect()
+
+    if executable_path in [None, 'None', 'NONE', '']:
+        executable_path = get_setting('DEFAULT_EXEC_PATH')
+    if script_path in [None, 'None', 'NONE', '']:
+        script_path = get_setting('DEFAULT_SCRIPT_PATH')
+
+    # Convert to list of tuples b/c product object only useable once.
+    combined = [(c, b, m) for c, b, m in
+                itertools.product(celllist, [batch], modellist)]
+
+    notes = ['%s/%s/%s' % (c, b, m) for c, b, m in combined]
+    commandPrompts = ["%s %s %s %s %s" % (executable_path, script_path,
+                                          c, b, m)
+                      for c, b, m in combined]
+
+    queueids = []
+    messages = []
+    for note, commandPrompt in zip(notes, commandPrompts):
+        sql = 'SELECT * FROM tQueue WHERE note="' + note +'"'
+
+        r = conn.execute(sql)
+        if r.rowcount:
+            # existing job, figure out what to do with it
+
+            x=r.fetchone()
+            queueid = x['id']
+            complete = x['complete']
+            if force_rerun:
+                if complete == 1:
+                    message = "Resetting existing queue entry for: %s\n" % note
+                    sql = "UPDATE tQueue SET complete=0, killnow=0 WHERE id={}".format(queueid)
+                    r = conn.execute(sql)
+
+                elif complete == 2:
+                    message = "Dead queue entry for: %s exists, resetting.\n" % note
+                    sql = "UPDATE tQueue SET complete=0, killnow=0 WHERE id={}".format(queueid)
+                    r = conn.execute(sql)
+
+                else:  # complete in [-1, 0] -- already running or queued
+                    message = "Incomplete entry for: %s exists, skipping.\n" % note
+
+            else:
+
+                if complete == 1:
+                    message = "Completed entry for: %s exists, skipping.\n"  % note
+                elif complete == 2:
+                    message = "Dead entry for: %s exists, skipping.\n"  % note
+                else:  # complete in [-1, 0] -- already running or queued
+                    message = "Incomplete entry for: %s exists, skipping.\n" % note
+
+        else:
+            # new job
+            sql = "INSERT INTO tQueue (rundataid,progname,priority," +\
+                   "parmstring,allowqueuemaster,user," +\
+                   "linux_user,note,waitid,codehash,queuedate) VALUES"+\
+                   " ({},'{}',{}," +\
+                   "'{}',{},'{}'," +\
+                   "'{}','{}',{},'{}',NOW())"
+            sql = sql.format(rundataid, commandPrompt, priority, parmstring,
+                  allowqueuemaster, user, linux_user, note, waitid, codeHash)
+            r = conn.execute(sql)
+            queueid = r.lastrowid
+
+        queueids.append(queueid)
+        messages.append(message)
+
+    conn.close()
+
+    return zip(queueids, messages)
+
 
 def enqueue_models(celllist, batch, modellist, force_rerun=False,
                    user="nems", codeHash="master", jerbQuery='',
@@ -617,28 +753,35 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
     engine = Engine()
     # eg, sql="SELECT * from NarfData WHERE batch=301 and cellid="
     params = ()
-    sql = "SELECT * FROM NarfData WHERE 1"
+    sql = ("SELECT DISTINCT NarfData.*,sCellFile.goodtrials" +
+           " FROM NarfData LEFT JOIN sCellFile " +
+           " ON (NarfData.rawid=sCellFile.rawid " +
+           " AND NarfData.cellid=sCellFile.cellid)" +
+           " WHERE 1")
     if batch is not None:
-        sql += " AND batch=%s"
+        sql += " AND NarfData.batch=%s"
         params = params+(batch,)
 
     if cellid is not None:
-        sql += " AND cellid like %s"
+        sql += " AND NarfData.cellid like %s"
         params = params+(cellid+"%",)
 
     if rawid is not None:
-        sql += " AND rawid IN %s"
+        sql += " AND NarfData.rawid IN %s"
         rawid = tuple([str(i) for i in list(rawid)])
         params = params+(rawid,)
 
     if label is not None:
-        sql += " AND label like %s"
+        sql += " AND NarfData.label like %s"
         params = params + (label,)
-    sql += " ORDER BY filepath"
+    sql += " ORDER BY NarfData.filepath"
     print(sql)
     d = pd.read_sql(sql=sql, con=engine, params=params)
-    d.set_index(['cellid', 'groupid', 'label', 'rawid'], inplace=True)
-    d = d['filepath'].unstack('label')
+    if label == 'parm':
+        d['parm'] = d['filepath']
+    else:
+        d.set_index(['cellid', 'groupid', 'label', 'rawid', 'goodtrials'], inplace=True)
+        d = d['filepath'].unstack('label')
 
     return d
 
@@ -870,7 +1013,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
         cellids = list(cellids)
     else:
         pass
-    
+
     return cellids, list(rawid)
 
 
@@ -884,7 +1027,7 @@ def get_wft(cellid=None):
 
     d = pd.read_sql(sql=sql, con=engine, params=params)
     if d.values[0][0] is None:
-        print('no waveform type information for {0}'.format(cellid))
+        print('no meta_data information for {0}'.format(cellid))
         return -1
 
     wft = json.loads(d.values[0][0])
@@ -893,6 +1036,36 @@ def get_wft(cellid=None):
 
     return celltype
 
+
+def get_gSingleCell_meta(cellid=None, fields=None):
+
+    engine = Engine()
+    params = ()
+    sql = "SELECT meta_data FROM gSingleCell WHERE 1"
+
+    sql += " and cellid =%s"
+    params = params+(cellid,)
+
+    d = pd.read_sql(sql=sql, con=engine, params=params)
+    if d.values[0][0] is None:
+        print('no meta_data information for {0}'.format(cellid))
+        return -1
+    else:
+        dic = json.loads(d.values[0][0])
+        if type(fields) is list:
+            out = {}
+            for f in fields:
+                out[f] = dic[f]
+
+        elif type(fields) is str:
+            out = dic[fields]
+        elif fields is None:
+            out = {}
+            fields = dic.keys()
+            for f in fields:
+                out[f] = dic[f]
+
+        return out
 
 def get_rawid(cellid, run_num):
     """

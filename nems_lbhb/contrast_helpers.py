@@ -72,26 +72,40 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
         source_signal = source_signal.transform(fn)
         rec[source_name] = source_signal
 
-    array = source_signal.as_continuous().copy()
-
     if ms is not None:
         history = int((ms/1000)*source_signal.fs)
     elif bins is not None:
         history = int(bins)
     else:
         raise ValueError("Either ms or bins parameter must be specified.")
+    history = max(1,history)
     # TODO: Alternatively, base history length on some feature of signal?
     #       Like average length of some epoch ex 'TRIAL'
 
+    # SVD constrast is now std / mean in rolling window (duration ms),
+    # confined to each frequency channel
+    array = source_signal.as_continuous().copy()
     array[np.isnan(array)] = 0
-    filt = np.concatenate((np.zeros([1, max(2, history+1)]),
-                           np.ones([1, max(1, history)])), axis=1)
-    contrast = convolve2d(array, filt, mode='same')
+
+    #filt = np.ones([1, history]) / history
+    filt = np.concatenate((np.zeros([1, history+1]),
+                           np.ones([1, history])), axis=1) / history
+    mn = convolve2d(array, filt, mode='same')
+
+    var = convolve2d(array ** 2, filt, mode='same') - mn ** 2
+
+    contrast = np.sqrt(var) / (mn*.99 + mn.max()*0.01)
+
+    # old way, simply smooth amplitude of spectrogram
+    #filt = np.concatenate((np.zeros([1, max(2, history+1)]),
+    #                       np.ones([1, max(1, history)])), axis=1)
+    #contrast = convolve2d(array, filt, mode='same')
 
     if continuous:
         if normalize:
             # Map raw values to range 0 - 1
-            contrast /= np.max(np.abs(contrast), axis=0)
+            #contrast /= np.max(np.abs(contrast), axis=0)
+            contrast /= np.max(np.abs(contrast))
         rectified = contrast
 
     else:
@@ -237,6 +251,35 @@ def dynamic_sigmoid(rec, i, o, c, base, amplitude, shift, kappa,
         fn = lambda x: _logistic_sigmoid(x, b, a, s, k)
 
     return [rec[i].transform(fn, o)]
+
+
+def add_gc_signal(rec, modelspec, name='GC'):
+
+    modelspec = copy.deepcopy(modelspec)
+    rec = copy.deepcopy(rec)
+
+    dsig_idx = find_module('dynamic_sigmoid', modelspec)
+#    if dsig_idx is None:
+#        log.warning("No dsig module was found, can't add GC signal.")
+#        return rec
+
+    phi = modelspec[dsig_idx]['phi']
+    phi.update(modelspec[dsig_idx]['fn_kwargs'])
+    pred = rec['pred'].as_continuous()
+    b = phi['base'] + pred*phi['base_mod']
+    a = phi['amplitude'] + pred*phi['amplitude_mod']
+    s = phi['shift'] + pred*phi['shift_mod']
+    k = phi['kappa'] + pred*phi['kappa_mod']
+    array = np.squeeze(np.stack([b, a, s, k], axis=0))
+
+
+    fs = rec['stim'].fs
+    signal = nems.signal.RasterizedSignal(
+            fs, array, name, rec['stim'].recording,
+            chans=['B', 'A', 'S', 'K'], epochs=rec['stim'].epochs)
+    rec[name] = signal
+
+    return rec
 
 
 def init_dsig(rec, modelspec):

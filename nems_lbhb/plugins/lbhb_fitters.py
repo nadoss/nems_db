@@ -1,6 +1,25 @@
+import re
+
 from nems.plugins.default_fitters import basic
 from nems.plugins.default_fitters import iter
 from nems.utils import escaped_split
+
+
+def lnp(fitkey):
+    ops = fitkey.split('.')[1:]
+    kwargs = {}
+    for op in ops:
+        if op.startswith('t'):
+            # Should use \ to escape going forward, but keep d-sub in
+            # for backwards compatibility.
+            num = op.replace('d', '.').replace('\\', '')
+            tolpower = float(num[1:])*(-1)
+            kwargs['tolerance'] = 10**tolpower
+        elif op.startswith('mi'):
+            pattern = re.compile(r'^mi(\d{1,})')
+            kwargs['max_iter'] = int(re.match(pattern, op).group(1))
+
+    return [['nems_lbhb.lnp_helpers.lnp_basic', kwargs]]
 
 
 def strfct(fitkey):
