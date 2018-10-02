@@ -63,7 +63,7 @@ def get_model_results(batch=307, state_list=None,
             gain = modelspec[0]['phi']['g']
             for j, sc in enumerate(state_chans):
                 r = {'cellid': c, 'state_sig': state_list[mod_i],
-                     'state_chan': sc, 'modelname': modelname,
+                     'state_chan': sc, 'modelname': m,
                      'g': gain[0,j], 'd': dc[0,j],
                      'MI': state_mod[j],
                      'r': meta['r_test'][0], 'r_se': meta['se_test'][0]}
