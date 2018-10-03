@@ -674,6 +674,8 @@ def get_rem(pupilfilepath, exptevents=None, **options):
     load_options["verbose"] = False
     if units == 'mm':
         load_options["pupil_mm"] = True
+    elif units == "px":
+        load_options["pupil_mm"] = False
     elif units == 'norm_max':
         raise ValueError("TODO: support for norm pupil diam/speed by max")
         load_options['norm_max'] = True
