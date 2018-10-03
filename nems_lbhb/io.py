@@ -368,7 +368,7 @@ def set_default_pupil_options(options):
     options["pupil_derivative"] = options.get('pupil_derivative', '')
     options["pupil_mm"] = options.get('pupil_mm', False)
     options["pupil_eyespeed"] = options.get('pupil_eyespeed', False)
-    options["rem_units"] = options.get('units', 'mm')
+    options["rem_units"] = options.get('rem_units', 'mm')
     options["rem_min_pupil"] = options.get('rem_min_pupil', 0.2)
     options["rem_max_pupil"] = options.get('rem_max_pupil', 1)
     options["rem_max_pupil_sd"] = options.get('rem_max_pupil_sd', 0.05)
