@@ -28,3 +28,15 @@ for recording in pupilfilepaths:
         get_rem(recording, **load_rem_options(recording))
     except ValueError:
         continue
+
+#To review the REM parameters for the batch:
+rem_options = []
+for recording in pupilfilepaths:
+    try:
+        options = load_rem_options(recording)
+        options["recording"] = basename(recording)
+        rem_options.append(options)
+    except ValueError:
+        continue
+rem_options = pd.DataFrame(rem_options)
+rem_options.set_index('recording')
