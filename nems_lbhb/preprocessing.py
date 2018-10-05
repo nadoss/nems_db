@@ -31,11 +31,14 @@ def append_difficulty(rec, **kwargs):
 
 def mask_high_repetion_stims(rec,epoch_regex='^STIM_'):
     full_rec = rec.copy()
-    stims = (full_rec.epochs['name'].value_counts() > 9)
+    stims = (full_rec.epochs['name'].value_counts() >= 8)
     stims = [stims.index[i] for i, s in enumerate(stims) if bool(re.search(epoch_regex, stims.index[i])) and s == True]
+    if len(stims) == 0:
+        raise ValueError("Fewer than min reps found for all stim")
+        max_counts = full_rec.epochs['name'].value_counts().max()
+        stims = (full_rec.epochs['name'].value_counts() >= max_counts)
     full_rec = full_rec.or_mask(stims)
-    #full_rec = full_rec.apply_mask()
-    #full_rec = full_rec.and_mask(['REFERENCE'])
+
     return full_rec
 
 

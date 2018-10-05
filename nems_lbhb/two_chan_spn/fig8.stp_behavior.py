@@ -31,8 +31,8 @@ save_fig = False
 plt.close('all')
 
 # figure 8
-#batch = 274
-batch = 275
+batch = 274
+#batch = 275
 
 if 1:
     # standard nMSE, tol 10e-7

@@ -4,6 +4,7 @@
 import pandas as pd
 import nems_db.db as nd
 from nems_lbhb.io import get_rem, cache_rem_options, load_rem_options
+from os.path import basename
 
 #Load the file paths for pupil data.
 batch_cell_data = nd.get_batch_cell_data(batch=289)
@@ -28,3 +29,15 @@ for recording in pupilfilepaths:
         get_rem(recording, **load_rem_options(recording))
     except ValueError:
         continue
+
+#To review the REM parameters for the batch:
+rem_options = []
+for recording in pupilfilepaths:
+    try:
+        options = load_rem_options(recording)
+        options["recording"] = basename(recording)
+        rem_options.append(options)
+    except ValueError:
+        continue
+rem_options = pd.DataFrame(rem_options)
+rem_options.set_index('recording')
