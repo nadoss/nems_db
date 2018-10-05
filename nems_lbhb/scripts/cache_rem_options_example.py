@@ -4,6 +4,7 @@
 import pandas as pd
 import nems_db.db as nd
 from nems_lbhb.io import get_rem, cache_rem_options, load_rem_options
+from os.path import basename
 
 #Load the file paths for pupil data.
 batch_cell_data = nd.get_batch_cell_data(batch=289)

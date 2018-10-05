@@ -171,7 +171,7 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
     w, p = ss.wilcoxon(u_mtx[show_units, 0], u_mtx[show_units, 1])
     plt.ylim(u_bounds)
     plt.ylabel('u')
-    plt.xlabel('{} {:.3f} - {} {:.3f} - rat {:.3f} - p<{:.5f}'.format(
+    plt.xlabel('{} {:.3f} - {} {:.3f} - rat {:.3f} - p={:.1e}'.format(
                 xstr, umean[0], ystr, umean[1], umean[1]/umean[0], p))
     lplt.ax_remove_box(ax)
 
@@ -185,7 +185,7 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
     w, p = ss.wilcoxon(tau_mtx[show_units, 0], tau_mtx[show_units, 1])
     plt.ylim((-np.sqrt(np.abs(tau_bounds[0])), np.sqrt(tau_bounds[1])))
     plt.ylabel('sqrt(tau)')
-    plt.xlabel('E {:.3f} - I {:.3f} - rat {:.3f} - p<{:.5f}'.format(
+    plt.xlabel('E {:.3f} - I {:.3f} - rat {:.3f} - p={:.1e}'.format(
             taumean[0], taumean[1], taumean[1]/taumean[0], p))
     lplt.ax_remove_box(ax)
 
@@ -199,7 +199,7 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
     w, p = ss.wilcoxon(str_mtx[show_units, 0], str_mtx[show_units, 1])
     plt.ylim(str_bounds)
     plt.ylabel('STP str')
-    plt.xlabel('E {:.3f} - I {:.3f} - rat {:.3f} - p<{:.5f}'.format(
+    plt.xlabel('E {:.3f} - I {:.3f} - rat {:.3f} - p={:.1e}'.format(
             strmean[0], strmean[1], strmean[1]/strmean[0], p))
     lplt.ax_remove_box(ax)
 
@@ -210,11 +210,11 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
 
 # start main code
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
-save_fig = True
+save_fig = False
 if save_fig:
     plt.close('all')
 
-if 0:
+if 1:
     # figure 6, SPN
     batch = 259
     #modelname="env100_dlog_stp2_fir2x15_lvl1_dexp1_basic"

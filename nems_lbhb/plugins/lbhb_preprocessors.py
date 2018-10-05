@@ -125,6 +125,8 @@ def st(loadkey, recording_uri):
             this_sig = ['far']
         elif l.startswith('hit'):
             this_sig = ['hit']
+        elif l.startswith('rem'):
+            this_sig = ['rem']
         else:
             raise ValueError("unknown signal code %s for state variable initializer", l)
 
@@ -144,11 +146,11 @@ def mod(loadkey, recording_uri):
     Make a signal called "mod". Basically the residual resp (resp - psth) offset
     such that the min is 0 and the max is max(resp - psth + offset)
     """
-    
+
     pattern = re.compile(r'^mod\.([a-zA-Z0-9\.]*)$')
     parsed = re.match(pattern, loadkey)
     op = parsed.group(1)
-    
+
     if op == 'r':
         sig = 'resp'
     elif op == 'p':
@@ -156,10 +158,10 @@ def mod(loadkey, recording_uri):
 
     xfspec = [['nems.xforms.make_mod_signal',
                {'signal': sig}, ['rec'], ['rec']]]
-    
+
     return xfspec
 
-    
+
 def contrast(loadkey):
     ops = loadkey.split('.')[1:]
     kwargs = {}

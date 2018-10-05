@@ -12,6 +12,7 @@ from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.automap import automap_base
 import pandas.io.sql as psql
+import sqlite3
 
 import nems_db.util
 from nems_db import get_setting
@@ -66,6 +67,40 @@ def Tables():
     return tables
 
 
+def sqlite_test():
+
+    creds = nems_db.util.ensure_env_vars(['NEMS_RECORDINGS_DIR'])
+    dbfilepath = os.path.join(creds['NEMS_RECORDINGS_DIR'],'nems.db')
+
+    conn = sqlite3.connect(dbfilepath)
+    sql = "SELECT name FROM sqlite_master WHERE type='table' and name like 'Narf%'"
+    r = conn.execute(sql)
+    d = r.fetchone()
+
+    if d is None:
+        print("Tables missing, need to reinitialize database?")
+
+        print("Creating db")
+        scriptfilename = '/auto/users/svd/python/nems_db/nems_db/nems.db.sqlite.sql'
+        cursor = conn.cursor()
+
+        print("Reading Script...")
+        scriptFile = open(scriptfilename, 'r')
+        script = scriptFile.read()
+        scriptFile.close()
+
+        print("Running Script...")
+        cursor.executescript(script)
+
+        conn.commit()
+        print("Changes successfully committed")
+
+    conn.close()
+
+    return 1
+
+
+
 def _get_db_uri():
     '''Used by Engine() to establish a connection to the database.'''
     creds = nems_db.util.ensure_env_vars(
@@ -77,6 +112,26 @@ def _get_db_uri():
             creds['MYSQL_PORT'], creds['MYSQL_DB']
             )
     return db_uri
+
+
+def pd_query(sql=None, params=()):
+    """
+    execture an SQL command and return the results in a dataframe
+    params:
+        sql: string
+            query to execute
+
+    TODO : sqlite compatibility?
+    """
+
+    if sql is None:
+        raise ValueError ("parameter sql required")
+    engine = Engine()
+    print(sql)
+    print(params)
+    d = pd.read_sql(sql=sql, con=engine, params=params)
+
+    return d
 
 
 ###### Functions that access / manipulate the job queue. #######
@@ -515,7 +570,14 @@ def update_job_tick(queueid=None):
     return r
 
 
+#### Results / performance logging
+
 def save_results(stack, preview_file, queueid=None):
+    """
+    save performance data from modelspec to NarfResults
+    pull some information out of the queue table if queueid provided
+    """
+
     session = Session()
     db_tables = Tables()
     tQueue = db_tables['tQueue']
@@ -539,33 +601,14 @@ def save_results(stack, preview_file, queueid=None):
         username = ''
         labgroup = 'SPECIAL_NONE_FLAG'
 
-    results_id = update_results_table(stack, preview_file, username, labgroup)
+    results_id = _update_results_table(stack, preview_file, username, labgroup)
 
     session.close()
 
     return results_id
 
 
-#########    Start new nems functions here
-
-def pd_query(sql=None, params=()):
-    """
-    execture an SQL command and return the results in a dataframe
-    params:
-        sql: string
-            query to execute
-    """
-
-    if sql is None:
-        raise ValueError ("parameter sql required")
-    engine = Engine()
-    print(sql)
-    print(params)
-    d = pd.read_sql(sql=sql, con=engine, params=params)
-
-    return d
-
-def update_results_table(modelspec, preview=None,
+def _update_results_table(modelspec, preview=None,
                          username="svd", labgroup="lbhb"):
     db_tables = Tables()
     NarfResults = db_tables['NarfResults']

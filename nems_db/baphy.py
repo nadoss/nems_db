@@ -23,6 +23,7 @@ import copy
 
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy.signal import resample
 import nems.signal
 import nems.recording
 import nems_db.db as db
@@ -30,7 +31,7 @@ from nems.recording import Recording
 from nems.recording import load_recording
 from nems.utils import recording_filename_hash
 from nems_lbhb.io import (baphy_parm_read, baphy_align_time, load_pupil_trace,
-                          get_rem)
+                          get_rem, load_rem_options)
 
 # TODO: Replace catch-all `except:` statements with except SpecificError,
 #       or add some other way to help with debugging them.
@@ -247,7 +248,7 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
                     ff = (st[0, :] == trialidx)
                     this_spike_events = (st[1, ff]
                                          + Offset_spikefs[np.int(trialidx-1)])
-                    if (comment != []):
+                    if len(comment) > 0:
                         if comment == 'PC-cluster sorted by mespca.m':
                             # remove last spike, which is stray
                             this_spike_events = this_spike_events[:-1]
@@ -406,10 +407,18 @@ def baphy_load_data(parmfilepath, **options):
 
         except ValueError:
             raise ValueError("Error loading pupil data: " + pupilfilepath)
-    if options['rem']:
-        is_rem, options = get_rem(pupilfilepath=pupilfilepath,
-                          exptevents=exptevents, **options)
 
+    if options['rem']:
+        rem_options = load_rem_options(pupilfilepath)
+        #rem_options['rasterfs'] = options['rasterfs']
+        is_rem, rem_options = get_rem(pupilfilepath=pupilfilepath,
+                          exptevents=exptevents, **rem_options)
+        is_rem = is_rem.astype(float)
+        new_len = int(len(is_rem) * options['rasterfs'] / rem_options['rasterfs'])
+        is_rem = resample(is_rem, new_len)
+        is_rem[is_rem>0.01] = 1
+        is_rem[is_rem<=0.01] = 0
+        state_dict['rem'] = is_rem
 
     return (exptevents, stim, spike_dict, state_dict,
             tags, stimparam, exptparams)
@@ -1070,11 +1079,6 @@ def baphy_load_recording(**options):
                 d2['name'] = 'POST_PASSIVE'
                 event_times = event_times.append(d2)
 
-        # OLD generate spike raster - don't need to do this b/c we're saving
-        # spike times now.
-        # raster_all, cellids = spike_time_to_raster(
-        #       spike_dict,fs=options['rasterfs'],event_times=event_times)
-
         # generate response signal
         t_resp = nems.signal.PointProcess(
                 fs=options['rasterfs'], data=spike_dict,
@@ -1114,6 +1118,34 @@ def baphy_load_recording(**options):
             else:
                 pupil = pupil.concatenate_time([pupil, t_pupil])
 
+        if options['rem']:
+
+            # create pupil signal if it exists
+            rlen = int(t_resp.ntimes)
+            plen = state_dict['rem'].shape[0]
+
+            if plen > rlen:
+                state_dict['rem'] = \
+                    state_dict['rem'][0:-(plen-rlen)]
+            elif rlen > plen:
+                state_dict['rem'] = \
+                    np.append(state_dict['rem'],
+                              np.ones(rlen - plen) * np.nan,
+                              axis=0)
+            print(np.nansum(state_dict['rem']))
+            # generate pupil signals
+            t_rem = nems.signal.RasterizedSignal(
+                    fs=options['rasterfs'],
+                    data=np.reshape(state_dict['rem'],[1,-1]),
+                    name='rem', recording=rec_name, chans=['rem'],
+                    epochs=event_times)
+
+            if i == 0:
+                rem = t_rem
+            else:
+                rem = rem.concatenate_time([rem, t_rem])
+            print(np.nansum(rem.as_continuous()))
+
         if options['stim']:
             # accumulate dictionaries
             # CRH replaced cellid w/ site (for when cellid is list)
@@ -1140,6 +1172,8 @@ def baphy_load_recording(**options):
 
     if options['pupil']:
         signals['pupil'] = pupil
+    if options['rem']:
+        signals['rem'] = rem
     if options['stim']:
         signals['stim'] = stim
 

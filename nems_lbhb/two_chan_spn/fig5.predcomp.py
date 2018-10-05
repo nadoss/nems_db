@@ -30,7 +30,7 @@ if save_fig:
 
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
 
-if 0:
+if 1:
     batch = 259
     modelnames=["env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic",
                 "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-stp.1-dexp.1_init-basic",
