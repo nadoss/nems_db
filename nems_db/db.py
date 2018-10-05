@@ -136,7 +136,7 @@ def pd_query(sql=None, params=()):
 
 ###### Functions that access / manipulate the job queue. #######
 
-def enqueue_models_new(celllist, batch, modellist, force_rerun=False,
+def enqueue_models(celllist, batch, modellist, force_rerun=False,
                    user="nems", codeHash="master", jerbQuery='',
                    executable_path=None, script_path=None,
                    priority=1):
@@ -264,6 +264,7 @@ def enqueue_models_new(celllist, batch, modellist, force_rerun=False,
                   allowqueuemaster, user, linux_user, note, waitid, codeHash)
             r = conn.execute(sql)
             queueid = r.lastrowid
+            message = "Added new entry for: %s.\n"  % note
 
         queueids.append(queueid)
         messages.append(message)
@@ -273,7 +274,7 @@ def enqueue_models_new(celllist, batch, modellist, force_rerun=False,
     return zip(queueids, messages)
 
 
-def enqueue_models(celllist, batch, modellist, force_rerun=False,
+def enqueue_models_old(celllist, batch, modellist, force_rerun=False,
                    user="nems", codeHash="master", jerbQuery='',
                    executable_path=None, script_path=None):
     """Call enqueue_single_model for every combination of cellid and modelname
