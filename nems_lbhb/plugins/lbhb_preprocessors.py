@@ -181,6 +181,8 @@ def contrast(loadkey):
             kwargs['dlog'] = True
         elif op == 'cont':
             kwargs['continuous'] = True
+        elif op.startswith('b'):
+            kwargs['bands'] = int(op[1:])
 
     return [['nems_lbhb.contrast_helpers.add_contrast', kwargs]]
 
