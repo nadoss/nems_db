@@ -219,28 +219,25 @@ def dynamic_sigmoid(rec, i, o, c, base, amplitude, shift, kappa,
         amplitude_mod = np.nan
         shift_mod = np.nan
         kappa_mod = np.nan
+        contrast = 0
     else:
         contrast = rec[c].as_continuous()
 
     if np.isnan(base_mod):
-        b = base
-    else:
-        b = base + (base_mod - base)*contrast
+        base_mod = base
+    b = base + (base_mod - base)*contrast
 
     if np.isnan(amplitude_mod):
-        a = amplitude
-    else:
-        a = amplitude + (amplitude_mod - amplitude)*contrast
+        amplitude_mod = amplitude
+    a = amplitude + (amplitude_mod - amplitude)*contrast
 
     if np.isnan(shift_mod):
-        s = shift
-    else:
-        s = shift + (shift_mod - shift)*contrast
+        shift_mod = shift
+    s = shift + (shift_mod - shift)*contrast
 
     if np.isnan(kappa_mod):
-        k = kappa
-    else:
-        k = kappa + (kappa_mod - kappa)*contrast
+        kappa_mod = kappa
+    k = kappa + (kappa_mod - kappa)*contrast
 
     if eq.lower() in ['logsig', 'logistic_sigmoid', 'l']:
         fn = lambda x: _logistic_sigmoid(x, b, a, s, k)

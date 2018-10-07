@@ -49,12 +49,6 @@ stp_win1 = 'TAR010c-58-2'
 stp_win2 = 'BRT033b-12-4'
 ln_win = 'TAR010c-15-4'
 
-# old models for testing
-#gc_model_full = ("ozgf.fs100.ch18-ld-contrast.ms250-sev_"
-#                "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
-#                "ctwc.18x2.g-ctfir.2x15-ctlvl.1-dsig.l_"
-#                "init.c.t3-basic")
-
 # TODO: make loaded params DFs global as well to save time.
 #       Can also maybe do this with some of the loaded xfspec, ctx tuples
 #       (but not for average_r since that needs the entire batch)
@@ -87,7 +81,7 @@ def performance_scatters(display=True):
 
 
 def performance_correlation_scatter():
-    df1 = fitted_params_per_batch(batch, gc_model_full, stats_keys=[])
+    df1 = fitted_params_per_batch(batch, gc_model_cont, stats_keys=[])
     df2 = fitted_params_per_batch(batch, stp_model, stats_keys=[])
     df3 = fitted_params_per_batch(batch, ln_model, stats_keys=[])
 
