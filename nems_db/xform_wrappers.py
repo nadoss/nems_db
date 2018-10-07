@@ -144,7 +144,7 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
         parsed = re.match(pattern, loader)
         fs = parsed.group(1)
         pupil = ('pup' in loadkey)
-        rem = ('rem' in ops)
+        rem = ('rem' in loadkey)
 
         options.update(_parm_helper(fs, pupil))
 
