@@ -79,108 +79,126 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
     in nems.xform_helper
     """
 
-    # TODO: A lot of the parsing is copy-pasted from nems_lbhb/loaders/,
-    #       need to figure out which role goes where and delete the
-    #       repeated code.
-
-    def _parm_helper(fs, pupil, eye_speed =False, rem=False):
-        options = {'rasterfs': fs, 'stimfmt': 'parm',
-                   'chancount': 0, 'stim': False}
-
-        if pupil:
-            options.update({'pupil': True, 'pupil_deblink': True,
-                            'pupil_deblink_dur': 1,
-                            'pupil_median': 0})
-        else:
-            options['pupil'] = False
-
-        if rem:
-            options['rem'] = True
-        
-        if eye_speed:
-            options['pupil_eyespeed'] = True
-
-        return options
+#    def _parm_helper(fs, ops=[]):
+#        options = {'rasterfs': fs, 'stimfmt': 'parm',
+#                   'chancount': 0, 'stim': False}
+#
+#        if 'pup' in ops:
+#            options.update({'pupil': True, 'pupil_deblink': True,
+#                            'pupil_deblink_dur': 1,
+#                            'pupil_median': 0})
+#        else:
+#            options['pupil'] = False
+#
+#        if 'rem' in ops:
+#            options['rem'] = True
+#        
+#        if 'eysp' in ops:
+#            options['pupil_eyespeed'] = True
+#
+#        return options
 
     # remove any preprocessing keywords in the loader string.
     loader = nems.utils.escaped_split(loadkey, '-')[0]
     log.info('loader=%s',loader)
+    
+    ops = loader.split(".")
+    
+    # some defaults
+    options = {'rasterfs': 100, 'chancount': 0}
 
-    if loader.startswith('ozgf'):
-        pattern = re.compile(r'^ozgf\.fs(\d{1,})\.ch(\d{1,})([a-zA-Z\.]*)$')
-        parsed = re.match(pattern, loader)
-        # TODO: fs and chans useful for anything for the loader? They don't
-        #       seem to be used here, only in the baphy-specific stuff.
-        fs = int(parsed.group(1))
-        chans = int(parsed.group(2))
-        ops = parsed.group(3)
-        pupil = ('pup' in ops) if ops is not None else False
-
-        options = {'rasterfs': fs, 'includeprestim': True,
-                   'stimfmt': 'ozgf', 'chancount': chans}
-
-        if pupil:
-            options.update({'pupil': True, 'stim': True, 'pupil_deblink': True,
-                            'pupil_median': 0.5})
-
-    elif loader.startswith('nostim'):
-        raise(DeprecationWarning)
-        pattern = re.compile(r'^nostim\.fs(\d{1,})([a-zA-Z\.]*)?$')
-        parsed = re.match(pattern, loader)
-        fs = parsed.group(1)
-        ops = parsed.group(2)
-        pupil = ('pup' in ops)
-
-    elif loader.startswith('parm'):
-        pattern = re.compile(r'^parm\.fs(\d{1,})([a-zA-Z\.]*)?$')
-        parsed = re.match(pattern, loader)
-        fs = parsed.group(1)
-        ops = parsed.group(2)
-        pupil = ('pup' in ops)
-
-        options.update(_parm_helper(fs, pupil))
-        options['stimfmt'] = 'parm'
-        options['stim'] = True
-
-    elif loader.startswith('ns'):
-        pattern = re.compile(r'^ns\.fs(\d{1,})')
-        parsed = re.match(pattern, loader)
-        fs = parsed.group(1)
-        pupil = ('pup' in loadkey)
-        eye_speed = ('eysp' in loadkey)
-        rem = ('rem' in loadkey)
-
-        options.update(_parm_helper(fs, pupil, eye_speed))
-
-    elif loader.startswith('psth'):
-        pattern = re.compile(r'^psth\.fs(\d{1,})([a-zA-Z0-9\.]*)?$')
-        parsed = re.match(pattern, loader)
-        fs = parsed.group(1)
-        ops = parsed.group(2)
-        pupil = ('pup' in ops)
-        rem = ('rem' in ops)
-
-        options.update(_parm_helper(fs, pupil, rem))
-
-    elif loader.startswith('evt'):
-        pattern = re.compile(r'^evt\.fs(\d{1,})([a-zA-Z0-9\.]*)?$')
-        parsed = re.match(pattern, loader)
-        fs = parsed.group(1)
-        ops = parsed.group(2)
-        pupil = ('pup' in ops)
-
-        options.update(_parm_helper(fs, pupil))
-
-    elif loader.startswith('env'):
-        pattern = re.compile(r'^env\.fs(\d{1,})([a-zA-Z0-9\.]*)$')
-        parsed = re.match(pattern, loader)
-        fs = parsed.group(1)
-        ops = parsed.group(2)  # nothing relevant here yet?
-
-        options.update({'rasterfs': fs, 'stimfmt': 'envelope', 'chancount': 0})
-
-    else:
-        raise ValueError('unknown loader string: %s' % loader)
+    for op in ops:
+        if op=='ozgf':
+            options['stimfmt'] = 'ozgf'
+        elif op=='parm':
+            options['stimfmt'] = 'parm'
+        elif op=='env':
+            options['stimfmt'] = 'envelope'
+        elif op in ['nostim','psth','ns', 'evt']:
+            options.update({'stim': False, 'stimfmt': 'parm'})
+            
+        elif op.startswith('fs'):
+            options['rasterfs'] = int(op[2:])
+        elif op.startswith('ch'):
+            options['chancount'] = int(op[2:])
+            
+        elif op=='pup':
+            options.update({'pupil': True, 'pupil_deblink': True,
+                            'pupil_deblink_dur': 1,
+                            'pupil_median': 0})
+        elif op=='rem':
+            options['rem'] = True
+    
+        elif 'eysp' in ops:
+            options['pupil_eyespeed'] = True
+            
+    if 'stimfmt' not in options.keys():
+        raise ValueError('Valid stim format (ozgf, psth, parm, env, evt) not specified in loader='+loader)
+    if (options['stimfmt']=='ozgf') and (options['chancount'] <= 0):
+        raise ValueError('Stim format ozgf requires chancount>0 (.chNN) in loader='+loader)
+#    if loader.startswith('ozgf'):
+#        pattern = re.compile(r'^ozgf\.fs(\d{1,})\.ch(\d{1,})([a-zA-Z\.]*)$')
+#        parsed = re.match(pattern, loader)
+#        fs = int(parsed.group(1))
+#        chans = int(parsed.group(2))
+#        ops = parsed.group(3)
+#
+#        options = {'rasterfs': fs, 'includeprestim': True,
+#                   'stimfmt': 'ozgf', 'chancount': chans}
+#
+#    elif loader.startswith('nostim'):
+#        raise(DeprecationWarning)
+#        pattern = re.compile(r'^nostim\.fs(\d{1,})([a-zA-Z\.]*)?$')
+#        parsed = re.match(pattern, loader)
+#        fs = parsed.group(1)
+#        ops = parsed.group(2)
+#        options = {'rasterfs': fs, 'stimfmt': 'parm',
+#                   'chancount': 0, 'stim': False}
+#
+#    elif loader.startswith('parm'):
+#        pattern = re.compile(r'^parm\.fs(\d{1,})([a-zA-Z\.]*)?$')
+#        parsed = re.match(pattern, loader)
+#        fs = parsed.group(1)
+#        ops = parsed.group(2)
+#
+#        options = {'rasterfs': fs, 'stimfmt': 'parm',
+#                   'chancount': 0, 'stim': True}
+#
+#    elif loader.startswith('ns'):
+#        pattern = re.compile(r'^ns\.fs(\d{1,})([a-zA-Z\.]*)?$')
+#        parsed = re.match(pattern, loader)
+#        fs = parsed.group(1)
+#        ops = parsed.group(2)
+#        options = {'rasterfs': fs, 'stimfmt': 'parm',
+#                   'chancount': 0, 'stim': False}
+#
+#    elif loader.startswith('psth'):
+#        pattern = re.compile(r'^psth\.fs(\d{1,})([a-zA-Z0-9\.]*)?$')
+#        parsed = re.match(pattern, loader)
+#        fs = parsed.group(1)
+#        ops = parsed.group(2)
+#
+#        options = {'rasterfs': fs, 'stimfmt': 'parm',
+#                   'chancount': 0, 'stim': False}
+#
+#    elif loader.startswith('evt'):
+#        pattern = re.compile(r'^evt\.fs(\d{1,})([a-zA-Z0-9\.]*)?$')
+#        parsed = re.match(pattern, loader)
+#        fs = parsed.group(1)
+#        ops = parsed.group(2)
+# 
+#        options = {'rasterfs': fs, 'stimfmt': 'parm',
+#                   'chancount': 0, 'stim': False}
+#
+#    elif loader.startswith('env'):
+#        pattern = re.compile(r'^env\.fs(\d{1,})([a-zA-Z0-9\.]*)$')
+#        parsed = re.match(pattern, loader)
+#        fs = parsed.group(1)
+#        ops = parsed.group(2)  # nothing relevant here yet?
+#
+#        options.update({'rasterfs': fs, 'stimfmt': 'envelope', 'chancount': 0})
+#    else:
+#        raise ValueError('unknown loader string: %s' % loader)
 
     if int(batch) == 294:
         options["runclass"] = "VOC"
@@ -196,24 +214,8 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
     options["batch"] = batch
     options["cellid"] = cellid
+    
     recording_uri = nb.baphy_load_recording_uri(**options)
-
-#    if 'ldb' in loadkey:
-#        import pdb
-#        pdb.set_trace()
-#        # check for run_num specifier
-#        if len(cellid.split('_'))>1:
-#            run_num = cellid.split('_')[-1]
-#            cellid = cellid.split('_')[0]
-#            options['rawid'] = nd.get_rawid(cellid, run_num)
-#
-#        options["batch"] = batch
-#        options["cellid"] = cellid
-#        recording_uri = nb.baphy_load_recording_uri(**options)
-#
-#    else:
-#        recording_uri = get_recording_file(cellid, batch, options)
-#        #recording_uri = get_recording_uri(cellid, batch, options)
 
     return recording_uri
 
