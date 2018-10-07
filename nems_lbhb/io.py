@@ -398,6 +398,7 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     pupil_mm = options["pupil_mm"]
     pupil_eyespeed = options["pupil_eyespeed"]
     verbose = options["verbose"]
+    options['pupil'] = options.get('pupil', True)
     #rasterfs = options.get('rasterfs', 100)
     #pupil_offset = options.get('pupil_offset', 0.75)
     #pupil_deblink = options.get('pupil_deblink', True)
@@ -556,29 +557,36 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     duration = np.diff(timestamp) * 24*60*60
     frame_count = np.diff(firstframe)
 
-    # warp/resample each trial to compensate for dropped frames
-    strialidx = np.zeros([ntrials + 1])
-    big_rs = np.array([])
-    all_fs = np.empty([ntrials])
-
+    
     if pupil_eyespeed & options['pupil']:
         l = ['pupil', 'pupil_eyespeed']
     elif pupil_eyespeed:
         l = ['pupil_eyespeed']
     elif options['pupil']:
         l = ['pupil']
-    big_rs_list = []
+    
+    big_rs_dict = {}
     
     for signal in l:
-        if l == 'pupil_eyespeed':
+        if signal == 'pupil_eyespeed':
             pupil_eyespeed = True
         else:
             pupil_eyespeed = False
             
+        # warp/resample each trial to compensate for dropped frames
+        strialidx = np.zeros([ntrials + 1])
+        big_rs = np.array([])
+        all_fs = np.empty([ntrials])
+            
         for ii in range(0, ntrials):
-            d = returned_measurement[
-                    int(firstframe[ii]):int(firstframe[ii]+frame_count[ii]), 0
-                    ]
+            if signal == 'pupil_eyespeed':
+                d = eye_speed[
+                        int(firstframe[ii]):int(firstframe[ii]+frame_count[ii]), 0
+                        ]
+            else:
+                d = pupil_diameter[
+                        int(firstframe[ii]):int(firstframe[ii]+frame_count[ii]), 0
+                        ]
             fs = frame_count[ii] / duration[ii]
             all_fs[ii] = fs
             t = np.arange(0, len(d)) / fs
@@ -626,12 +634,12 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     
         if verbose:
             plt.show()
-        
+
         if len(l)==2:
-            big_rs_list.append(big_rs)
+            big_rs_dict[signal] = big_rs
     
     if len(l)==2:
-        return big_rs[0], big_rs[1], strialidx
+        return big_rs_dict, strialidx
     else:
         return big_rs, strialidx
 

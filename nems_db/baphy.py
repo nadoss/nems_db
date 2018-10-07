@@ -400,10 +400,17 @@ def baphy_load_data(parmfilepath, **options):
         try:
             pupilfilepath = re.sub(r"\.m$", ".pup.mat", parmfilepath)
             options['verbose'] = False
-            pupiltrace, ptrialidx = load_pupil_trace(
-                    pupilfilepath, exptevents, **options
-                    )
-            state_dict['pupiltrace'] = pupiltrace
+            if options['pupil_eyespeed']:
+                pupildata, ptrialidx = load_pupil_trace(
+                        pupilfilepath, exptevents, **options
+                        )
+                state_dict['pupil_eyespeed'] = pupildata['pupil_eyespeed']
+                state_dict['pupiltrace'] = pupildata['pupil']
+            else:
+                pupiltrace, ptrialidx = load_pupil_trace(
+                        pupilfilepath, exptevents, **options
+                        )
+                state_dict['pupiltrace'] = pupiltrace
 
         except ValueError:
             raise ValueError("Error loading pupil data: " + pupilfilepath)
@@ -1118,6 +1125,31 @@ def baphy_load_recording(**options):
                 pupil = t_pupil
             else:
                 pupil = pupil.concatenate_time([pupil, t_pupil])
+                
+        if options['pupil_eyespeed']:
+            # create pupil signal if it exists
+            rlen = int(t_resp.ntimes)
+            pcount = state_dict['pupil_eyespeed'].shape[0]
+            plen = state_dict['pupil_eyespeed'].shape[1]
+            if plen > rlen:
+                state_dict['pupil_eyespeed'] = \
+                    state_dict['pupil_eyespeed'][:, 0:-(plen-rlen)]
+            elif rlen > plen:
+                state_dict['pupil_eyespeed'] = \
+                    np.append(state_dict['pupil_eyespeed'],
+                              np.ones([pcount, rlen - plen]) * np.nan,
+                              axis=1)
+
+            # generate pupil signals
+            t_pupil_s = nems.signal.RasterizedSignal(
+                    fs=options['rasterfs'], data=state_dict['pupil_eyespeed'],
+                    name='pupil_eyespeed', recording=rec_name, chans=['pupil_eyespeed'],
+                    epochs=event_times)
+
+            if i == 0:
+                pupil_speed = t_pupil_s
+            else:
+                pupil_speed = pupil_speed.concatenate_time([pupil_speed, t_pupil_s])
 
         if options['rem']:
 
@@ -1173,6 +1205,8 @@ def baphy_load_recording(**options):
 
     if options['pupil']:
         signals['pupil'] = pupil
+    if options['pupil_eyespeed']:
+        signals['pupil_eyespeed'] = pupil_speed
     if options['rem']:
         signals['rem'] = rem
     if options['stim']:
