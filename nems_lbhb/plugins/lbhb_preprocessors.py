@@ -127,6 +127,8 @@ def st(loadkey, recording_uri):
             this_sig = ['hit']
         elif l.startswith('rem'):
             this_sig = ['rem']
+        elif l.startswith('eysp'):
+            this_sig = ['pupil_eyespeed']
         else:
             raise ValueError("unknown signal code %s for state variable initializer", l)
 
