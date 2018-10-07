@@ -451,7 +451,11 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     log.info("pupil_diameter.shape: " + str(pupil_diameter.shape))
 
     if pupil_eyespeed:
-        eye_speed = np.array(results[0]['eye_speed'][0][0])
+        try:
+            eye_speed = np.array(results[0]['eye_speed'][0][0])
+        except:
+            pupil_eyespeed = False
+            log.info("eye_speed requested but file does not exist!")
 
     fs_approximate = 30  # approx video framerate
     if pupil_deblink:

@@ -961,7 +961,7 @@ def fill_default_options(options):
     options['pertrial'] = int(options.get('pertrial', False))
     options['includeprestim'] = options.get('includeprestim', 1)
     options['pupil'] = int(options.get('pupil', False))
-    options['pupil_eyespeed'] = int(options.get('pupil', False))
+    options['pupil_eyespeed'] = int(options.get('pupil_eyespeed', False))
     options['pupil_deblink'] = int(options.get('pupil_deblink', 1))
     options['pupil_deblink_dur'] = options.get('pupil_deblink_dur', 0.75)
     options['pupil_median'] = options.get('pupil_median', 0.5)
