@@ -83,7 +83,7 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
     #       need to figure out which role goes where and delete the
     #       repeated code.
 
-    def _parm_helper(fs, pupil, rem=False):
+    def _parm_helper(fs, pupil, eye_speed =False, rem=False):
         options = {'rasterfs': fs, 'stimfmt': 'parm',
                    'chancount': 0, 'stim': False}
 
@@ -96,6 +96,9 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
         if rem:
             options['rem'] = True
+        
+        if eye_speed:
+            options['pupil_eyespeed'] = True
 
         return options
 
@@ -144,9 +147,10 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
         parsed = re.match(pattern, loader)
         fs = parsed.group(1)
         pupil = ('pup' in loadkey)
-        rem = ('rem' in ops)
+        eye_speed = ('eysp' in loadkey)
+        rem = ('rem' in loadkey)
 
-        options.update(_parm_helper(fs, pupil))
+        options.update(_parm_helper(fs, pupil, eye_speed))
 
     elif loader.startswith('psth'):
         pattern = re.compile(r'^psth\.fs(\d{1,})([a-zA-Z0-9\.]*)?$')
