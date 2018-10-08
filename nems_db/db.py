@@ -121,6 +121,9 @@ def pd_query(sql=None, params=()):
     params:
         sql: string
             query to execute
+            use fprintf formatting, eg
+                sql = "SELECT * FROM table WHERE name=%s"
+                params = ("Joe")
 
     TODO : sqlite compatibility?
     """
@@ -128,8 +131,8 @@ def pd_query(sql=None, params=()):
     if sql is None:
         raise ValueError ("parameter sql required")
     engine = Engine()
-    print(sql)
-    print(params)
+    # print(sql)
+    # print(params)
     d = pd.read_sql(sql=sql, con=engine, params=params)
 
     return d
