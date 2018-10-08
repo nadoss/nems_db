@@ -1,6 +1,7 @@
 from nems.plugins.default_keywords import wc, fir, lvl, stp, dlog
 import re
 import logging
+import copy
 
 import numpy as np
 
@@ -128,27 +129,35 @@ def dsig(kw):
                   'kappa': ('Exponential', {'beta': [0.1]})}
         }
 
-    zero_norm = ('Normal', {'mean': [0.0], 'sd': [1.0]})
+    #zero_norm = ('Normal', {'mean': [0.0], 'sd': [1.0]})
 
     if amp:
-        template['prior']['amplitude_mod'] = zero_norm
+        template['prior']['amplitude_mod'] = copy.deepcopy(
+                template['prior']['amplitude']
+                )
     else:
-        template['fn_kwargs']['amplitude_mod'] = 0
+        template['fn_kwargs']['amplitude_mod'] = np.nan
 
     if base:
-        template['prior']['base_mod'] = zero_norm
+        template['prior']['base_mod'] = copy.deepcopy(
+                template['prior']['base']
+                )
     else:
-        template['fn_kwargs']['base_mod'] = 0
+        template['fn_kwargs']['base_mod'] = np.nan
 
     if kappa:
-        template['prior']['kappa_mod'] = zero_norm
+        template['prior']['kappa_mod'] = copy.deepcopy(
+                template['prior']['kappa']
+                )
     else:
-        template['fn_kwargs']['kappa_mod'] = 0
+        template['fn_kwargs']['kappa_mod'] = np.nan
 
     if shift:
-        template['prior']['shift_mod'] = zero_norm
+        template['prior']['shift_mod'] = copy.deepcopy(
+                template['prior']['shift']
+                )
     else:
-        template['fn_kwargs']['shift_mod'] = 0
+        template['fn_kwargs']['shift_mod'] = np.nan
 
     return template
 

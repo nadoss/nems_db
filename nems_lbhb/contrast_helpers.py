@@ -45,7 +45,7 @@ def strf_to_contrast(modelspecs, IsReload=False, **context):
 
 
 def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
-                         dlog=False, bins=None, continuous=False,
+                         bins=None, bands=1, dlog=False, continuous=False,
                          normalize=False, percentile=50, ignore_zeros=True):
     '''
     Creates a new signal whose values represent the degree of variability
@@ -88,8 +88,8 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     array[np.isnan(array)] = 0
 
     #filt = np.ones([1, history]) / history
-    filt = np.concatenate((np.zeros([1, history+1]),
-                           np.ones([1, history])), axis=1) / history
+    filt = np.concatenate((np.zeros([bands, history+1]),
+                           np.ones([bands, history])), axis=1) / history
     mn = convolve2d(array, filt, mode='same')
 
     var = convolve2d(array ** 2, filt, mode='same') - mn ** 2
@@ -127,12 +127,12 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
 
 
 def add_contrast(rec, name='contrast', source_name='stim', ms=500, bins=None,
-                 continuous=False, normalize=False, dlog=False,
+                 continuous=False, normalize=False, dlog=False, bands=1,
                  percentile=50, ignore_zeros=True, IsReload=False, **context):
     '''xforms wrapper for make_contrast_signal'''
     rec_with_contrast = make_contrast_signal(
             rec, name=name, source_name=source_name, ms=ms, bins=bins,
-            percentile=percentile, normalize=normalize, dlog=dlog,
+            percentile=percentile, normalize=normalize, dlog=dlog, bands=bands,
             ignore_zeros=ignore_zeros, continuous=continuous
             )
     return {'rec': rec_with_contrast}
@@ -219,28 +219,25 @@ def dynamic_sigmoid(rec, i, o, c, base, amplitude, shift, kappa,
         amplitude_mod = np.nan
         shift_mod = np.nan
         kappa_mod = np.nan
+        contrast = 0
     else:
         contrast = rec[c].as_continuous()
 
     if np.isnan(base_mod):
-        b = base
-    else:
-        b = base+base_mod*contrast
+        base_mod = base
+    b = base + (base_mod - base)*contrast
 
     if np.isnan(amplitude_mod):
-        a = amplitude
-    else:
-        a = amplitude+amplitude_mod*contrast
+        amplitude_mod = amplitude
+    a = amplitude + (amplitude_mod - amplitude)*contrast
 
     if np.isnan(shift_mod):
-        s = shift
-    else:
-        s = shift+shift_mod*contrast
+        shift_mod = shift
+    s = shift + (shift_mod - shift)*contrast
 
     if np.isnan(kappa_mod):
-        k = kappa
-    else:
-        k = kappa+kappa_mod*contrast
+        kappa_mod = kappa
+    k = kappa + (kappa_mod - kappa)*contrast
 
     if eq.lower() in ['logsig', 'logistic_sigmoid', 'l']:
         fn = lambda x: _logistic_sigmoid(x, b, a, s, k)
@@ -367,11 +364,14 @@ def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
     resp = rec['resp'].as_continuous()
 
     mean_pred = np.nanmean(pred)
-    min_pred = np.nanmean(pred)-np.nanstd(pred)*3
-    max_pred = np.nanmean(pred)+np.nanstd(pred)*3
+    min_pred = np.nanmean(pred) - np.nanstd(pred)*3
+    max_pred = np.nanmean(pred) + np.nanstd(pred)*3
+    if min_pred < 0:
+        min_pred = 0
+        mean_pred = (min_pred+max_pred)/2
+
     pred_range = max_pred - min_pred
     min_resp = max(np.nanmean(resp)-np.nanstd(resp)*3, 0)  # must be >= 0
-
     max_resp = np.nanmean(resp)+np.nanstd(resp)*3
     resp_range = max_resp - min_resp
 
@@ -387,12 +387,14 @@ def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
 
     base = ('Exponential', {'beta': base0})
     amplitude = ('Exponential', {'beta': amplitude0})
-    shift = ('Normal', {'mean': shift0, 'sd': pred_range})
+    shift = ('Normal', {'mean': shift0, 'sd': pred_range**2})
     kappa = ('Exponential', {'beta': kappa0})
 
     modelspec[dsig_idx]['prior'].update({
             'base': base, 'amplitude': amplitude, 'shift': shift,
             'kappa': kappa,
+            'base_mod': base, 'amplitude_mod':amplitude, 'shift_mod':shift,
+            'kappa_mod': kappa
             })
 
     modelspec[dsig_idx]['bounds'] = {
