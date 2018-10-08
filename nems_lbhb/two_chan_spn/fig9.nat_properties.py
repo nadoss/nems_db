@@ -21,6 +21,8 @@ import nems_db.xform_wrappers as nw
 import nems_db.db as nd
 import nems.plots.api as nplt
 from nems.utils import find_module
+from nems.metrics.stp import stp_magnitude
+from nems.modules.weight_channels import gaussian_coefficients
 
 params = {'legend.fontsize': 6,
           'figure.figsize': (8, 6),
@@ -96,7 +98,7 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
         m_fir[i, :] = x[xidx]
         u_mtx[i, :] = u[cellid][xidx]
         tau_mtx[i, :] = np.abs(tau[cellid][xidx])
-        str_mtx[i, :] = nplt.stp_magnitude(tau_mtx[i,:], u_mtx[i,:], fs=100)[0]
+        str_mtx[i, :] = stp_magnitude(tau_mtx[i,:], u_mtx[i,:], fs=100, A=1)[0]
         i += 1
 
     # EI_units = (m_fir[:,0]>0) & (m_fir[:,1]<0)
@@ -230,10 +232,11 @@ modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15_init-basic"
 
 # new
 batch=289
-#modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-fir.3x15-lvl.1-dexp.1_init-basic"
-#modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
-modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15_init-basic"
-modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15_init-basic"
+modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15-lvl.1-dexp.1_init-basic"
+modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15-lvl.1-dexp.1_init-basic"
+#modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15_init-basic"
+#modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15_init-basic"
+
 fileprefix="fig9.NAT"
 
 #fh = stp_parameter_comp(batch, modelname, modelname0=modelname0)
@@ -288,6 +291,7 @@ r0_test_mtx = np.zeros(len(u))
 se_test_mtx = np.zeros(len(u))
 se0_test_mtx = np.zeros(len(u))
 str_mtx = np.zeros_like(u_mtx)
+EI_cc = np.zeros(len(u))
 
 i = 0
 for cellid in u.index:
@@ -307,7 +311,11 @@ for cellid in u.index:
     sd_wc[i, :] = wc_sd[cellid][xidx]
     u_mtx[i, :] = u[cellid][xidx]
     tau_mtx[i, :] = np.abs(tau[cellid][xidx])
-    str_mtx[i, :] = nplt.stp_magnitude(tau_mtx[i,:], u_mtx[i,:], fs=100)[0]
+    str_mtx[i, :] = stp_magnitude(tau_mtx[i,:], u_mtx[i,:], fs=100, A=1.0)[0]
+
+    W = gaussian_coefficients(mean_wc[i,:], sd_wc[i,:], 18)
+    EI_cc[i] = np.corrcoef(W[0,:],W[1,:])[0,1]
+
     i += 1
 
 # EI_units = (m_fir[:,0]>0) & (m_fir[:,1]<0)
@@ -341,12 +349,6 @@ ystr = 'I'
 
 plt.figure()
 
-ax=plt.subplot(2,3,1)
-plt.plot(sd_wc[good_pred,0],sd_wc[good_pred,1],'k.')
-plt.xlabel('E tuning width')
-plt.ylabel('I tuning width')
-ax.set_aspect('equal','box')
-
 ax=plt.subplot(2,3,2)
 plt.plot(mean_wc[good_pred,0],mean_wc[good_pred,1],'k.')
 plt.xlabel('E BF')
@@ -367,14 +369,24 @@ plt.xlabel('E {:.3f} - I {:.3f} - rat {:.3f} - p={:.1e}'.format(
         strmean[0], strmean[1], strmean[1]/strmean[0], p))
 lplt.ax_remove_box(ax)
 
-
 ax=plt.subplot(2,3,4)
-plt.plot(mean_wc[good_pred,0],str_mtx[good_pred,0],'r.')
-plt.plot(mean_wc[good_pred,1],str_mtx[good_pred,1],'b.')
+plt.plot(np.array([-0.1,1.5]), np.array([-0.1,1.5]), 'k--', linewidth=0.5)
+plt.plot(sd_wc[good_pred,0],sd_wc[good_pred,1],'k.')
+plt.xlabel('E tuning width')
+plt.ylabel('I tuning width')
+ax.set_aspect('equal','box')
+
+ax=plt.subplot(2,3,5)
+plt.plot(mean_wc[show_units,0],str_mtx[show_units,0],'r.')
+plt.plot(mean_wc[show_units,1],str_mtx[show_units,1],'b.')
 plt.xlabel('BF')
 plt.ylabel('STP str')
 #ax.set_aspect('equal','box')
 
+ax=plt.subplot(2,3,6)
+plt.plot(EI_cc[show_units],str_mtx[show_units,0]-str_mtx[show_units,1],'k.')
+plt.xlabel('EI_corr')
+plt.ylabel('STP str')
 
 
 if save_fig:
