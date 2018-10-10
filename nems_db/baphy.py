@@ -464,6 +464,9 @@ def baphy_load_dataset(parmfilepath, **options):
     tag_mask_start = "TRIALSTART"
     tag_mask_stop = "TRIALSTOP"
     ffstart = exptevents['name'].str.startswith(tag_mask_start)
+
+    # TODO : replace TRIALSTOP with next TRIALSTART to force continous
+    # coverage by TRIAL epochs
     ffstop = (exptevents['name'] == tag_mask_stop)
     TrialCount = np.max(exptevents.loc[ffstart, 'Trial'])
     event_times = pd.concat([exptevents.loc[ffstart, ['start']].reset_index(),
@@ -1094,6 +1097,9 @@ def baphy_load_recording(**options):
             _goodtrials = np.zeros(trialcount, dtype=bool)
             for b in g:
                 b1 = b.split(":")
+                if len(b1) == 1:
+                    # single trial in list, simulate colon syntax
+                    b1 = b1 + b1
                 _goodtrials[(int(b1[0])-1):int(b1[1])] = True
         else:
             _goodtrials = np.ones(trialcount, dtype=bool)

@@ -20,7 +20,7 @@ import nems.xforms as xforms
 import nems_db.xform_wrappers as nw
 import nems_db.db as nd
 import nems.plots.api as nplt
-from nems.utils import find_module
+from nems.utils import find_module, ax_remove_box
 from nems.metrics.stp import stp_magnitude
 from nems.modules.weight_channels import gaussian_coefficients
 
@@ -234,8 +234,10 @@ modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15_init-basic"
 batch=289
 modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15-lvl.1-dexp.1_init-basic"
 modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15-lvl.1-dexp.1_init-basic"
-#modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15_init-basic"
-#modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15_init-basic"
+#modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2-fir.2x15-lvl.1-dexp.1_init-basic"
+#modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2-stp.2-fir.2x15-lvl.1-dexp.1_init-basic"
+#modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-fir.3x15-lvl.1-dexp.1_init-basic"
+#modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
 
 fileprefix="fig9.NAT"
 
@@ -260,17 +262,25 @@ for ind in indices:
     elif '--fir' in ind:
         fir_index = ind
     elif '--wc' in ind:
-        if ind.endswith('mean'):
+        if ind.endswith('coefficients'):
+            wc_cc_index=ind
+            parm_wc = False
+        elif ind.endswith('mean'):
             wc_mean_index=ind
+            parm_wc = True
         else:
             wc_sd_index=ind
+            parm_wc = True
 
 
 u = d.loc[u_index]
 tau = d.loc[tau_index]
 fir = d.loc[fir_index]
-wc_mean = d.loc[wc_mean_index]
-wc_sd = d.loc[wc_sd_index]
+if parm_wc:
+    wc_mean = d.loc[wc_mean_index]
+    wc_sd = d.loc[wc_sd_index]
+else:
+    wc_cfs = d.loc[wc_cc_index]
 
 r_test = d.loc['meta--r_test']
 se_test = d.loc['meta--se_test']
@@ -302,19 +312,32 @@ for cellid in u.index:
         se0_test_mtx[i] = se0_test[cellid]
 
     t_fir = fir[cellid]
-    x = np.mean(t_fir, axis=1) / np.std(t_fir)
+    x = np.mean(t_fir, axis=1) / np.std(t_fir, axis=1)
     mn, = np.where(x == np.min(x))
     mx, = np.where(x == np.max(x))
     xidx = np.array([mx[0], mn[0]])
     m_fir[i, :] = x[xidx]
-    mean_wc[i, :] = wc_mean[cellid][xidx]
-    sd_wc[i, :] = wc_sd[cellid][xidx]
+    if parm_wc:
+        mean_wc[i, :] = wc_mean[cellid][xidx]
+        sd_wc[i, :] = wc_sd[cellid][xidx]
+        W = gaussian_coefficients(mean_wc[i,:], sd_wc[i,:], 18)
+        EI_cc[i] = np.corrcoef(W[0,:],W[1,:])[0,1]
+
+    else:
+        f = np.linspace(0,1,wc_c.shape[1])
+        wc_c = wc_cfs[cellid][xidx]
+        wc_c[wc_c < 0] = 0
+
+        for j, w in enumerate(wc_c):
+            mm = np.mean(w * f) / np.mean(w)
+            mean_wc[i, j] = mm
+            sd_wc[i, j] = np.mean(w >= np.max(w)/2)
+
+        EI_cc[i] = np.corrcoef(wc_c[0,:],wc_c[1,:])[0,1]
+
     u_mtx[i, :] = u[cellid][xidx]
     tau_mtx[i, :] = np.abs(tau[cellid][xidx])
     str_mtx[i, :] = stp_magnitude(tau_mtx[i,:], u_mtx[i,:], fs=100, A=1.0)[0]
-
-    W = gaussian_coefficients(mean_wc[i,:], sd_wc[i,:], 18)
-    EI_cc[i] = np.corrcoef(W[0,:],W[1,:])[0,1]
 
     i += 1
 
@@ -354,6 +377,7 @@ plt.plot(mean_wc[good_pred,0],mean_wc[good_pred,1],'k.')
 plt.xlabel('E BF')
 plt.ylabel('I BF')
 ax.set_aspect('equal','box')
+lplt.ax_remove_box(ax)
 
 ax = plt.subplot(2, 3, 3)
 plt.plot(np.array([-0.5, 1.5]), np.array([0, 0]), 'k--')
@@ -367,7 +391,7 @@ plt.ylim(str_bounds)
 plt.ylabel('STP str')
 plt.xlabel('E {:.3f} - I {:.3f} - rat {:.3f} - p={:.1e}'.format(
         strmean[0], strmean[1], strmean[1]/strmean[0], p))
-lplt.ax_remove_box(ax)
+ax_remove_box(ax)
 
 ax=plt.subplot(2,3,4)
 plt.plot(np.array([-0.1,1.5]), np.array([-0.1,1.5]), 'k--', linewidth=0.5)
@@ -375,19 +399,29 @@ plt.plot(sd_wc[good_pred,0],sd_wc[good_pred,1],'k.')
 plt.xlabel('E tuning width')
 plt.ylabel('I tuning width')
 ax.set_aspect('equal','box')
+ax_remove_box(ax)
 
 ax=plt.subplot(2,3,5)
-plt.plot(mean_wc[show_units,0],str_mtx[show_units,0],'r.')
-plt.plot(mean_wc[show_units,1],str_mtx[show_units,1],'b.')
+good_bf = (mean_wc[:,0] >= 0) & (mean_wc[:,0] <= 1) & \
+   (mean_wc[:,1] >= 0) & (mean_wc[:,1] <= 1) & good_pred
+plt.plot(mean_wc[good_bf,0],str_mtx[good_bf,0],'r.')
+plt.plot(mean_wc[good_bf,1],str_mtx[good_bf,1],'b.')
 plt.xlabel('BF')
 plt.ylabel('STP str')
 #ax.set_aspect('equal','box')
+ax_remove_box(ax)
 
 ax=plt.subplot(2,3,6)
-plt.plot(EI_cc[show_units],str_mtx[show_units,0]-str_mtx[show_units,1],'k.')
+aa = good_pred & np.logical_not(mod_units)
+bb = mod_units
+plt.plot(EI_cc[aa],str_mtx[aa,0]-str_mtx[aa,1],'.',
+         color=dotcolor_ns)
+plt.plot(EI_cc[bb],str_mtx[bb,0]-str_mtx[bb,1],'.',
+         color=dotcolor)
+plt.plot(np.array([-1, 1]), np.array([0,0]), 'k--', linewidth=0.5)
 plt.xlabel('EI_corr')
-plt.ylabel('STP str')
-
+plt.ylabel('d STP str')
+ax_remove_box(ax)
 
 if save_fig:
     fh.savefig(outpath + fileprefix + ".stp_parms_"+modelname+".pdf")

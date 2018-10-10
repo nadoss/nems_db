@@ -24,13 +24,13 @@ import nems_db.db as nd
 import nems.plots.api as nplt
 from nems.utils import find_module
 
-save_fig = True
+save_fig = False
 if save_fig:
     plt.close('all')
 
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
 
-if 1:
+if 0:
     batch = 259
     modelnames=["env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic",
                 "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-stp.1-dexp.1_init-basic",
