@@ -50,6 +50,8 @@ def _lnp_metric(data, pred_name='pred', resp_name='resp'):
     #       bins that shouldn't be taken out.
     # Get rid of NaNs left over from est/val split
     rate_vector = rate_vector[ff].flatten()
+    # Normalize rate vector to be range 0 to 1?
+    #rate_vector = (rate_vector + rate_vector.min())/rate_vector.max()
     spike_train = spike_train[ff]
     spikes = np.argwhere(spike_train).flatten()
 
@@ -64,13 +66,23 @@ def _lnp_metric(data, pred_name='pred', resp_name='resp'):
 
     for st in spikes:
         diff = integral[st] - integral[t0]
+
+        # Neither of these should happen, but just incase...
         if diff > 1:
             diff = 1
-        inner = diff*rate_vector[st]
-        if (inner == 0) or (inner == 1):
-            raise NotImplementedError
+
+        if diff < 0:
+            diff = 0
+
+        inner = (1 - diff)*(rate_vector[st])
+
+        if inner <= 1e-16:
+            loglike = np.log(1e-16)
+        elif inner >= 1:
+            loglike = 0
         else:
             loglike = np.log(inner)
+
         loglikes.append(loglike)
         t0 = st
 
@@ -120,3 +132,11 @@ def _stack_reps(spike_train, ep='^STIM_'):
                 stim_dict[name] = [(start, stop)]
 
     return stim_dict
+
+
+def simulate_spikes(rate_vector):
+
+    spikes = np.zeros_like(rate_vector)
+    for i, r in enumerate(rate_vector):
+        if np.rand(0, 1) < r:
+            spikes[i] = 1
