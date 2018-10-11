@@ -963,12 +963,12 @@ def fill_default_options(options):
         options['rawid'] = rawid
 
     elif cellid is not None:
+        # figure out the rawids that this cell was stable across for this batch
+        # return the list of cells that meet these criteria so that we load from
+        # the correct cache
         cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=cellid,
                                                      rawid=rawid)
-        siteid = cellid.split("-")[0]
-        cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=siteid,
-                                                     rawid=rawid)
-        cellid = cell_list[0]
+
         options['cellid'] = cell_list
         options['rawid'] = rawid
 
@@ -1306,6 +1306,7 @@ def baphy_data_path(**options):
 
     elif cellid is None and options.get('siteid') is not None:
         cellid = options.get('siteid')
+    
     siteid = options.get('siteid', cellid.split("-")[0])
 
     # TODO : base filename on siteid/cellid plus hash from JSON-ized options
