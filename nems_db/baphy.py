@@ -469,10 +469,9 @@ def baphy_load_dataset(parmfilepath, **options):
     tag_mask_start = "TRIALSTART"
     tag_mask_stop = "TRIALSTOP"
     ffstart = exptevents['name'].str.startswith(tag_mask_start)
- 
     # Set trial stops to the beginning of the next trial for continuous data 
     # loading
-    ffstop = (exptevents['name'] == tag_mask_start)
+    ffstop = exptevents['name'].str.startswith(tag_mask_start)
     
     # end at the end of last trial
     final_trial = np.argwhere((exptevents['name'] == tag_mask_stop)==True)[-1][0]
@@ -487,7 +486,7 @@ def baphy_load_dataset(parmfilepath, **options):
                              exptevents.loc[ffstop, ['end']].reset_index()],
                             axis=1)
     event_times['name'] = "TRIAL"
-    event_times = event_times.drop(columns=['index'])
+    event_times = event_times.drop(columns=['index'])    
 
     print('Removing post-response stimuli')
     keepevents = np.full(len(exptevents), True, dtype=bool)
