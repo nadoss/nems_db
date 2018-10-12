@@ -24,10 +24,15 @@ gc_model_full = ("ozgf.fs100.ch18-ld-contrast.ms250-sev_"
                  "ctwc.18x2.g-ctfir.2x15-ctlvl.1-dsig.l_"
                  "init.c-basic")
 
-gc_model_cont = ("ozgf.fs100.ch18-ld-contrast.ms100.cont.n-sev_"
-                 "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
-                 "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l_"
-                 "init.c-basic")
+gc_cont_full = ("ozgf.fs100.ch18-ld-contrast.ms100.cont.n-sev_"
+                "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
+                "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l_"
+                "init.c-basic")
+
+gc_cont_reduced = ("ozgf.fs100.ch18-ld-contrast.ms100.cont.n-sev_"
+                   "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
+                   "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l.k.s_"
+                   "init.c-basic")
 
 stp_model = ("ozgf.fs100.ch18-ld-sev_"
              "dlog.f-wc.18x2.g-stp.2-fir.2x15-lvl.1-logsig_"
@@ -285,7 +290,7 @@ def contrast_examples():
 
 # Timeseries showing values of kappa & shift over time, alongside ctpred
 # and final pred before & after
-def contrast_variables_timeseries(cellid=good_cell, modelname=gc_model_cont):
+def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_full):
 
     xfspec, ctx = load_model_baphy_xform(cellid, batch, modelname)
     val = copy.deepcopy(ctx['val'][0])

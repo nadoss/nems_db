@@ -19,31 +19,6 @@ from nems import priors
 log = logging.getLogger(__name__)
 
 
-def _strf_to_contrast(modelspec):
-    '''
-    Copy prefitted WC and FIR phi values to contrast-based counterparts.
-    '''
-    modelspec = copy.deepcopy(modelspec)
-    wc_idx, ctwc_idx = find_module('weight_channels', modelspec,
-                                   find_all_matches=True)
-    fir_idx, ctfir_idx = find_module('fir', modelspec, find_all_matches=True)
-
-    log.info("Updating contrast phi to match prefitted strf ...")
-
-    modelspec[ctwc_idx]['phi'] = copy.deepcopy(modelspec[wc_idx]['phi'])
-    modelspec[ctfir_idx]['phi'] = copy.deepcopy(modelspec[fir_idx]['phi'])
-
-    return modelspec
-
-
-def strf_to_contrast(modelspecs, IsReload=False, **context):
-    if not IsReload:
-        new_mspec = _strf_to_contrast(modelspecs[0])
-        return {'modelspecs': [new_mspec]}
-    else:
-        return {'modelspecs': modelspecs}
-
-
 def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
                          bins=None, bands=1, dlog=False, continuous=False,
                          normalize=False, percentile=50, ignore_zeros=True):
@@ -219,7 +194,7 @@ def dynamic_sigmoid(rec, i, o, c, base, amplitude, shift, kappa,
         amplitude_mod = np.nan
         shift_mod = np.nan
         kappa_mod = np.nan
-        contrast = 0
+        contrast = np.zeros_like(rec['resp'].as_continuous())
     else:
         contrast = rec[c].as_continuous()
 
@@ -263,10 +238,10 @@ def add_gc_signal(rec, modelspec, name='GC'):
     phi = modelspec[dsig_idx]['phi']
     phi.update(modelspec[dsig_idx]['fn_kwargs'])
     pred = rec['pred'].as_continuous()
-    b = phi['base'] + pred*phi['base_mod']
-    a = phi['amplitude'] + pred*phi['amplitude_mod']
-    s = phi['shift'] + pred*phi['shift_mod']
-    k = phi['kappa'] + pred*phi['kappa_mod']
+    b = phi['base'] + (phi['base_mod']-phi['base'])*pred
+    a = phi['amplitude'] + (phi['amplitude_mod']-phi['amplitude'])*pred
+    s = phi['shift'] + (phi['shift_mod']-phi['shift'])*pred
+    k = phi['kappa'] + (phi['kappa_mod']-phi['kappa'])*pred
     array = np.squeeze(np.stack([b, a, s, k], axis=0))
 
 
@@ -397,6 +372,10 @@ def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
             'kappa_mod': kappa
             })
 
+    for kw in modelspec[dsig_idx]['fn_kwargs']:
+        if kw in ['base_mod', 'amplitude_mod', 'shift_mod', 'kappa_mod']:
+            modelspec[dsig_idx]['prior'].pop(kw)
+
     modelspec[dsig_idx]['bounds'] = {
             'base': (1e-15, None),
             'amplitude': (1e-15, None),
@@ -497,7 +476,7 @@ def dsig_phi_to_prior(modelspec):
 
 
 def init_contrast_model(est, modelspecs, IsReload=False,
-                        tolerance=10**-5.5, max_iter=700,
+                        tolerance=10**-5.5, max_iter=700, copy_strf=False,
                         fitter='scipy_minimize', metric='nmse', **context):
 
     if IsReload:
@@ -550,6 +529,10 @@ def init_contrast_model(est, modelspecs, IsReload=False,
     # Now prefit all of the contrast modules together.
     # Before this step, result of initialization should be identical
     # to prefit_LN
+    if copy_strf:
+        # Will only behave as expected if dimensions of strf
+        # and contrast strf match!
+        modelspec = _strf_to_contrast(modelspec)
     modelspec = _prefit_contrast_modules(
                     est, modelspec, fit_basic,
                     fitter=fitter_fn,
@@ -656,5 +639,23 @@ def _prefit_dsig_only(est, modelspec, analysis_function,
             modelspec[dsig_idx]['fn_kwargs'].pop(p, None)
             modelspec[dsig_idx]['prior'][p] = v
             modelspec[dsig_idx]['phi'][p] = prior.mean()
+
+    return modelspec
+
+
+def _strf_to_contrast(modelspec):
+    '''
+    Copy prefitted WC and FIR phi values to contrast-based counterparts.
+    '''
+    modelspec = copy.deepcopy(modelspec)
+    wc_idx, ctwc_idx = find_module('weight_channels', modelspec,
+                                   find_all_matches=True)
+    fir_idx, ctfir_idx = find_module('fir', modelspec,
+                                     find_all_matches=True)
+
+    log.info("Updating contrast phi to match prefitted strf ...")
+
+    modelspec[ctwc_idx]['phi'] = copy.deepcopy(modelspec[wc_idx]['phi'])
+    modelspec[ctfir_idx]['phi'] = copy.deepcopy(modelspec[fir_idx]['phi'])
 
     return modelspec

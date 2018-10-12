@@ -22,10 +22,6 @@ def lnp(fitkey):
     return [['nems_lbhb.lnp_helpers.lnp_basic', kwargs]]
 
 
-def strfct(fitkey):
-    return [['nems_lbhb.contrast_helpers.strf_to_contrast', {}]]
-
-
 def srec(fitkey):
     return [['nems_lbhb.contrast_helpers.reset_single_recording', {}]]
 
