@@ -75,20 +75,18 @@ def run_all():
 # LN versus GC
 # LN versus STP
 # GC versus STP
-def performance_scatters(display=True):
-    p1 = plot_filtered_batch(batch, [gc_model, stp_model],
-                             'r_test', 'Scatter')
+def performance_scatters(model1=gc_cont_full, model2=ln_model, display=True):
+    p1 = plot_filtered_batch(batch, [model1, model2], 'r_test', 'Scatter')
 
     if display:
         show(p1.plot)
 
-    return p1
 
-
-def performance_correlation_scatter():
-    df1 = fitted_params_per_batch(batch, gc_model_cont, stats_keys=[])
-    df2 = fitted_params_per_batch(batch, stp_model, stats_keys=[])
-    df3 = fitted_params_per_batch(batch, ln_model, stats_keys=[])
+def performance_correlation_scatter(model1=gc_cont_full, model2=stp_model,
+                                    model3=ln_model):
+    df1 = fitted_params_per_batch(batch, model1, stats_keys=[])
+    df2 = fitted_params_per_batch(batch, model2, stats_keys=[])
+    df3 = fitted_params_per_batch(batch, model3, stats_keys=[])
 
     # fill in missing cellids w/ nan
     celldata = get_batch_cells(batch=batch)
@@ -152,10 +150,10 @@ def performance_correlation_scatter():
     adjustFigAspect(fig, aspect=1)
 
 
-def performance_bar():
-    df1 = fitted_params_per_batch(batch, gc_model)
-    df2 = fitted_params_per_batch(batch, stp_model)
-    df3 = fitted_params_per_batch(batch, ln_model)
+def performance_bar(model1=gc_cont_full, model2=stp_model, model3=ln_model):
+    df1 = fitted_params_per_batch(batch, model1)
+    df2 = fitted_params_per_batch(batch, model2)
+    df3 = fitted_params_per_batch(batch, model3)
 
     # fill in missing cellids w/ nan
     celldata = get_batch_cells(batch=batch)
@@ -220,9 +218,10 @@ def performance_bar():
 #       in that respect.
 
 # Overlay of prediction from STP versus prediction from GC for sample cell(s)
-def example_pred_overlay():
-    xfspec1, ctx1 = load_model_baphy_xform(good_cell, batch, gc_model_full)
-    xfspec2, ctx2 = load_model_baphy_xform(good_cell, batch, stp_model)
+def example_pred_overlay(cellid=good_cell, model1=gc_cont_full,
+                         model2=stp_model):
+    xfspec1, ctx1 = load_model_baphy_xform(cellid, batch, model1)
+    xfspec2, ctx2 = load_model_baphy_xform(cellid, batch, model2)
     plt.figure()
     #xf.plot_timeseries(ctx1, 'resp', cutoff=500)
     xf.plot_timeseries(ctx1, 'pred', cutoff=(200, 500))
@@ -234,7 +233,7 @@ def example_pred_overlay():
 # Some other metric ("equivalence"?) for quantifying how similar the fits are
 
 # Average correlation for full pop. of cells?
-def average_r():
+def average_r(model1=gc_cont_full, model2=stp_model):
     # 1. query all of the relevant cell/model combos to get everything needed
     #    up to just before actually loading the model
     # - referenced _get_modelspecs in nems_db.params
@@ -247,8 +246,8 @@ def average_r():
     rs = []
     for i, cellid in enumerate(cellids):
         print("\n\n Starting cell # %d (out of %d)" % (i, len(cellids)))
-        xfspec1, ctx1 = load_model_baphy_xform(cellid, batch, gc_model)
-        xfspec2, ctx2 = load_model_baphy_xform(cellid, batch, stp_model)
+        xfspec1, ctx1 = load_model_baphy_xform(cellid, batch, model1)
+        xfspec2, ctx2 = load_model_baphy_xform(cellid, batch, model2)
 
     # 3. Compute the correlation for that cell
         pred1 = ctx1['val'][0]['pred'].as_continuous()
