@@ -7,6 +7,13 @@ log = logging.getLogger(__name__)
 # TODO: Delete after finished deprecating.
 # Replaced with: load, splitcount, avgep, st, contrast
 
+def psth(loadkey, cellid=None, batch=None):
+
+    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
+              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
+    return xfspec
+
+
 #def ozgf(loadkey, recording_uri):
 #    recordings = [recording_uri]
 #    pattern = re.compile(r'^ozgf\.fs(\d{1,}).ch(\d{1,})([a-zA-Z0-9\.]*)?')

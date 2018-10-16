@@ -219,7 +219,7 @@ def stp_parameter_comp(batch, modelname, modelname0=None):
 
 # start main code
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
-save_fig = False
+save_fig = True
 if save_fig:
     plt.close('all')
 
@@ -234,6 +234,8 @@ modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15_init-basic"
 batch=289
 modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15-lvl.1-dexp.1_init-basic"
 modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-stp.2-fir.2x15-lvl.1-dexp.1_init-basic"
+modelname0="ozgf.fs100.ch18-ld-sev_dlog-wc.18x3-fir.3x15-lvl.1-dexp.1_init-basic"
+modelname="ozgf.fs100.ch18-ld-sev_dlog-wc.18x3-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
 #modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2-fir.2x15-lvl.1-dexp.1_init-basic"
 #modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2-stp.2-fir.2x15-lvl.1-dexp.1_init-basic"
 #modelname0 = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-fir.3x15-lvl.1-dexp.1_init-basic"
@@ -324,8 +326,8 @@ for cellid in u.index:
         EI_cc[i] = np.corrcoef(W[0,:],W[1,:])[0,1]
 
     else:
-        f = np.linspace(0,1,wc_c.shape[1])
         wc_c = wc_cfs[cellid][xidx]
+        f = np.linspace(0,1,wc_c.shape[1])
         wc_c[wc_c < 0] = 0
 
         for j, w in enumerate(wc_c):
@@ -370,7 +372,7 @@ xstr = 'E'
 ystr = 'I'
 
 
-plt.figure()
+fh=plt.figure()
 
 ax=plt.subplot(2,3,2)
 plt.plot(mean_wc[good_pred,0],mean_wc[good_pred,1],'k.')
@@ -378,7 +380,7 @@ plt.xlabel('E BF')
 plt.ylabel('I BF')
 ax.set_aspect('equal','box')
 lplt.ax_remove_box(ax)
-
+ax.set_title('batch {}'.format(batch))
 ax = plt.subplot(2, 3, 3)
 plt.plot(np.array([-0.5, 1.5]), np.array([0, 0]), 'k--')
 plt.bar(np.arange(2), strmean, color=barcolors, width=barwidth)
@@ -424,5 +426,5 @@ plt.ylabel('d STP str')
 ax_remove_box(ax)
 
 if save_fig:
-    fh.savefig(outpath + fileprefix + ".stp_parms_"+modelname+".pdf")
+    fh.savefig(outpath + fileprefix + ".stp_parms_"+modelname+"_batch_"+str(batch)+".pdf")
 

@@ -71,7 +71,7 @@ def evs(loadkey):
     return xfspec
 
 
-def st(loadkey, recording_uri):
+def st(loadkey):
     """
     st = "state variable"
     generate a state signal
@@ -143,7 +143,7 @@ def st(loadkey, recording_uri):
     return xfspec
 
 
-def mod(loadkey, recording_uri):
+def mod(loadkey):
     """
     Make a signal called "mod". Basically the residual resp (resp - psth) offset
     such that the min is 0 and the max is max(resp - psth + offset)

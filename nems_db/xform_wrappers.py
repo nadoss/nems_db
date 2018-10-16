@@ -92,7 +92,7 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 #
 #        if 'rem' in ops:
 #            options['rem'] = True
-#        
+#
 #        if 'eysp' in ops:
 #            options['pupil_eyespeed'] = True
 #
@@ -101,9 +101,9 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
     # remove any preprocessing keywords in the loader string.
     loader = nems.utils.escaped_split(loadkey, '-')[0]
     log.info('loader=%s',loader)
-    
+
     ops = loader.split(".")
-    
+
     # some defaults
     options = {'rasterfs': 100, 'chancount': 0}
 
@@ -116,22 +116,22 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
             options['stimfmt'] = 'envelope'
         elif op in ['nostim','psth','ns', 'evt']:
             options.update({'stim': False, 'stimfmt': 'parm'})
-            
+
         elif op.startswith('fs'):
             options['rasterfs'] = int(op[2:])
         elif op.startswith('ch'):
             options['chancount'] = int(op[2:])
-            
+
         elif op=='pup':
             options.update({'pupil': True, 'pupil_deblink': True,
                             'pupil_deblink_dur': 1,
                             'pupil_median': 0})
         elif op=='rem':
             options['rem'] = True
-    
+
         elif 'eysp' in ops:
             options['pupil_eyespeed'] = True
-            
+
     if 'stimfmt' not in options.keys():
         raise ValueError('Valid stim format (ozgf, psth, parm, env, evt) not specified in loader='+loader)
     if (options['stimfmt']=='ozgf') and (options['chancount'] <= 0):
@@ -186,7 +186,7 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 #        parsed = re.match(pattern, loader)
 #        fs = parsed.group(1)
 #        ops = parsed.group(2)
-# 
+#
 #        options = {'rasterfs': fs, 'stimfmt': 'parm',
 #                   'chancount': 0, 'stim': False}
 #
@@ -214,10 +214,23 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
     options["batch"] = batch
     options["cellid"] = cellid
-    
+
     recording_uri = nb.baphy_load_recording_uri(**options)
 
     return recording_uri
+
+
+def baphy_load_wrapper(cellid=None, batch=None, loadkey=None,
+                       siteid=None, normalize=False, **context):
+
+    recording_uri = generate_recording_uri(cellid=cellid, batch=batch,
+                                           loadkey=loadkey, siteid=None)
+    print('cellid: {}, recording_uri: {}'.format(cellid, recording_uri))
+
+    return {'recording_uri_list': [recording_uri]}
+    #return xforms.load_recordings([recording_uri], normalize=normalize,
+    #                              cellid=cellid, **context)
+
 
 
 def fit_model_xforms_baphy(cellid, batch, modelname,
