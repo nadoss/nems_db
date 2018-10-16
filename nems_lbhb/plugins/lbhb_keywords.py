@@ -19,6 +19,52 @@ def ctwc(kw):
     return m
 
 
+def gcwc(kw):
+    options = kw.split('.')
+    in_out_pattern = re.compile(r'^(\d{1,})x(\d{1,})$')
+    try:
+        parsed = re.match(in_out_pattern, options[1])
+        n_inputs = int(parsed.group(1))
+        n_outputs = int(parsed.group(2))
+    except (TypeError, IndexError):
+        # n_inputs x n_outputs should always follow wc.
+        raise ValueError("Got TypeError or IndexError when attempting to parse "
+                         "wc keyword.\nMake sure <in>x<out> is provided "
+                         "as the first option after 'wc', e.g.: 'wc.2x15'"
+                         "\nkeyword given: %s" % kw)
+
+    fn = 'nems_lbhb.contrast_helpers.weight_channels'
+
+    # Generate evenly-spaced filter centers for the starting points
+    fn_kwargs = {'i': 'pred', 'o': 'pred', 'n_chan_in': n_inputs,
+                 'ci': 'contrast', 'co': 'ctpred', 'normalize_coefs': False}
+    coefs = 'nems.modules.weight_channels.gaussian_coefficients'
+    mean = np.arange(n_outputs+1)/(n_outputs*2+2) + 0.25
+    mean = mean[1:]
+    sd = np.full_like(mean, 0.5)
+
+    mean_prior_coefficients = {
+        'mean': mean,
+        'sd': np.ones_like(mean),
+    }
+
+    sd_prior_coefficients = {'sd': sd}
+    prior = {'mean': ('Normal', mean_prior_coefficients),
+             'sd': ('HalfNormal', sd_prior_coefficients)}
+
+    if 'n' in options:
+        fn_kwargs['normalize_coefs'] = True
+
+    template = {
+        'fn': fn,
+        'fn_kwargs': fn_kwargs,
+        'fn_coefficients': coefs,
+        'prior': prior
+    }
+
+    return template
+
+
 def ctfir(kw):
     '''
     Same as nems.plugins.keywords.fir but renamed for contrast
@@ -67,6 +113,37 @@ def ctfir(kw):
     return template
 
 
+def gcfir(kw):
+    pattern = re.compile(r'^gcfir\.?(\d{1,})x(\d{1,})x?(\d{1,})?$')
+    parsed = re.match(pattern, kw)
+    try:
+        n_outputs = int(parsed.group(1))
+        n_coefs = int(parsed.group(2))
+    except TypeError:
+        raise ValueError("Got a TypeError when parsing fir keyword. Make sure "
+                         "keyword has the form: \n"
+                         "fir.{n_outputs}x{n_coefs}x{n_banks} (banks optional)"
+                         "\nkeyword given: %s" % kw)
+
+    p_coefficients = {
+        'mean': np.zeros((n_outputs, n_coefs)),
+        'sd': np.ones((n_outputs, n_coefs)),
+    }
+
+    p_coefficients['mean'][:, 0] = 1
+
+    template = {
+        'fn': 'nems_lbhb.contrast_helpers.fir',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'ci': 'ctpred',
+                      'co': 'ctpred'},
+        'prior': {
+            'coefficients': ('Normal', p_coefficients),
+        }
+    }
+
+    return template
+
+
 def OOfir(kw):
     kw = 'ct' + kw[2:]
     template = ctfir(kw)
@@ -82,6 +159,48 @@ def ctlvl(kw):
     m = lvl(kw[2:])
     m['fn_kwargs'].update({'i': 'ctpred', 'o': 'ctpred'})
     return m
+
+
+def gclvl(kw):
+    pattern = re.compile(r'^gclvl\.?(\d{1,})$')
+    parsed = re.match(pattern, kw)
+    try:
+        n_shifts = int(parsed.group(1))
+    except TypeError:
+        raise ValueError("Got a TypeError when parsing lvl keyword, "
+                         "make sure keyword has the form: \n"
+                         "lvl.{n_shifts}.\n"
+                         "keyword given: %s" % kw)
+
+    template = {
+        'fn': 'nems_lbhb.contrast_helpers.levelshift',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'ci': 'ctpred',
+                      'co': 'ctpred'},
+        'prior': {'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
+                                       'sd': np.ones([n_shifts, 1])})}
+        }
+
+    return template
+
+
+def ctfixed(kw):
+    '''
+    Forces ctwc and ctfir to have the same phi as
+    their non-ct counterparts on every eval.
+    TODO: Include levelshift as well?
+
+    Corresponding module never has any parameters, so it's not really
+    a transformation like the other ones. Just has to happen mid-model
+    so it has to be defined as part of the module list.
+    '''
+    template = {
+            'fn': 'nems_lbhb.contrast_helpers.fixed_contrast_strf',
+            'fn_kwargs': {'i': 'pred',
+                          'o': 'pred'},
+            'phi': {},
+            'prior': {}
+            }
+    return template
 
 
 def dsig(kw):

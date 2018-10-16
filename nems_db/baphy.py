@@ -404,8 +404,13 @@ def baphy_load_data(parmfilepath, **options):
                 pupildata, ptrialidx = load_pupil_trace(
                         pupilfilepath, exptevents, **options
                         )
-                state_dict['pupil_eyespeed'] = pupildata['pupil_eyespeed']
-                state_dict['pupiltrace'] = pupildata['pupil']
+                try:
+                    state_dict['pupil_eyespeed'] = pupildata['pupil_eyespeed']
+                    state_dict['pupiltrace'] = pupildata['pupil']
+                except:
+                    log.info('No eyespeed data exists for this recording')
+                    state_dict['pupiltrace'] = pupildata
+                
             else:
                 pupiltrace, ptrialidx = load_pupil_trace(
                         pupilfilepath, exptevents, **options
@@ -464,16 +469,24 @@ def baphy_load_dataset(parmfilepath, **options):
     tag_mask_start = "TRIALSTART"
     tag_mask_stop = "TRIALSTOP"
     ffstart = exptevents['name'].str.startswith(tag_mask_start)
-
-    # TODO : replace TRIALSTOP with next TRIALSTART to force continous
-    # coverage by TRIAL epochs
-    ffstop = (exptevents['name'] == tag_mask_stop)
+    # Set trial stops to the beginning of the next trial for continuous data 
+    # loading
+    ffstop = exptevents['name'].str.startswith(tag_mask_start)
+    
+    # end at the end of last trial
+    final_trial = np.argwhere((exptevents['name'] == tag_mask_stop)==True)[-1][0]
+    ffstop.iloc[final_trial] = True  
+    
+    # set first True to False (the start of the first trial)
+    first_true = np.argwhere(ffstop==True)[0][0]
+    ffstop.iloc[first_true] = False
+    
     TrialCount = np.max(exptevents.loc[ffstart, 'Trial'])
     event_times = pd.concat([exptevents.loc[ffstart, ['start']].reset_index(),
                              exptevents.loc[ffstop, ['end']].reset_index()],
                             axis=1)
     event_times['name'] = "TRIAL"
-    event_times = event_times.drop(columns=['index'])
+    event_times = event_times.drop(columns=['index'])    
 
     print('Removing post-response stimuli')
     keepevents = np.full(len(exptevents), True, dtype=bool)
@@ -738,6 +751,7 @@ def baphy_load_dataset(parmfilepath, **options):
         # event_times=pd.concat([event_times, te])
 
     # sort by when the event occured in experiment time
+
     event_times = event_times.sort_values(
             by=['start', 'end'], ascending=[1, 0]
             ).reset_index()
@@ -948,12 +962,12 @@ def fill_default_options(options):
         options['rawid'] = rawid
 
     elif cellid is not None:
+        # figure out the rawids that this cell was stable across for this batch
+        # return the list of cells that meet these criteria so that we load from
+        # the correct cache
         cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=cellid,
                                                      rawid=rawid)
-        siteid = cellid.split("-")[0]
-        cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=siteid,
-                                                     rawid=rawid)
-        cellid = cell_list[0]
+
         options['cellid'] = cell_list
         options['rawid'] = rawid
 
@@ -1145,7 +1159,7 @@ def baphy_load_recording(**options):
             else:
                 pupil = pupil.concatenate_time([pupil, t_pupil])
 
-        if options['pupil_eyespeed']:
+        if (options['pupil_eyespeed']) & ('pupil_eyespeed' in state_dict.keys()):
             # create pupil signal if it exists
             rlen = int(t_resp.ntimes)
             pcount = state_dict['pupil_eyespeed'].shape[0]
@@ -1224,7 +1238,7 @@ def baphy_load_recording(**options):
 
     if options['pupil']:
         signals['pupil'] = pupil
-    if options['pupil_eyespeed']:
+    if (options['pupil_eyespeed']) & ('pupil_eyespeed' in signals.keys()):
         signals['pupil_eyespeed'] = pupil_speed
     if options['rem']:
         signals['rem'] = rem
@@ -1291,6 +1305,7 @@ def baphy_data_path(**options):
 
     elif cellid is None and options.get('siteid') is not None:
         cellid = options.get('siteid')
+    
     siteid = options.get('siteid', cellid.split("-")[0])
 
     # TODO : base filename on siteid/cellid plus hash from JSON-ized options

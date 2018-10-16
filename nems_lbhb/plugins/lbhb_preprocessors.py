@@ -213,7 +213,10 @@ def psthfr(load_key):
     smooth = ('s' in options)
     hilo = ('hilo' in options)
     jackknife = ('j' in options)
-    epoch_regex = '^STIM_'
+    if 'stimtar' not in options:
+        epoch_regex = '^STIM_'
+    else:
+        epoch_regex = ['^STIM_', '^TAR_']
     if hilo:
         if jackknife:
              xfspec=[['nems_lbhb.preprocessing.hi_lo_psth_jack',
