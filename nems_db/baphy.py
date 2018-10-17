@@ -400,10 +400,22 @@ def baphy_load_data(parmfilepath, **options):
         try:
             pupilfilepath = re.sub(r"\.m$", ".pup.mat", parmfilepath)
             options['verbose'] = False
-            pupiltrace, ptrialidx = load_pupil_trace(
-                    pupilfilepath, exptevents, **options
-                    )
-            state_dict['pupiltrace'] = pupiltrace
+            if options['pupil_eyespeed']:
+                pupildata, ptrialidx = load_pupil_trace(
+                        pupilfilepath, exptevents, **options
+                        )
+                try:
+                    state_dict['pupil_eyespeed'] = pupildata['pupil_eyespeed']
+                    state_dict['pupiltrace'] = pupildata['pupil']
+                except:
+                    log.info('No eyespeed data exists for this recording')
+                    state_dict['pupiltrace'] = pupildata
+                
+            else:
+                pupiltrace, ptrialidx = load_pupil_trace(
+                        pupilfilepath, exptevents, **options
+                        )
+                state_dict['pupiltrace'] = pupiltrace
 
         except ValueError:
             raise ValueError("Error loading pupil data: " + pupilfilepath)
@@ -457,13 +469,24 @@ def baphy_load_dataset(parmfilepath, **options):
     tag_mask_start = "TRIALSTART"
     tag_mask_stop = "TRIALSTOP"
     ffstart = exptevents['name'].str.startswith(tag_mask_start)
-    ffstop = (exptevents['name'] == tag_mask_stop)
+    # Set trial stops to the beginning of the next trial for continuous data 
+    # loading
+    ffstop = exptevents['name'].str.startswith(tag_mask_start)
+    
+    # end at the end of last trial
+    final_trial = np.argwhere((exptevents['name'] == tag_mask_stop)==True)[-1][0]
+    ffstop.iloc[final_trial] = True  
+    
+    # set first True to False (the start of the first trial)
+    first_true = np.argwhere(ffstop==True)[0][0]
+    ffstop.iloc[first_true] = False
+    
     TrialCount = np.max(exptevents.loc[ffstart, 'Trial'])
     event_times = pd.concat([exptevents.loc[ffstart, ['start']].reset_index(),
                              exptevents.loc[ffstop, ['end']].reset_index()],
                             axis=1)
     event_times['name'] = "TRIAL"
-    event_times = event_times.drop(columns=['index'])
+    event_times = event_times.drop(columns=['index'])    
 
     print('Removing post-response stimuli')
     keepevents = np.full(len(exptevents), True, dtype=bool)
@@ -728,6 +751,7 @@ def baphy_load_dataset(parmfilepath, **options):
         # event_times=pd.concat([event_times, te])
 
     # sort by when the event occured in experiment time
+
     event_times = event_times.sort_values(
             by=['start', 'end'], ascending=[1, 0]
             ).reset_index()
@@ -938,12 +962,12 @@ def fill_default_options(options):
         options['rawid'] = rawid
 
     elif cellid is not None:
+        # figure out the rawids that this cell was stable across for this batch
+        # return the list of cells that meet these criteria so that we load from
+        # the correct cache
         cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=cellid,
                                                      rawid=rawid)
-        siteid = cellid.split("-")[0]
-        cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=siteid,
-                                                     rawid=rawid)
-        cellid = cell_list[0]
+
         options['cellid'] = cell_list
         options['rawid'] = rawid
 
@@ -954,6 +978,7 @@ def fill_default_options(options):
     options['pertrial'] = int(options.get('pertrial', False))
     options['includeprestim'] = options.get('includeprestim', 1)
     options['pupil'] = int(options.get('pupil', False))
+    options['pupil_eyespeed'] = int(options.get('pupil_eyespeed', False))
     options['pupil_deblink'] = int(options.get('pupil_deblink', 1))
     options['pupil_deblink_dur'] = options.get('pupil_deblink_dur', 0.75)
     options['pupil_median'] = options.get('pupil_median', 0.5)
@@ -1050,19 +1075,14 @@ def baphy_load_recording(**options):
     dni = d.reset_index()
     files = list(set(list(d['parm'])))
     files.sort()
+    goodtrials = np.array([], dtype=bool)
 
     if len(files) == 0:
-       raise ValueError('NarfData not found for cell {0}/batch {1}'.format(cellid,batch))
+       raise ValueError('NarfData not found for cell {0}/batch {1}'.format(
+               cellid,batch))
 
     for i, parmfilepath in enumerate(files):
         # load the file and do a bunch of preprocessing:
-        goodtrials = dni.loc[dni['parm']==parmfilepath, 'goodtrials'].values[0]
-        if len(goodtrials):
-            b = goodtrials.split(":")
-            goodtrials=np.arange(int(b[0])-1, int(b[1]))
-        else:
-            goodtrials=np.array([])
-
         if options["runclass"] == "RDT":
             event_times, spike_dict, stim_dict, \
                 state_dict, stim1_dict, stim2_dict = \
@@ -1078,6 +1098,27 @@ def baphy_load_recording(**options):
             elif d2['name'] == 'PASSIVE_EXPERIMENT':
                 d2['name'] = 'POST_PASSIVE'
                 event_times = event_times.append(d2)
+
+        tt = event_times[event_times['name'].str.startswith('TRIAL')]
+        trialcount = len(tt)
+        s_goodtrials = dni.loc[dni['parm'] ==
+                               parmfilepath, 'goodtrials'].values[0]
+
+        if (s_goodtrials is not None) and len(s_goodtrials):
+            log.info("goodtrials not empty: %s", s_goodtrials)
+            s_goodtrials = re.sub("[\[\]]", "", s_goodtrials)
+            g = s_goodtrials.split(" ")
+            _goodtrials = np.zeros(trialcount, dtype=bool)
+            for b in g:
+                b1 = b.split(":")
+                if len(b1) == 1:
+                    # single trial in list, simulate colon syntax
+                    b1 = b1 + b1
+                _goodtrials[(int(b1[0])-1):int(b1[1])] = True
+        else:
+            _goodtrials = np.ones(trialcount, dtype=bool)
+
+        goodtrials = np.concatenate((goodtrials, _goodtrials))
 
         # generate response signal
         t_resp = nems.signal.PointProcess(
@@ -1117,6 +1158,31 @@ def baphy_load_recording(**options):
                 pupil = t_pupil
             else:
                 pupil = pupil.concatenate_time([pupil, t_pupil])
+
+        if (options['pupil_eyespeed']) & ('pupil_eyespeed' in state_dict.keys()):
+            # create pupil signal if it exists
+            rlen = int(t_resp.ntimes)
+            pcount = state_dict['pupil_eyespeed'].shape[0]
+            plen = state_dict['pupil_eyespeed'].shape[1]
+            if plen > rlen:
+                state_dict['pupil_eyespeed'] = \
+                    state_dict['pupil_eyespeed'][:, 0:-(plen-rlen)]
+            elif rlen > plen:
+                state_dict['pupil_eyespeed'] = \
+                    np.append(state_dict['pupil_eyespeed'],
+                              np.ones([pcount, rlen - plen]) * np.nan,
+                              axis=1)
+
+            # generate pupil signals
+            t_pupil_s = nems.signal.RasterizedSignal(
+                    fs=options['rasterfs'], data=state_dict['pupil_eyespeed'],
+                    name='pupil_eyespeed', recording=rec_name, chans=['pupil_eyespeed'],
+                    epochs=event_times)
+
+            if i == 0:
+                pupil_speed = t_pupil_s
+            else:
+                pupil_speed = pupil_speed.concatenate_time([pupil_speed, t_pupil_s])
 
         if options['rem']:
 
@@ -1172,6 +1238,8 @@ def baphy_load_recording(**options):
 
     if options['pupil']:
         signals['pupil'] = pupil
+    if (options['pupil_eyespeed']) & ('pupil_eyespeed' in signals.keys()):
+        signals['pupil_eyespeed'] = pupil_speed
     if options['rem']:
         signals['rem'] = rem
     if options['stim']:
@@ -1188,7 +1256,8 @@ def baphy_load_recording(**options):
 
     rec = nems.recording.Recording(signals=signals, meta=meta, name=siteid)
 
-    if goodtrials.size > 0:
+    if goodtrials.size > np.sum(goodtrials):
+        print(goodtrials)
         # mask out trials outside of goodtrials range, specified in celldb
         # usually during meska save
         trial_epochs = rec['resp'].get_epoch_indices('TRIAL')
@@ -1236,6 +1305,7 @@ def baphy_data_path(**options):
 
     elif cellid is None and options.get('siteid') is not None:
         cellid = options.get('siteid')
+    
     siteid = options.get('siteid', cellid.split("-")[0])
 
     # TODO : base filename on siteid/cellid plus hash from JSON-ized options

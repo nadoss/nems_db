@@ -76,16 +76,22 @@ def get_model_results_per_state_model(batch=307, state_list=None,
     """
 
     if state_list is None:
-        state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
+        state_list = ['st.pup0.beh0', 'st.pup0.beh',
+                      'st.pup.beh0', 'st.pup.beh']
 
     modelnames = [loader + s + basemodel + fitter for s in state_list]
 
     celldata = nd.get_batch_cells(batch=batch)
     cellids = celldata['cellid'].tolist()
 
-    d = pd.DataFrame(columns=['cellid','modelname','state_sig',
-                              'state_chan','MI',
-                              'r','r_se','d','g'])
+    if state_list[-1].endswith('fil'):
+        include_AP = True
+    else:
+        include_AP = False
+
+    d = pd.DataFrame(columns=['cellid', 'modelname', 'state_sig',
+                              'state_chan', 'MI',
+                              'r', 'r_se', 'd', 'g', 'state_chan_alt'])
 
     for mod_i, m in enumerate(modelnames):
         print('Loading modelname: ', m)
@@ -99,6 +105,8 @@ def get_model_results_per_state_model(batch=307, state_list=None,
             state_chans = meta['state_chans']
             dc = modelspec[0]['phi']['d']
             gain = modelspec[0]['phi']['g']
+            a_count=0
+            p_count=0
             for j, sc in enumerate(state_chans):
                 r = {'cellid': c, 'state_chan': sc, 'modelname': m,
                      'state_sig': state_list[mod_i],
@@ -106,6 +114,24 @@ def get_model_results_per_state_model(batch=307, state_list=None,
                      'MI': state_mod[j],
                      'r': meta['r_test'][0], 'r_se': meta['se_test'][0]}
                 d = d.append(r, ignore_index=True)
+                l = len(d) - 1
+
+                if include_AP and sc.startswith("FILE_"):
+                    siteid = c.split("-")[0]
+                    fn = "%" + sc.replace("FILE_","") + "%"
+                    sql = "SELECT * FROM gDataRaw WHERE cellid=%s" +\
+                       " AND parmfile like %s"
+                    dcellfile = nd.pd_query(sql, (siteid, fn))
+                    if dcellfile.loc[0]['behavior'] == 'active':
+                        a_count += 1
+                        d.loc[l,'state_chan_alt'] = "ACTIVE_{}".format(a_count)
+                    else:
+                        p_count += 1
+                        d.loc[l,'state_chan_alt'] = "PASSIVE_{}".format(p_count)
+                else:
+                    d.loc[l,'state_chan_alt'] = d.loc[l,'state_chan']
+
+
 
     #d['r_unique'] = d['r'] - d['r0']
     #d['MI_unique'] = d['MI'] - d['MI0']

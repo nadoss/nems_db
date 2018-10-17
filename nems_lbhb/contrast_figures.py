@@ -24,10 +24,15 @@ gc_model_full = ("ozgf.fs100.ch18-ld-contrast.ms250-sev_"
                  "ctwc.18x2.g-ctfir.2x15-ctlvl.1-dsig.l_"
                  "init.c-basic")
 
-gc_model_cont = ("ozgf.fs100.ch18-ld-contrast.ms100.cont.n-sev_"
-                 "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
-                 "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l_"
-                 "init.c-basic")
+gc_cont_full = ("ozgf.fs100.ch18-ld-contrast.ms100.cont.n-sev_"
+                "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
+                "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l_"
+                "init.c-basic")
+
+gc_cont_reduced = ("ozgf.fs100.ch18-ld-contrast.ms100.cont.n-sev_"
+                   "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
+                   "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l.k.s_"
+                   "init.c-basic")
 
 stp_model = ("ozgf.fs100.ch18-ld-sev_"
              "dlog.f-wc.18x2.g-stp.2-fir.2x15-lvl.1-logsig_"
@@ -48,12 +53,6 @@ gc_win3 = 'TAR010c-40-1'
 stp_win1 = 'TAR010c-58-2'
 stp_win2 = 'BRT033b-12-4'
 ln_win = 'TAR010c-15-4'
-
-# old models for testing
-#gc_model_full = ("ozgf.fs100.ch18-ld-contrast.ms250-sev_"
-#                "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
-#                "ctwc.18x2.g-ctfir.2x15-ctlvl.1-dsig.l_"
-#                "init.c.t3-basic")
 
 # TODO: make loaded params DFs global as well to save time.
 #       Can also maybe do this with some of the loaded xfspec, ctx tuples
@@ -76,20 +75,18 @@ def run_all():
 # LN versus GC
 # LN versus STP
 # GC versus STP
-def performance_scatters(display=True):
-    p1 = plot_filtered_batch(batch, [gc_model, stp_model],
-                             'r_test', 'Scatter')
+def performance_scatters(model1=gc_cont_full, model2=ln_model, display=True):
+    p1 = plot_filtered_batch(batch, [model1, model2], 'r_test', 'Scatter')
 
     if display:
         show(p1.plot)
 
-    return p1
 
-
-def performance_correlation_scatter():
-    df1 = fitted_params_per_batch(batch, gc_model_full, stats_keys=[])
-    df2 = fitted_params_per_batch(batch, stp_model, stats_keys=[])
-    df3 = fitted_params_per_batch(batch, ln_model, stats_keys=[])
+def performance_correlation_scatter(model1=gc_cont_full, model2=stp_model,
+                                    model3=ln_model):
+    df1 = fitted_params_per_batch(batch, model1, stats_keys=[])
+    df2 = fitted_params_per_batch(batch, model2, stats_keys=[])
+    df3 = fitted_params_per_batch(batch, model3, stats_keys=[])
 
     # fill in missing cellids w/ nan
     celldata = get_batch_cells(batch=batch)
@@ -153,10 +150,10 @@ def performance_correlation_scatter():
     adjustFigAspect(fig, aspect=1)
 
 
-def performance_bar():
-    df1 = fitted_params_per_batch(batch, gc_model)
-    df2 = fitted_params_per_batch(batch, stp_model)
-    df3 = fitted_params_per_batch(batch, ln_model)
+def performance_bar(model1=gc_cont_full, model2=stp_model, model3=ln_model):
+    df1 = fitted_params_per_batch(batch, model1)
+    df2 = fitted_params_per_batch(batch, model2)
+    df3 = fitted_params_per_batch(batch, model3)
 
     # fill in missing cellids w/ nan
     celldata = get_batch_cells(batch=batch)
@@ -221,9 +218,10 @@ def performance_bar():
 #       in that respect.
 
 # Overlay of prediction from STP versus prediction from GC for sample cell(s)
-def example_pred_overlay():
-    xfspec1, ctx1 = load_model_baphy_xform(good_cell, batch, gc_model_full)
-    xfspec2, ctx2 = load_model_baphy_xform(good_cell, batch, stp_model)
+def example_pred_overlay(cellid=good_cell, model1=gc_cont_full,
+                         model2=stp_model):
+    xfspec1, ctx1 = load_model_baphy_xform(cellid, batch, model1)
+    xfspec2, ctx2 = load_model_baphy_xform(cellid, batch, model2)
     plt.figure()
     #xf.plot_timeseries(ctx1, 'resp', cutoff=500)
     xf.plot_timeseries(ctx1, 'pred', cutoff=(200, 500))
@@ -235,7 +233,7 @@ def example_pred_overlay():
 # Some other metric ("equivalence"?) for quantifying how similar the fits are
 
 # Average correlation for full pop. of cells?
-def average_r():
+def average_r(model1=gc_cont_full, model2=stp_model):
     # 1. query all of the relevant cell/model combos to get everything needed
     #    up to just before actually loading the model
     # - referenced _get_modelspecs in nems_db.params
@@ -248,8 +246,8 @@ def average_r():
     rs = []
     for i, cellid in enumerate(cellids):
         print("\n\n Starting cell # %d (out of %d)" % (i, len(cellids)))
-        xfspec1, ctx1 = load_model_baphy_xform(cellid, batch, gc_model)
-        xfspec2, ctx2 = load_model_baphy_xform(cellid, batch, stp_model)
+        xfspec1, ctx1 = load_model_baphy_xform(cellid, batch, model1)
+        xfspec2, ctx2 = load_model_baphy_xform(cellid, batch, model2)
 
     # 3. Compute the correlation for that cell
         pred1 = ctx1['val'][0]['pred'].as_continuous()
@@ -291,7 +289,7 @@ def contrast_examples():
 
 # Timeseries showing values of kappa & shift over time, alongside ctpred
 # and final pred before & after
-def contrast_variables_timeseries(cellid=good_cell, modelname=gc_model_full):
+def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_full):
 
     xfspec, ctx = load_model_baphy_xform(cellid, batch, modelname)
     val = copy.deepcopy(ctx['val'][0])
@@ -325,7 +323,23 @@ def contrast_variables_timeseries(cellid=good_cell, modelname=gc_model_full):
 
     xfspec2, ctx2 = load_model_baphy_xform(cellid, batch, ln_model)
     val2 = copy.deepcopy(ctx2['val'][0])
-    pred_after_LN_only = copy.deepcopy(val2['pred']).as_continuous()[0, :].T
+    mspec2 = ctx2['modelspecs'][0]
+    logsig_idx = find_module('logistic_sigmoid', mspec2)
+    #dexp_idx = find_module('double_exponential', mspec2)
+    before2 = ms.evaluate(val2, mspec2, start=None, stop=logsig_idx)
+    pred_before_LN = copy.deepcopy(before2['pred']).as_continuous()[0, :].T
+    after2 = ms.evaluate(before2.copy(), mspec2, start=logsig_idx, stop=logsig_idx+1)
+    pred_after_LN_only = after2['pred'].as_continuous()[0, :].T
+
+    xfspec3, ctx3 = load_model_baphy_xform(cellid, batch, stp_model)
+    val3 = copy.deepcopy(ctx3['val'][0])
+    mspec3 = ctx3['modelspecs'][0]
+    logsig_idx = find_module('logistic_sigmoid', mspec3)
+    #dexp_idx = find_module('double_exponential', mspec2)
+    before3 = ms.evaluate(val3, mspec3, start=None, stop=logsig_idx)
+    pred_before_stp = copy.deepcopy(before3['pred']).as_continuous()[0, :].T
+    after3 = ms.evaluate(before3.copy(), mspec3, start=logsig_idx, stop=logsig_idx+1)
+    pred_after_stp = after3['pred'].as_continuous()[0, :].T
 
     mspec2 = ctx2['modelspecs'][0]
     logsig_idx = find_module('logistic_sigmoid', mspec2)
@@ -336,11 +350,15 @@ def contrast_variables_timeseries(cellid=good_cell, modelname=gc_model_full):
     ln_a = ln_phi['amplitude']
 
     # Re-align data w/o any NaN predictions and convert to real-time
-    ff = np.isfinite(pred_before) & np.isfinite(pred_after) \
-            & np.isfinite(pred_after_LN_only)
+    ff = np.isfinite(pred_before) & np.isfinite(pred_before_LN) \
+            & np.isfinite(pred_before_stp) & np.isfinite(pred_after) \
+            & np.isfinite(pred_after_LN_only) & np.isfinite(pred_after_stp)
     pred_before = pred_before[ff] * fs
+    pred_before_LN = pred_before_LN[ff] * fs
+    pred_before_stp = pred_before_stp[ff] * fs
     pred_after = pred_after[ff] * fs
     pred_after_LN_only = pred_after_LN_only[ff] * fs
+    pred_after_stp = pred_after_stp[ff] * fs
     ctpred = ctpred[ff] * fs
     resp = resp[ff] * fs
 
@@ -367,38 +385,35 @@ def contrast_variables_timeseries(cellid=good_cell, modelname=gc_model_full):
     st1 = fig1.suptitle("Cellid: %s\nModelname: %s" % (cellid, modelname))
     gs = gridspec.GridSpec(6, 1)
 
-    ax11 = plt.subplot(gs[0, 0])
+    plt.subplot(gs[0, 0])
     plt.plot(t, pred_before, linewidth=1, color='black')
+    plt.plot(t, pred_before_LN, linewidth=1, color='gray')
     plt.title("Prediction before Nonlinearity")
 
-    ax12 = plt.subplot(gs[1, 0])
+    plt.subplot(gs[1, 0])
     plt.plot(t, ctpred, linewidth=1, color='purple')
     plt.title("Output from Contrast STRF")
 
-    ax13 = plt.subplot(gs[2, 0])
+    plt.subplot(gs[2, 0])
     plt.plot(t, pred_after_LN_only, linewidth=1, color='black')
     plt.title("Prediction after Nonlinearity (No GC)")
 
-    ax14 = plt.subplot(gs[3, 0])
+    plt.subplot(gs[3, 0])
     plt.plot(t, pred_after, linewidth=1, color='purple')
     plt.title("Prediction after Nonlinearity (W/ GC)")
 
-    ax15 = plt.subplot(gs[4, 0])
+    plt.subplot(gs[4, 0])
     change = pred_after - pred_after_LN_only
     plt.plot(t, change, linewidth=1, color='blue')
     plt.title("Change to Prediction w/ GC")
 
-    ax16 = plt.subplot(gs[5, 0])
+    plt.subplot(gs[5, 0])
     plt.plot(t, resp, linewidth=1, color='green')
     plt.title("Response")
 
-    # TODO: Or make them more sensible somehow? All different units
-    #       and ranges so seems like it might not make sense to show.
-#    for ax in fig.axes:
-#        ax.axes.get_yaxis().set_visible(False)
+
     ymin = 0
     ymax = 0
-    #axes = [ax13, ax14, ax15, ax16]
     for ax in fig1.axes[2:]:
         ybottom, ytop = ax.get_ylim()
         ymin = min(ymin, ybottom)
@@ -460,9 +475,50 @@ def contrast_variables_timeseries(cellid=good_cell, modelname=gc_model_full):
         ax.axes.get_xaxis().set_visible(False)
 
 
-    #fig3 = plt.figure(figsize=(7, 12))
-    #gs3 = gridspec.GridSpec(7, 1)
+    fig3 = plt.figure(figsize=(6, 12))
+    st3 = fig3.suptitle("Cellid: %s\nModelname: %s" % (cellid, modelname))
+    gs3 = gridspec.GridSpec(6, 1)
 
+    plt.subplot(gs3[0, 0])
+    plt.plot(t, pred_before_stp, linewidth=1, color='black')
+    plt.plot(t, pred_before_LN, linewidth=1, color='gray')
+    plt.title("Prediction before Nonlinearity")
+
+    plt.subplot(gs3[1, 0])
+    plt.plot(t, np.ones_like(t))
+    plt.title("Skip for now")
+
+    plt.subplot(gs3[2, 0])
+    plt.plot(t, pred_after_LN_only, linewidth=1, color='black')
+    plt.title("Prediction after Nonlinearity (No STP)")
+
+    plt.subplot(gs3[3, 0])
+    plt.plot(t, pred_after_stp, linewidth=1, color='purple')
+    plt.title("Prediction after Nonlinearity (W/ STP)")
+
+    plt.subplot(gs3[4, 0])
+    change2 = pred_after_stp - pred_after_LN_only
+    plt.plot(t, change2, linewidth=1, color='blue')
+    plt.title("Change to Prediction w/ STP")
+
+    plt.subplot(gs3[5, 0])
+    plt.plot(t, resp, linewidth=1, color='green')
+    plt.title("Response")
+
+    ymin = 0
+    ymax = 0
+    for ax in fig3.axes[2:]:
+        ybottom, ytop = ax.get_ylim()
+        ymin = min(ymin, ybottom)
+        ymax = max(ymax, ytop)
+    for ax in fig3.axes[2:]:
+        ax.set_ylim(ymin, ymax)
+    for ax in fig3.axes[:-1]:
+        ax.axes.get_xaxis().set_visible(False)
+
+    plt.tight_layout()
+    st3.set_y(0.95)
+    fig3.subplots_adjust(top=0.85)
 
 
 # Average values for fitted contrast parameters, to compare to paper

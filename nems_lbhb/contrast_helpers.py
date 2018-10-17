@@ -8,6 +8,8 @@ import nems.epoch
 import nems.modelspec as ms
 from nems.utils import find_module
 from nems import signal
+from nems.modules.weight_channels import gaussian_coefficients
+from nems.modules.fir import per_channel
 from nems.modules.nonlinearity import (_logistic_sigmoid, _double_exponential,
                                        _dlog)
 from nems.initializers import prefit_to_target, prefit_mod_subset
@@ -19,33 +21,8 @@ from nems import priors
 log = logging.getLogger(__name__)
 
 
-def _strf_to_contrast(modelspec):
-    '''
-    Copy prefitted WC and FIR phi values to contrast-based counterparts.
-    '''
-    modelspec = copy.deepcopy(modelspec)
-    wc_idx, ctwc_idx = find_module('weight_channels', modelspec,
-                                   find_all_matches=True)
-    fir_idx, ctfir_idx = find_module('fir', modelspec, find_all_matches=True)
-
-    log.info("Updating contrast phi to match prefitted strf ...")
-
-    modelspec[ctwc_idx]['phi'] = copy.deepcopy(modelspec[wc_idx]['phi'])
-    modelspec[ctfir_idx]['phi'] = copy.deepcopy(modelspec[fir_idx]['phi'])
-
-    return modelspec
-
-
-def strf_to_contrast(modelspecs, IsReload=False, **context):
-    if not IsReload:
-        new_mspec = _strf_to_contrast(modelspecs[0])
-        return {'modelspecs': [new_mspec]}
-    else:
-        return {'modelspecs': modelspecs}
-
-
 def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
-                         dlog=False, bins=None, continuous=False,
+                         bins=None, bands=1, dlog=False, continuous=False,
                          normalize=False, percentile=50, ignore_zeros=True):
     '''
     Creates a new signal whose values represent the degree of variability
@@ -88,8 +65,8 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     array[np.isnan(array)] = 0
 
     #filt = np.ones([1, history]) / history
-    filt = np.concatenate((np.zeros([1, history+1]),
-                           np.ones([1, history])), axis=1) / history
+    filt = np.concatenate((np.zeros([bands, history+1]),
+                           np.ones([bands, history])), axis=1) / history
     mn = convolve2d(array, filt, mode='same')
 
     var = convolve2d(array ** 2, filt, mode='same') - mn ** 2
@@ -127,12 +104,12 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
 
 
 def add_contrast(rec, name='contrast', source_name='stim', ms=500, bins=None,
-                 continuous=False, normalize=False, dlog=False,
+                 continuous=False, normalize=False, dlog=False, bands=1,
                  percentile=50, ignore_zeros=True, IsReload=False, **context):
     '''xforms wrapper for make_contrast_signal'''
     rec_with_contrast = make_contrast_signal(
             rec, name=name, source_name=source_name, ms=ms, bins=bins,
-            percentile=percentile, normalize=normalize, dlog=dlog,
+            percentile=percentile, normalize=normalize, dlog=dlog, bands=bands,
             ignore_zeros=ignore_zeros, continuous=continuous
             )
     return {'rec': rec_with_contrast}
@@ -209,6 +186,41 @@ def pass_nested_modelspec(modelspecs, IsReload=False, **context):
     return {'modelspecs': modelspecs}
 
 
+def fixed_contrast_strf(modelspec=None, **kwargs):
+    if modelspec is None:
+        pass
+    else:
+        # WARNING: This modifies modelspec in-place mid-evaluation.
+        #          Really not sure this is the right way to do this.
+        wc_idx = find_module('weight_channels', modelspec)
+        if 'g' not in modelspec[wc_idx]['id']:
+            _, ctwc_idx = find_module('weight_channels', modelspec,
+                                      find_all_matches=True)
+            fir_idx, ctfir_idx = find_module('fir', modelspec,
+                                             find_all_matches=True)
+
+            modelspec[ctwc_idx]['fn_kwargs'].update(copy.deepcopy(
+                                                modelspec[wc_idx]['phi']
+                                                ))
+            modelspec[ctfir_idx]['fn_kwargs'].update(copy.deepcopy(
+                                                modelspec[fir_idx]['phi']
+                                                ))
+
+            modelspec[ctwc_idx]['phi'] = {}
+            modelspec[ctfir_idx]['phi'] = {}
+
+            for k, v in modelspec[ctwc_idx]['phi']:
+                p = np.abs(v)
+                modelspec[ctwc_idx]['phi'][k] = p
+
+            for k, v in modelspec[ctfir_idx]['phi']:
+                p = np.abs(v)
+                modelspec[ctfir_idx]['phi'][k] = p
+
+
+    return False
+
+
 def dynamic_sigmoid(rec, i, o, c, base, amplitude, shift, kappa,
                     base_mod=0, amplitude_mod=0, shift_mod=0,
                     kappa_mod=0, eq='logsig'):
@@ -219,28 +231,25 @@ def dynamic_sigmoid(rec, i, o, c, base, amplitude, shift, kappa,
         amplitude_mod = np.nan
         shift_mod = np.nan
         kappa_mod = np.nan
+        contrast = np.zeros_like(rec['resp'].as_continuous())
     else:
         contrast = rec[c].as_continuous()
 
     if np.isnan(base_mod):
-        b = base
-    else:
-        b = base+base_mod*contrast
+        base_mod = base
+    b = base + (base_mod - base)*contrast
 
     if np.isnan(amplitude_mod):
-        a = amplitude
-    else:
-        a = amplitude+amplitude_mod*contrast
+        amplitude_mod = amplitude
+    a = amplitude + (amplitude_mod - amplitude)*contrast
 
     if np.isnan(shift_mod):
-        s = shift
-    else:
-        s = shift+shift_mod*contrast
+        shift_mod = shift
+    s = shift + (shift_mod - shift)*contrast
 
     if np.isnan(kappa_mod):
-        k = kappa
-    else:
-        k = kappa+kappa_mod*contrast
+        kappa_mod = kappa
+    k = kappa + (kappa_mod - kappa)*contrast
 
     if eq.lower() in ['logsig', 'logistic_sigmoid', 'l']:
         fn = lambda x: _logistic_sigmoid(x, b, a, s, k)
@@ -266,10 +275,10 @@ def add_gc_signal(rec, modelspec, name='GC'):
     phi = modelspec[dsig_idx]['phi']
     phi.update(modelspec[dsig_idx]['fn_kwargs'])
     pred = rec['pred'].as_continuous()
-    b = phi['base'] + pred*phi['base_mod']
-    a = phi['amplitude'] + pred*phi['amplitude_mod']
-    s = phi['shift'] + pred*phi['shift_mod']
-    k = phi['kappa'] + pred*phi['kappa_mod']
+    b = phi['base'] + (phi['base_mod']-phi['base'])*pred
+    a = phi['amplitude'] + (phi['amplitude_mod']-phi['amplitude'])*pred
+    s = phi['shift'] + (phi['shift_mod']-phi['shift'])*pred
+    k = phi['kappa'] + (phi['kappa_mod']-phi['kappa'])*pred
     array = np.squeeze(np.stack([b, a, s, k], axis=0))
 
 
@@ -367,11 +376,14 @@ def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
     resp = rec['resp'].as_continuous()
 
     mean_pred = np.nanmean(pred)
-    min_pred = np.nanmean(pred)-np.nanstd(pred)*3
-    max_pred = np.nanmean(pred)+np.nanstd(pred)*3
+    min_pred = np.nanmean(pred) - np.nanstd(pred)*3
+    max_pred = np.nanmean(pred) + np.nanstd(pred)*3
+    if min_pred < 0:
+        min_pred = 0
+        mean_pred = (min_pred+max_pred)/2
+
     pred_range = max_pred - min_pred
     min_resp = max(np.nanmean(resp)-np.nanstd(resp)*3, 0)  # must be >= 0
-
     max_resp = np.nanmean(resp)+np.nanstd(resp)*3
     resp_range = max_resp - min_resp
 
@@ -387,13 +399,19 @@ def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
 
     base = ('Exponential', {'beta': base0})
     amplitude = ('Exponential', {'beta': amplitude0})
-    shift = ('Normal', {'mean': shift0, 'sd': pred_range})
+    shift = ('Normal', {'mean': shift0, 'sd': pred_range**2})
     kappa = ('Exponential', {'beta': kappa0})
 
     modelspec[dsig_idx]['prior'].update({
             'base': base, 'amplitude': amplitude, 'shift': shift,
             'kappa': kappa,
+            'base_mod': base, 'amplitude_mod':amplitude, 'shift_mod':shift,
+            'kappa_mod': kappa
             })
+
+    for kw in modelspec[dsig_idx]['fn_kwargs']:
+        if kw in ['base_mod', 'amplitude_mod', 'shift_mod', 'kappa_mod']:
+            modelspec[dsig_idx]['prior'].pop(kw)
 
     modelspec[dsig_idx]['bounds'] = {
             'base': (1e-15, None),
@@ -495,7 +513,7 @@ def dsig_phi_to_prior(modelspec):
 
 
 def init_contrast_model(est, modelspecs, IsReload=False,
-                        tolerance=10**-5.5, max_iter=700,
+                        tolerance=10**-5.5, max_iter=700, copy_strf=False,
                         fitter='scipy_minimize', metric='nmse', **context):
 
     if IsReload:
@@ -548,6 +566,10 @@ def init_contrast_model(est, modelspecs, IsReload=False,
     # Now prefit all of the contrast modules together.
     # Before this step, result of initialization should be identical
     # to prefit_LN
+    if copy_strf:
+        # Will only behave as expected if dimensions of strf
+        # and contrast strf match!
+        modelspec = _strf_to_contrast(modelspec)
     modelspec = _prefit_contrast_modules(
                     est, modelspec, fit_basic,
                     fitter=fitter_fn,
@@ -625,7 +647,7 @@ def _prefit_dsig_only(est, modelspec, analysis_function,
     for p in dynamic_phi:
         v = modelspec[dsig_idx]['prior'].pop(p, False)
         if v:
-            modelspec[dsig_idx]['fn_kwargs'][p] = 0
+            modelspec[dsig_idx]['fn_kwargs'][p] = np.nan
             dynamic_phi[p] = v
 
     # Remove ctwc, ctfir, and ctlvl if they exist
@@ -656,3 +678,89 @@ def _prefit_dsig_only(est, modelspec, analysis_function,
             modelspec[dsig_idx]['phi'][p] = prior.mean()
 
     return modelspec
+
+
+def strf_to_contrast(modelspecs, IsReload=False, **context):
+    modelspec = copy.deepcopy(modelspecs)[0]
+    modelspec = _strf_to_contrast(modelspec)
+    return {'modelspecs': [modelspec]}
+
+
+def _strf_to_contrast(modelspec, absolute_value=True):
+    '''
+    Copy prefitted WC and FIR phi values to contrast-based counterparts.
+    '''
+    modelspec = copy.deepcopy(modelspec)
+    wc_idx, ctwc_idx = find_module('weight_channels', modelspec,
+                                   find_all_matches=True)
+    fir_idx, ctfir_idx = find_module('fir', modelspec,
+                                     find_all_matches=True)
+
+    log.info("Updating contrast phi to match prefitted strf ...")
+
+    modelspec[ctwc_idx]['phi'] = copy.deepcopy(modelspec[wc_idx]['phi'])
+    modelspec[ctfir_idx]['phi'] = copy.deepcopy(modelspec[fir_idx]['phi'])
+
+    if absolute_value:
+        for k, v in modelspec[ctwc_idx]['phi'].items():
+            p = np.abs(v)
+            modelspec[ctwc_idx]['phi'][k] = p
+
+        for k, v in modelspec[ctfir_idx]['phi'].items():
+            p = np.abs(v)
+            modelspec[ctfir_idx]['phi'][k] = p
+
+    return modelspec
+
+
+def weight_channels(rec, i, o, ci, co, n_chan_in, mean, sd, **kwargs):
+    '''
+    Parameters
+    ----------
+    rec : recording
+        Recording to transform
+    i : string
+        Name of input signal
+    o : string
+        Name of output signal
+    mean : array-like (between 0 and 1)
+        Centers of Gaussian channel weights
+    sd : array-like
+        Standard deviation of Gaussian channel weights
+    '''
+    coefficients = gaussian_coefficients(mean, sd, n_chan_in)
+    fn = lambda x: coefficients @ x
+    gc_fn = lambda x: np.abs(coefficients) @ x
+    return [rec[i].transform(fn, o), rec[ci].transform(gc_fn, co)]
+
+
+def fir(rec, i, o, ci, co, coefficients=[]):
+    """
+    apply fir filters of the same size in parallel. convolve in time, then
+    sum across channels
+
+    coefficients : 2d array
+        all coefficients matrix shape=channel X time lag, for which
+        .shape[0] matched to the channel count of the input
+
+    input :
+        nems signal named in 'i'. must have dimensionality matched to size
+        of coefficients matrix.
+    output :
+        nems signal in 'o' will be 1 x time singal (single channel)
+    """
+    fn = lambda x: per_channel(x, coefficients)
+    gc_fn = lambda x: per_channel(x, np.abs(coefficients))
+    return [rec[i].transform(fn, o), rec[ci].transform(gc_fn, co)]
+
+
+def levelshift(rec, i, o, ci, co, level):
+    '''
+    Parameters
+    ----------
+    level : a scalar to add to every element of the input signal.
+    '''
+    fn = lambda x: x + level
+    gc_fn = lambda x: x + np.abs(level)
+    return [rec[i].transform(fn, o), rec[ci].transform(gc_fn, co)]
+

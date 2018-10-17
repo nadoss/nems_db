@@ -71,7 +71,7 @@ def evs(loadkey):
     return xfspec
 
 
-def st(loadkey, recording_uri):
+def st(loadkey):
     """
     st = "state variable"
     generate a state signal
@@ -127,6 +127,8 @@ def st(loadkey, recording_uri):
             this_sig = ['hit']
         elif l.startswith('rem'):
             this_sig = ['rem']
+        elif l.startswith('eysp'):
+            this_sig = ['pupil_eyespeed']
         else:
             raise ValueError("unknown signal code %s for state variable initializer", l)
 
@@ -141,7 +143,7 @@ def st(loadkey, recording_uri):
     return xfspec
 
 
-def mod(loadkey, recording_uri):
+def mod(loadkey):
     """
     Make a signal called "mod". Basically the residual resp (resp - psth) offset
     such that the min is 0 and the max is max(resp - psth + offset)
@@ -181,6 +183,8 @@ def contrast(loadkey):
             kwargs['dlog'] = True
         elif op == 'cont':
             kwargs['continuous'] = True
+        elif op.startswith('b'):
+            kwargs['bands'] = int(op[1:])
 
     return [['nems_lbhb.contrast_helpers.add_contrast', kwargs]]
 
@@ -209,7 +213,10 @@ def psthfr(load_key):
     smooth = ('s' in options)
     hilo = ('hilo' in options)
     jackknife = ('j' in options)
-    epoch_regex = '^STIM_'
+    if 'stimtar' not in options:
+        epoch_regex = '^STIM_'
+    else:
+        epoch_regex = ['^STIM_', '^TAR_']
     if hilo:
         if jackknife:
              xfspec=[['nems_lbhb.preprocessing.hi_lo_psth_jack',

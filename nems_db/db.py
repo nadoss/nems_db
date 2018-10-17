@@ -121,6 +121,9 @@ def pd_query(sql=None, params=()):
     params:
         sql: string
             query to execute
+            use fprintf formatting, eg
+                sql = "SELECT * FROM table WHERE name=%s"
+                params = ("Joe")
 
     TODO : sqlite compatibility?
     """
@@ -128,8 +131,8 @@ def pd_query(sql=None, params=()):
     if sql is None:
         raise ValueError ("parameter sql required")
     engine = Engine()
-    print(sql)
-    print(params)
+    # print(sql)
+    # print(params)
     d = pd.read_sql(sql=sql, con=engine, params=params)
 
     return d
@@ -1123,7 +1126,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
                              label ='parm'):
     '''
     Used to return only the information for units that were stable across all
-    rawids that match this batch and site (cellid)
+    rawids that match this batch and site/cellid.
     '''
     # eg, sql="SELECT * from NarfData WHERE batch=301 and cellid="
     engine = Engine()
@@ -1152,28 +1155,45 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
             rawid = [rawid]
         rawid=tuple([str(i) for i in rawid])
         params = params+(rawid,)
+        
+        d = pd.read_sql(sql=sql, con=engine, params=params)
+
+        cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
+    
+        # Make sure cellids is a list
+        if type(cellids) is np.ndarray and type(cellids[0]) is np.ndarray:
+            cellids = list(cellids[0])
+        elif type(cellids) is np.ndarray:
+            cellids = list(cellids)
+        else:
+            pass
+        
+        print('Returning cellids: {0}, stable across rawids: {1}'.format(cellids, rawid))
+    
+        return cellids, list(rawid)
 
     else:
         rawid = pd.read_sql(sql=sql_rawids, con=engine, params=params)
         rawid = tuple([str(i[0]) for i in rawid.values])
         sql += " AND rawid IN %s"
         params = params+(rawid,)
+        
+        d = pd.read_sql(sql=sql, con=engine, params=params)
 
-    print('returning cellids stable across rawids: {0}'.format(rawid))
-
-    d = pd.read_sql(sql=sql, con=engine, params=params)
-
-    cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
-
-    # Make sure cellids is a list
-    if type(cellids) is np.ndarray and type(cellids[0]) is np.ndarray:
-        cellids = list(cellids[0])
-    elif type(cellids) is np.ndarray:
-        cellids = list(cellids)
-    else:
-        pass
-
-    return cellids, list(rawid)
+        cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
+    
+        # Make sure cellids is a list
+        if type(cellids) is np.ndarray and type(cellids[0]) is np.ndarray:
+            cellids = list(cellids[0])
+        elif type(cellids) is np.ndarray:
+            cellids = list(cellids)
+        else:
+            pass
+        
+        siteid = cellids[0].split('-')[0]
+        cellids, rawid = get_stable_batch_cells(batch, siteid, list(rawid))
+        
+        return cellids, rawid
 
 
 def get_wft(cellid=None):

@@ -8,6 +8,9 @@ import nems.metrics.api as metrics
 
 log = logging.getLogger(__name__)
 
+# TODO: add to initialization for fir
+            # c = c/np.norm(c)
+            # r, zf = scipy.signal.lfilter( a*c, [1], x_, zi=zi)
 
 def lnp_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
               metric='nmse', IsReload=False, fitter='scipy_minimize',
@@ -39,49 +42,51 @@ def _lnp_metric(data, pred_name='pred', resp_name='resp'):
     #        at most 1 spike per bin as much as possible.
 
     # For stephen's lab: rate_name usually 'pred'
-    rate_vector = data[rate_name].as_continuous().flatten()
+    rate_vector = data[rate_name].as_continuous()
     spike_signal = data[spikes_name]
-    fs = spike_signal.fs
     spike_train = spike_signal.as_continuous()
+    ff = np.isfinite(rate_vector) & np.isfinite(spike_train)
+    # TODO: Add in some check to make sure this isn't taking out a lot of
+    #       bins that shouldn't be taken out.
+    # Get rid of NaNs left over from est/val split
+    rate_vector = rate_vector[ff].flatten()
+    # Normalize rate vector to be range 0 to 1?
+    #rate_vector = (rate_vector + rate_vector.min())/rate_vector.max()
+    spike_train = spike_train[ff]
     spikes = np.argwhere(spike_train).flatten()
 
     # negative logikelihood:
     # (1-integral of mu dt)(mu dt) (product for all spikes)
 
-    stim_errors = []
-    stim_dict = _stack_reps(spike_signal)
-
     # TODO: what to set initial to? keep it as 0? random? ISI-based?
     integral = integrate.cumtrapz(rate_vector, initial=0).flatten()
 
-    for stim in stim_dict:
-        rep_errors = []
+    loglikes = []
+    t0 = 0
 
-        for rep in stim_dict[stim]:
-            start_seconds, end_seconds = rep
-            start_bin = round(start_seconds*fs)
-            end_bin = round(end_seconds*fs)
+    for st in spikes:
+        diff = integral[st] - integral[t0]
 
-            loglikes = []
-            t0 = start_bin
+        # Neither of these should happen, but just incase...
+        if diff > 1:
+            diff = 1
 
-            for st in spikes[start_bin: end_bin]:
-                try:
-                    loglike = np.log(
-                            (integral[st] - integral[t0])*(rate_vector[st])
-                            )
-                except IndexError:
-                    raise IndexError("Error when indexing integral for: "
-                                     "stim: %s, rep: (%f, %f)"
-                                     % (stim, start_seconds, end_seconds))
-                loglikes.append(loglike)
-                t0 = st
+        if diff < 0:
+            diff = 0
 
-            rep_errors.append(sum(loglikes)*-1)
+        inner = (1 - diff)*(rate_vector[st])
 
-        stim_errors.append(np.nanmean(rep_errors))
+        if inner <= 1e-16:
+            loglike = np.log(1e-16)
+        elif inner >= 1:
+            loglike = 0
+        else:
+            loglike = np.log(inner)
 
-    error = np.nanmean(stim_errors)
+        loglikes.append(loglike)
+        t0 = st
+
+    error = np.sum(loglikes)*-1
 
     # TODO: vectorize/broadcast with numpy to improve speed
 
@@ -127,3 +132,11 @@ def _stack_reps(spike_train, ep='^STIM_'):
                 stim_dict[name] = [(start, stop)]
 
     return stim_dict
+
+
+def simulate_spikes(rate_vector):
+
+    spikes = np.zeros_like(rate_vector)
+    for i, r in enumerate(rate_vector):
+        if np.rand(0, 1) < r:
+            spikes[i] = 1
