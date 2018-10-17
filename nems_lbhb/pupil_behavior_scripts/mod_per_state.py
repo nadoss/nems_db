@@ -214,39 +214,35 @@ def get_model_results(batch=307, state_list=None,
     return d
 
 
-def aud_vs_state():
-    #batch = 307  # A1 SUA and MUA
-    #batch = 309  # IC SUA and MUA
+def aud_vs_state(df, nb=5, title=None, state_list=None):
+    """
+    d = dataframe output by get_model_results_per_state_model()
+    nb = number of bins
+    """
 
-    # pup vs. active/passive
-    state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
-    basemodel = "-ref-psthfr.s_stategain.S"
+    plt.figure(figsize=(4,6))
 
-    plt.close('all')
-    plt.figure()
+    da = df[df['state_chan']=='active']
 
-    for bi, batch in enumerate([309,307]):
-        d = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
-        da = d[d['state_chan']=='active']
+    dp = da.pivot(index='cellid',columns='state_sig',values=['r','r_se'])
 
-        dp = da.pivot(index='cellid',columns='state_sig',values=['r','r_se'])
+    dr = dp['r'].copy()
+    dr['b_unique'] = dr[state_list[3]]**2 - dr[state_list[2]]**2
+    dr['p_unique'] = dr[state_list[3]]**2 - dr[state_list[1]]**2
+    dr['bp_common'] = dr[state_list[3]]**2 - dr[state_list[0]]**2 - dr['b_unique'] - dr['p_unique']
+    dr['bp_full'] = dr['b_unique']+dr['p_unique']+dr['bp_common']
+    dr['null']=dr[state_list[0]]**2 * np.sign(dr[state_list[0]])
+    dr['full']=dr[state_list[3]]**2 * np.sign(dr[state_list[3]])
 
-        dr = dp['r'].copy()
-        dr['b_unique'] = dr[state_list[3]]**2 - dr[state_list[2]]**2
-        dr['p_unique'] = dr[state_list[3]]**2 - dr[state_list[1]]**2
-        dr['bp_common'] = dr[state_list[3]]**2 - dr[state_list[0]]**2 - dr['b_unique'] - dr['p_unique']
-        dr['bp_full'] = dr['b_unique']+dr['p_unique']+dr['bp_common']
-        dr['null']=dr[state_list[0]]**2 * np.sign(dr[state_list[0]])
-        dr['full']=dr[state_list[3]]**2 * np.sign(dr[state_list[3]])
+    dr['sig']=((dp['r'][state_list[3]]-dp['r'][state_list[0]]) > \
+         (dp['r_se'][state_list[3]]+dp['r_se'][state_list[0]]))
 
-        dr['sig']=((dp['r'][state_list[3]]-dp['r'][state_list[0]]) > \
-             (dp['r_se'][state_list[3]]+dp['r_se'][state_list[0]]))
+    #dm = dr.loc[dr['sig'].values,['null','full','bp_common','p_unique','b_unique']]
+    dm = dr.loc[:,['null','full','bp_common','p_unique','b_unique','sig']]
+    dm = dm.sort_values(['null'])
+    mfull=dm[['null','full','bp_common','p_unique','b_unique','sig']].values
 
-        #dm = dr.loc[dr['sig'].values,['null','full','bp_common','p_unique','b_unique']]
-        dm = dr.loc[:,['null','full','bp_common','p_unique','b_unique','sig']]
-        dm = dm.sort_values(['null'])
-        mfull=dm[['null','full','bp_common','p_unique','b_unique','sig']].values
-        nb=5
+    if nb > 0:
         stepsize=mfull.shape[0]/nb
         mm=np.zeros((nb,mfull.shape[1]))
         for i in range(nb):
@@ -258,35 +254,55 @@ def aud_vs_state():
         print(np.round(mm,3))
 
         m = mm.copy()
+    else:
         # alt to look at each cell individually:
-        # m = mfull.copy()
+        m = mfull.copy()
 
-        mb=m[:,2:]
+    mb=m[:,2:]
 
-        ax=plt.subplot(3,2,1+bi)
-        stateplots.beta_comp(mfull[:,0],mfull[:,1],n1='Behavior-independent',n2='Full behavior',
-                             ax=ax, highlight=dm['sig'], hist_range=[-0.1, 1])
+    ax=plt.subplot(3,1,1)
+    stateplots.beta_comp(mfull[:,0],mfull[:,1],n1='State independent',n2='Full state-dep',
+                         ax=ax, highlight=dm['sig'], hist_range=[-0.1, 1])
 
-        plt.subplot(3,2,3+bi)
-        ind = np.arange(mb.shape[0])
-        width=0.8
-        #ind = m[:,0]
-        p1 = plt.bar(ind, mb[:,0], width=width)
-        p2 = plt.bar(ind, mb[:,1], width=width, bottom=mb[:,0])
-        p3 = plt.bar(ind, mb[:,2], width=width, bottom=mb[:,0]+mb[:,1])
-        plt.legend(('common','p_unique','b-unique'))
-        plt.title('batch {}'.format(batch))
-        plt.xlabel('behavior-independent quintile')
-        plt.ylabel('mean r2')
+    plt.subplot(3,1,2)
+    ind = np.arange(mb.shape[0])
+    width=0.8
+    #ind = m[:,0]
+    p1 = plt.bar(ind, mb[:,0], width=width)
+    p2 = plt.bar(ind, mb[:,1], width=width, bottom=mb[:,0])
+    p3 = plt.bar(ind, mb[:,2], width=width, bottom=mb[:,0]+mb[:,1])
+    plt.legend(('common','p_unique','b-unique'))
+    if title is not None:
+        plt.title(title)
+    plt.xlabel('behavior-independent quintile')
+    plt.ylabel('mean r2')
 
-        plt.subplot(3,2,5+bi)
-        ind = np.arange(mb.shape[0])
-        #ind = m[:,0]
-        p1 = plt.plot(ind, mb[:,0])
-        p2 = plt.plot(ind, mb[:,1]+mb[:,0])
-        p3 = plt.plot(ind, mb[:,2]+mb[:,0]+mb[:,1])
-        plt.legend(('common','p_unique','b-unique'))
-        plt.xlabel('behavior-independent quintile')
-        plt.ylabel('mean r2')
+    plt.subplot(3,1,3)
+    ind = np.arange(mb.shape[0])
+    #ind = m[:,0]
+    p1 = plt.plot(ind, mb[:,0])
+    p2 = plt.plot(ind, mb[:,1]+mb[:,0])
+    p3 = plt.plot(ind, mb[:,2]+mb[:,0]+mb[:,1])
+    plt.legend(('common','p_unique','b-unique'))
+    plt.xlabel('behavior-independent quintile')
+    plt.ylabel('mean r2')
 
-    plt.tight_layout();
+    plt.tight_layout()
+
+
+def aud_vs_state_wrapper():
+
+    #batch = 307  # A1 SUA and MUA
+    #batch = 309  # IC SUA and MUA
+
+    # pup vs. active/passive
+    state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
+    basemodel = "-ref-psthfr.s_stategain.S"
+
+    #plt.close('all')
+    for bi, batch in enumerate([309,307]):
+        df = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
+
+        aud_vs_state(df, nb=5, title='batch {}'.format(batch),
+                     state_list=state_list)
+
