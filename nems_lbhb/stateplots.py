@@ -479,14 +479,14 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
         if state_std[i]:
             # actual response modulation index for each state var
             resp_mod_full[i] = state_mod_index(val, epoch='REFERENCE',
-                                               psth_name='resp', state_sig=var)
+                                               psth_name='resp', state_chan=var)
 
             mod2_p0b = state_mod_index(val, epoch='REFERENCE',
-                                       psth_name='pred_p0b', state_sig=var)
+                                       psth_name='pred_p0b', state_chan=var)
             mod2_pb0 = state_mod_index(val, epoch='REFERENCE',
-                                       psth_name='pred_pb0', state_sig=var)
+                                       psth_name='pred_pb0', state_chan=var)
             mod2_pb = state_mod_index(val, epoch='REFERENCE',
-                                      psth_name='pred', state_sig=var)
+                                      psth_name='pred', state_chan=var)
 
             pred_mod[i] = np.array([mod2_pb-mod2_p0b, mod2_pb-mod2_pb0])
             pred_mod_full[i] = np.array([mod2_pb0, mod2_p0b])
@@ -528,7 +528,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
         nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
                                        psth_name="resp",
                                        psth_name2=psth_names_ctl[i],
-                                       state_sig=var, ax=ax,
+                                       state_chan=var, ax=ax,
                                        colors=state_colors[i])
         if i == 0:
             ax.set_ylabel("Control model")
@@ -551,7 +551,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
         nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
                                        psth_name="resp",
                                        psth_name2="pred",
-                                       state_sig=var, ax=ax,
+                                       state_chan=var, ax=ax,
                                        colors=state_colors[i])
         if i == 0:
             ax.set_ylabel("Full Model")
