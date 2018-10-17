@@ -10,7 +10,7 @@ import re
 log = logging.getLogger(__name__)
 
 
-def pas(loadkey, recording_uri):
+def pas(loadkey):
     """
     pas = "passive only"
     mask out everything that doesn't fall in a "PASSIVE_EXPERIMENT" epoch
@@ -193,7 +193,7 @@ def onoff(loadkey):
     return [['nems_lbhb.contrast_helpers.add_onoff', {}]]
 
 
-def hrc(load_key, recording_uri):
+def hrc(load_key):
     """
     Mask only data during stimuli that were repeated 10 or greater times.
     hrc = high rep count

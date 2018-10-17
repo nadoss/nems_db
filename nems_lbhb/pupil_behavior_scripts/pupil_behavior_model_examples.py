@@ -13,17 +13,17 @@ import pandas as pd
 import nems_db.params
 import numpy as np
 import matplotlib.pyplot as plt
-import nems_lbhb.stateplots as stateplots
-import nems_db.xform_wrappers as nw
-import nems_db.db as nd
 
 import nems.recording as recording
 import nems.epoch as ep
 import nems.plots.api as nplt
 
-sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
+import nems_lbhb.stateplots as stateplots
+import nems_db.xform_wrappers as nw
+import nems_db.db as nd
 
 
+#sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
 
 
 def plot_save_examples(batch, compare, loader, basemodel, fitter, RELOAD=False):
@@ -168,27 +168,62 @@ def plot_save_examples(batch, compare, loader, basemodel, fitter, RELOAD=False):
         fh4.savefig(out_path+'summary_r_ctl.pdf')
 
 
+def pupil_behavior_batch_sum():
+    # User parameters:
+    RELOAD = False
+    loader = "psth.fs20.pup"
+    fitter = "jk.nf10-init.st-basic"
+
+    batches = [301, 303, 307, 309]
+    basemodels = ["ref.b-psthfr_sdexp.S", "ref.b-psthfr_stategain.S",
+                  "ref.b-psthfr.s_sdexp.S", "ref.b-psthfr.s_stategain.S"]
+    comparisons = ["pb", "ppas"]
+
+    batches = [307]
+    basemodels = ["ref-psthfr.s_sdexp.S"]
+    #basemodels = ["ref.b-psthfr_sdexp.S"]
+    comparisons = ["pb"]
+    ##
+    for batch in batches:
+        for basemodel in basemodels:
+            for compare in comparisons:
+                print("plot_save_examples({},{},{},{},{})".format(
+                        batch, compare, loader, basemodel, fitter))
+                plot_save_examples(batch, compare, loader, basemodel,
+                                   fitter, RELOAD)
+
+
 # BEGIN main code
+loader = "psth.fs20.pup-ld-"
+fitter = "jk.nf20-basic"
 
-# User parameters:
-RELOAD = False
-loader = "psth.fs20.pup"
-fitter = "jk.nf10-init.st-basic"
+batch = 307
+cellids = ["TAR010c-06-1"]
 
-batches = [301, 303, 307, 309]
-basemodels = ["ref.b-psthfr_sdexp.S", "ref.b-psthfr_stategain.S",
-              "ref.b-psthfr.s_sdexp.S", "ref.b-psthfr.s_stategain.S"]
-comparisons = ["pb", "ppas"]
+basemodel = "ref-psthfr_sdexp.S"
 
-#batches = [301]
-basemodels = ["ref.b-psthfr_sdexp.S", "ref.b-psthfr.s_sdexp.S"]
-#basemodels = ["ref.b-psthfr_sdexp.S"]
-comparisons = ["pb"]
-##
-for batch in batches:
-    for basemodel in basemodels:
-        for compare in comparisons:
-            print("plot_save_examples({},{},{},{},{})".format(
-                    batch, compare, loader, basemodel, fitter))
-            plot_save_examples(batch, compare, loader, basemodel,
-                               fitter, RELOAD)
+modelname_p0b0 = loader + "st.pup0.beh0-ref-" + basemodel + "_" + fitter
+modelname_p0b = loader + "st.pup0.beh-ref-" + basemodel + "_" + fitter
+modelname_pb0 = loader + "st.pup.beh0-ref-" + basemodel + "_" + fitter
+modelname_pb = loader + "st.pup.beh-ref-" + basemodel + "_" + fitter
+
+factor0 = "baseline"
+factor1 = "pupil"
+factor2 = "active"
+
+modelnames = [modelname_p0b0, modelname_p0b, modelname_pb0, modelname_pb]
+factors = [factor0, factor1, factor2]
+state_colors = [[line_colors['small'], line_colors['large']],
+                [line_colors['pas1'], line_colors['post']],
+                [line_colors['pas2'], line_colors['post']],
+                [line_colors['pas3'], line_colors['post']],
+                [line_colors['pas4'], line_colors['post']],
+                [line_colors['pas5'], line_colors['post']],
+                [line_colors['pas6'], line_colors['post']]]
+
+fh, stats = _model_step_plot(cellid, batch, modelnames, factors,
+                             state_colors=state_colors)
+
+plt.tight_layout()
+
+

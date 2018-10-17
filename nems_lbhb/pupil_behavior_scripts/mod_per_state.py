@@ -7,7 +7,7 @@ Created on Tue Apr 24 11:59:38 2018
 
 Call this to get the state-dep results:
 
-d = get_model_results(batch=batch, state_list=state_list, basemodel=basemodel)
+d = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
 Special order requred for state_list (which is part of modelname that
 defines the state variables):
@@ -22,20 +22,24 @@ batch = 309  # IC SUA and MUA
 # pup vs. active/passive
 state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
 basemodel = "-ref-psthfr.s_stategain.S"
+d = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
 # pup vs. per file
 state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']
 basemodel = "-ref-psthfr.s_stategain.S"
+d = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
 # pup vs. performance
 state_list = ['st.pup0.beh.far0.hit0','st.pup0.beh.far.hit',
               'st.pup.beh.far0.hit0','st.pup.beh.far.hit']
 basemodel = "-ref.a-psthfr.s_stategain.S"
+d = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
 # pup vs. pre/post passive
 state_list = ['st.pup0.pas0','st.pup0.pas',
               'st.pup.pas0','st.pup.pas']
 basemodel = "-ref-pas-psthfr.s_stategain.S"
+d = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
 """
 
@@ -84,7 +88,7 @@ def get_model_results_per_state_model(batch=307, state_list=None,
     celldata = nd.get_batch_cells(batch=batch)
     cellids = celldata['cellid'].tolist()
 
-    if state_list[-1].endswith('fil'):
+    if state_list[-1].endswith('fil') or state_list[-1].endswith('pas'):
         include_AP = True
     else:
         include_AP = False
@@ -209,3 +213,80 @@ def get_model_results(batch=307, state_list=None,
 
     return d
 
+
+def aud_vs_state():
+    #batch = 307  # A1 SUA and MUA
+    #batch = 309  # IC SUA and MUA
+
+    # pup vs. active/passive
+    state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
+    basemodel = "-ref-psthfr.s_stategain.S"
+
+    plt.close('all')
+    plt.figure()
+
+    for bi, batch in enumerate([309,307]):
+        d = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
+        da = d[d['state_chan']=='active']
+
+        dp = da.pivot(index='cellid',columns='state_sig',values=['r','r_se'])
+
+        dr = dp['r'].copy()
+        dr['b_unique'] = dr[state_list[3]]**2 - dr[state_list[2]]**2
+        dr['p_unique'] = dr[state_list[3]]**2 - dr[state_list[1]]**2
+        dr['bp_common'] = dr[state_list[3]]**2 - dr[state_list[0]]**2 - dr['b_unique'] - dr['p_unique']
+        dr['bp_full'] = dr['b_unique']+dr['p_unique']+dr['bp_common']
+        dr['null']=dr[state_list[0]]**2 * np.sign(dr[state_list[0]])
+        dr['full']=dr[state_list[3]]**2 * np.sign(dr[state_list[3]])
+
+        dr['sig']=((dp['r'][state_list[3]]-dp['r'][state_list[0]]) > \
+             (dp['r_se'][state_list[3]]+dp['r_se'][state_list[0]]))
+
+        #dm = dr.loc[dr['sig'].values,['null','full','bp_common','p_unique','b_unique']]
+        dm = dr.loc[:,['null','full','bp_common','p_unique','b_unique','sig']]
+        dm = dm.sort_values(['null'])
+        mfull=dm[['null','full','bp_common','p_unique','b_unique','sig']].values
+        nb=5
+        stepsize=mfull.shape[0]/nb
+        mm=np.zeros((nb,mfull.shape[1]))
+        for i in range(nb):
+            #x0=int(np.floor(i*stepsize))
+            #x1=int(np.floor((i+1)*stepsize))
+            #mm[i,:]=np.mean(m[x0:x1,:],axis=0)
+            x01=(mfull[:,0]>i/nb) & (mfull[:,0]<=(i+1)/nb)
+            mm[i,:]=np.nanmean(mfull[x01,:],axis=0)
+        print(np.round(mm,3))
+
+        m = mm.copy()
+        # alt to look at each cell individually:
+        # m = mfull.copy()
+
+        mb=m[:,2:]
+
+        ax=plt.subplot(3,2,1+bi)
+        stateplots.beta_comp(mfull[:,0],mfull[:,1],n1='Behavior-independent',n2='Full behavior',
+                             ax=ax, highlight=dm['sig'], hist_range=[-0.1, 1])
+
+        plt.subplot(3,2,3+bi)
+        ind = np.arange(mb.shape[0])
+        width=0.8
+        #ind = m[:,0]
+        p1 = plt.bar(ind, mb[:,0], width=width)
+        p2 = plt.bar(ind, mb[:,1], width=width, bottom=mb[:,0])
+        p3 = plt.bar(ind, mb[:,2], width=width, bottom=mb[:,0]+mb[:,1])
+        plt.legend(('common','p_unique','b-unique'))
+        plt.title('batch {}'.format(batch))
+        plt.xlabel('behavior-independent quintile')
+        plt.ylabel('mean r2')
+
+        plt.subplot(3,2,5+bi)
+        ind = np.arange(mb.shape[0])
+        #ind = m[:,0]
+        p1 = plt.plot(ind, mb[:,0])
+        p2 = plt.plot(ind, mb[:,1]+mb[:,0])
+        p3 = plt.plot(ind, mb[:,2]+mb[:,0]+mb[:,1])
+        plt.legend(('common','p_unique','b-unique'))
+        plt.xlabel('behavior-independent quintile')
+        plt.ylabel('mean r2')
+
+    plt.tight_layout();

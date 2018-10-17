@@ -297,6 +297,8 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     else:
         uri_key = nems.utils.escaped_split(loadkey, '-')[0]
         recording_uri = generate_recording_uri(cellid, batch, uri_key)
+        log.info("Kludge. Moved recording_uri handling to keywords")
+        recording_uri = None
         registry_args = {'cellid': cellid, 'batch': int(batch)}
         xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta,
                                             xforms_kwargs=registry_args)
