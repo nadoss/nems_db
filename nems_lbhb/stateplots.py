@@ -362,9 +362,6 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
 #    old_title=fh.canvas.get_window_title()
 #    fh.canvas.set_window_title(old_title+': '+title)
 
-
-
-
 def beta_comp_cols(g, b, n1='A', n2='B', hist_bins=20,
                   hist_range=[-1,1], title='modelname/batch',
                   highlight=None):
@@ -427,6 +424,110 @@ def beta_comp_cols(g, b, n1='A', n2='B', hist_bins=20,
     plt.tight_layout()
 
 
+def model_split_psths(cellid, batch, modelname, state1 = 'pupil',
+                      state2 = 'active', epoch='REFERENCE', state_colors=None,
+                      psth_name = 'resp'):
+    """
+    state_colors : N x 2 list
+       color spec for high/low lines in each of the N states
+    """
+    global line_colors
+    global fill_colors
+
+    xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname)
+
+    rec = ctx['val'][0].apply_mask()
+    fs = rec[psth_name].fs
+    state_sig = 'state_raw'
+
+    d = rec[psth_name].get_epoch_bounds('PreStimSilence')
+    PreStimSilence = np.mean(np.diff(d)) - 0.5/fs
+    d = rec[psth_name].get_epoch_bounds('PostStimSilence')
+    if d.size > 0:
+        PostStimSilence = np.min(np.diff(d)) - 0.5/fs
+        dd = np.diff(d)
+        dd = dd[dd > 0]
+    else:
+        dd = np.array([])
+    if dd.size > 0:
+        PostStimSilence = np.min(dd) - 0.5/fs
+    else:
+        PostStimSilence = 0
+
+    chanidx=0
+    full_psth = rec[psth_name]
+    folded_psth = full_psth.extract_epoch(epoch)[:, [chanidx], :] * fs
+
+    full_var1 = rec[state_sig].loc[state1]
+    folded_var1 = np.squeeze(full_var1.extract_epoch(epoch))
+    full_var2 = rec[state_sig].loc[state2]
+    folded_var2 = np.squeeze(full_var2.extract_epoch(epoch))
+
+    # compute the mean state for each occurrence
+    g2 = (np.sum(np.isfinite(folded_var2), axis=1) > 0)
+    m2 = np.zeros_like(g2, dtype=float)
+    m2[g2] = np.nanmean(folded_var2[g2, :], axis=1)
+    mean2 = np.nanmean(m2)
+    gtidx2 = (m2 >= mean2) & g2
+    ltidx2 = np.logical_not(gtidx2) & g2
+
+    # compute the mean state for each occurrence
+    g1 = (np.sum(np.isfinite(folded_var1), axis=1) > 0)
+    m1 = np.zeros_like(g1, dtype=float)
+    m1[g1] = np.nanmean(folded_var1[g1, :], axis=1)
+
+    mean1 = np.nanmean(m1[gtidx2])
+    std1 = np.nanstd(m1[gtidx2])
+
+    gtidx1 = (m1 >= mean1-std1*3) & (m1 <= mean1+std1*1) & g1
+    # ltidx1 = np.logical_not(gtidx1) & g1
+
+    # highlow = response on epochs when state1 high and state2 low
+    if (np.sum(ltidx2) == 0):
+        low = np.zeros_like(folded_psth[0, :, :].T) * np.nan
+        highlow = np.zeros_like(folded_psth[0, :, :].T) * np.nan
+    else:
+        low = np.nanmean(folded_psth[ltidx2, :, :], axis=0).T
+        highlow = np.nanmean(folded_psth[gtidx1 & ltidx2, :, :], axis=0).T
+
+    # highhigh = response on epochs when state high and state2 high
+    if (np.sum(gtidx2) == 0):
+        high = np.zeros_like(folded_psth[0, :, :].T) * np.nan
+        highhigh = np.zeros_like(folded_psth[0, :, :].T) * np.nan
+    else:
+        high = np.nanmean(folded_psth[gtidx2, :, :], axis=0).T
+        highhigh = np.nanmean(folded_psth[gtidx1 & gtidx2, :, :], axis=0).T
+
+    legend = ('Lo', 'Hi')
+
+    plt.figure()
+    ax = plt.subplot(2,1,1)
+    plt.plot(m1)
+    plt.plot(m2)
+    plt.plot(gtidx1+1.1)
+    plt.legend((state1,state2,state1 + ' matched'))
+
+    ax = plt.subplot(2,2,3)
+    title = "{} all/ {}".format(state1, state2)
+    nplt.timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
+                            legend=legend, time_offset=PreStimSilence,
+                            ylabel="sp/sec")
+    ylim = ax.get_ylim()
+    xlim = ax.get_xlim()
+    ax.plot(np.array([0, 0]), ylim, 'k--')
+    ax.plot(np.array([xlim[1], xlim[1]])-PostStimSilence, ylim, 'k--')
+
+    ax = plt.subplot(2,2,4)
+    title = "{} matched/ {}".format(state1, state2)
+    nplt.timeseries_from_vectors([highlow, highhigh], fs=fs, title=title, ax=ax,
+                            legend=legend, time_offset=PreStimSilence,
+                            ylabel="sp/sec")
+    ylim = ax.get_ylim()
+    xlim = ax.get_xlim()
+    ax.plot(np.array([0, 0]), ylim, 'k--')
+    ax.plot(np.array([xlim[1], xlim[1]])-PostStimSilence, ylim, 'k--')
+
+    plt.tight_layout()
 
 
 def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
