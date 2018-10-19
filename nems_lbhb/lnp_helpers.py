@@ -12,6 +12,20 @@ log = logging.getLogger(__name__)
             # c = c/np.norm(c)
             # r, zf = scipy.signal.lfilter( a*c, [1], x_, zi=zi)
 
+# TODO: provide derivative to optimizer
+
+# TODO: look at scikit learn alternatives to be able to get more
+#       info out of the fitter?
+
+# TODO: need to change init for levelshift to log of mean firing rate instead?
+
+# TODO: normalize error range for easier tolerance
+
+# TODO: figure out a way to use both relative and absolute precision?
+
+# Note on combining the channels for fir filter:
+# they do just get added together to get the single vector afterward.
+
 def lnp_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
               metric='nmse', IsReload=False, fitter='scipy_minimize',
               cost_function=None, **context):
@@ -37,63 +51,28 @@ def _lnp_metric(data, pred_name='pred', resp_name='resp'):
     rate_name = pred_name
     spikes_name = resp_name
 
-    # NOTE : don't do the averaging step when fitting this model
-    # NOTE : 200hz (or maybe higher?) sampling encouraged to get
-    #        at most 1 spike per bin as much as possible.
-
     # For stephen's lab: rate_name usually 'pred'
-    rate_vector = data[rate_name].as_continuous()
-    spike_signal = data[spikes_name]
-    spike_train = spike_signal.as_continuous()
-    ff = np.isfinite(rate_vector) & np.isfinite(spike_train)
-    # TODO: Add in some check to make sure this isn't taking out a lot of
-    #       bins that shouldn't be taken out.
-    # Get rid of NaNs left over from est/val split
-    rate_vector = rate_vector[ff].flatten()
-    # Normalize rate vector to be range 0 to 1?
-    #rate_vector = (rate_vector + rate_vector.min())/rate_vector.max()
-    spike_train = spike_train[ff]
-    spikes = np.argwhere(spike_train).flatten()
+    rate_vector = data[rate_name].as_continuous().flatten()
+    spike_train = data[spikes_name].as_continuous().flatten()
 
-    # negative logikelihood:
-    # (1-integral of mu dt)(mu dt) (product for all spikes)
+    spikes = np.argwhere(spike_train)
 
     # TODO: what to set initial to? keep it as 0? random? ISI-based?
-    integral = integrate.cumtrapz(rate_vector, initial=0).flatten()
+    #       Maybe don't need to worry about this with non-cumulative version?
+    integral = integrate.trapz(rate_vector)
 
-    loglikes = []
-    t0 = 0
+    epsilon = 1e-100
+    # Get bins corresponding to spike times and rectify to epsilon
+    rate_at_spikes = rate_vector[spikes]
+    rate_at_spikes[rate_at_spikes < epsilon] = epsilon
+    log_mu_dts = np.log(rate_at_spikes)
+    # Inner eq 9.12 , outer *-1 since we're minimizing instead of maximizing.
+    # TODO: see if numpy/scipy has pre-composed log functions for other types
+    #       of nonlinearities?
+    error = (-1*integral + np.sum(log_mu_dts))*-1
 
-    for st in spikes:
-        diff = integral[st] - integral[t0]
-
-        # Neither of these should happen, but just incase...
-        if diff > 1:
-            diff = 1
-
-        if diff < 0:
-            diff = 0
-
-        inner = (1 - diff)*(rate_vector[st])
-
-        if inner <= 1e-16:
-            loglike = np.log(1e-16)
-        elif inner >= 1:
-            loglike = 0
-        else:
-            loglike = np.log(inner)
-
-        loglikes.append(loglike)
-        t0 = st
-
-    error = np.sum(loglikes)*-1
-
-    # TODO: vectorize/broadcast with numpy to improve speed
-
-    # TODO: only do integration once, then just do int(t) - int(t-1) when
-    #       iterating through
-
-    # TODO: add something for first spike? maybe add mean ISI before t0 = 0?
+    # SVD previous implementation:
+    #error = np.mean(spikes*np.log(rate_vector) - rate_vector)
 
 
     # sanity check: after fitting a model, sample from it and simulate
@@ -134,9 +113,11 @@ def _stack_reps(spike_train, ep='^STIM_'):
     return stim_dict
 
 
+# TODO: Also turn into a psth afterward for comparison to resp?
 def simulate_spikes(rate_vector):
+    # TODO: needs testing
+    integral = integrate.cumtrapz(rate_vector, initial=0)
+    random = np.random.rand(integral.shape)
+    spikes = integral[random < integral].astype('int')
 
-    spikes = np.zeros_like(rate_vector)
-    for i, r in enumerate(rate_vector):
-        if np.rand(0, 1) < r:
-            spikes[i] = 1
+    return spikes
