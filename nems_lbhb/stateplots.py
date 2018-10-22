@@ -14,6 +14,7 @@ from PIL import Image
 import nems_db.xform_wrappers as nw
 import nems.plots.api as nplt
 import nems.xforms as xforms
+import nems.modelspec as ms
 import nems.epoch as ep
 import nems_lbhb.plots as lplt
 from nems.metrics.state import state_mod_index
