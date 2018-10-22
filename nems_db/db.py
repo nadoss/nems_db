@@ -1144,22 +1144,22 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
         sql_rawids += " AND cellid like %s"
         params = params+(cellid+"%",)
 
-    if not label is None:
+    if label is not None:
        sql += " AND label = %s"
        sql_rawids += " AND label = %s"
        params = params+(label,)
 
-    if not rawid is None:
+    if rawid is not None:
         sql += " AND rawid IN %s"
         if type(rawid) is not list:
             rawid = [rawid]
         rawid=tuple([str(i) for i in rawid])
         params = params+(rawid,)
-        
+
         d = pd.read_sql(sql=sql, con=engine, params=params)
 
         cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
-    
+
         # Make sure cellids is a list
         if type(cellids) is np.ndarray and type(cellids[0]) is np.ndarray:
             cellids = list(cellids[0])
@@ -1167,9 +1167,9 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
             cellids = list(cellids)
         else:
             pass
-        
+
         print('Returning cellids: {0}, stable across rawids: {1}'.format(cellids, rawid))
-    
+
         return cellids, list(rawid)
 
     else:
@@ -1177,11 +1177,11 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
         rawid = tuple([str(i[0]) for i in rawid.values])
         sql += " AND rawid IN %s"
         params = params+(rawid,)
-        
+
         d = pd.read_sql(sql=sql, con=engine, params=params)
 
         cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
-    
+
         # Make sure cellids is a list
         if type(cellids) is np.ndarray and type(cellids[0]) is np.ndarray:
             cellids = list(cellids[0])
@@ -1189,10 +1189,10 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
             cellids = list(cellids)
         else:
             pass
-        
+
         siteid = cellids[0].split('-')[0]
         cellids, rawid = get_stable_batch_cells(batch, siteid, list(rawid))
-        
+
         return cellids, rawid
 
 
