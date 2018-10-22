@@ -329,38 +329,6 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
 
     return fh
 
-#    plt.subplot(2, 2, 1)
-#    plt.hist([beta1[set1]], bins=hist_bins, range=hist_range,
-#             histtype='bar', stacked=True,
-#             color=['black'])
-#    plt.title('mean={:.3f} abs={:.3f}'.
-#              format(np.mean(beta1[goodcells]),
-#                     np.mean(np.abs(beta1[goodcells]))))
-#    plt.xlabel(n1)
-#
-#    ax = plt.subplot(2, 2, 4)
-#    plt.hist([beta2[set1]], bins=hist_bins, range=hist_range,
-#             histtype='bar', stacked=True, orientation="horizontal",
-#             color=['black'])
-#    plt.title('mean={:.3f} abs={:.3f}'.
-#              format(np.mean(beta2[goodcells]),
-#                     np.mean(np.abs(beta2[goodcells]))))
-#    plt.xlabel(n2)
-#
-#    ax = plt.subplot(2, 2, 2)
-#    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1])],
-#             bins=hist_bins-1, range=[hist_range[0]/2,hist_range[1]/2],
-#             histtype='bar', stacked=True,
-#             color=['black'])
-#    plt.title('mean={:.3f} abs={:.3f}'.
-#              format(np.mean(beta2[goodcells]),
-#                     np.mean(np.abs(beta2[goodcells]))))
-#    plt.xlabel('difference')
-#
-#    plt.tight_layout()
-#
-#    old_title=fh.canvas.get_window_title()
-#    fh.canvas.set_window_title(old_title+': '+title)
 
 def beta_comp_cols(g, b, n1='A', n2='B', hist_bins=20,
                   hist_range=[-1,1], title='modelname/batch',
@@ -528,6 +496,64 @@ def model_split_psths(cellid, batch, modelname, state1 = 'pupil',
     ax.plot(np.array([xlim[1], xlim[1]])-PostStimSilence, ylim, 'k--')
 
     plt.tight_layout()
+
+
+
+def model_per_time_wrapper(cellid, batch=307, 
+                           loader = "psth.fs20.pup-ld-",
+                           fitter = "_jk.nf20-basic",
+                           basemodel = "-ref-psthfr.s_dexp.S",
+                           state_list=None):
+    """
+    batch = 307  # A1 SUA and MUA
+    batch = 309  # IC SUA and MUA
+    
+    alternatives:
+        basemodels = ["-ref-psthfr.s_stategain.S",
+                      "-ref-psthfr.s_sdexp.S",
+                      "-ref.a-psthfr.s_sdexp.S"]
+        state_list = ['st.pup0.hlf0','st.pup0.hlf','st.pup.hlf0','st.pup.hlf']
+        state_list = ['st.pup0.far0.hit0.hlf0','st.pup0.far0.hit0.hlf',
+                      'st.pup.far.hit.hlf0','st.pup.far.hit.hlf']
+        state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']
+ 
+    """
+
+    # pup vs. active/passive
+    if state_list is None:
+        state_list = ['st.pup0.hlf0','st.pup0.hlf','st.pup.hlf0','st.pup.hlf']
+        #state_list = ['st.pup0.far0.hit0.hlf0','st.pup0.far0.hit0.hlf',
+        #              'st.pup.far.hit.hlf0','st.pup.far.hit.hlf']
+        #state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']    
+
+    modelnames = []
+    contexts = []
+    for i, s in enumerate(state_list):
+        modelnames.append(loader + s + basemodel + fitter)
+        
+        xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelnames[i],
+                                            eval_model=False)
+        ctx, l = xforms.evaluate(xf, ctx, start=0, stop=-2)
+        
+        contexts.append(ctx)
+        
+    plt.figure()
+    for i, ctx in enumerate(contexts):
+        
+        rec = ctx['val'][0].apply_mask()
+        modelspec = ctx['modelspecs'][0]
+        epoch="REFERENCE"
+        rec = ms.evaluate(rec, modelspec)
+        if i==0:
+            ax = plt.subplot(5, 1, 1)
+            nplt.state_vars_timeseries(rec, modelspec, ax=ax)
+        
+        ax = plt.subplot(5, 1, 2+i)
+        state_vars_psth_all(rec, epoch, psth_name='resp',
+                            psth_name2='pred', state_sig='state_raw',
+                            colors=None, channel=None, decimate_by=1,
+                            ax=ax, files_only=True)
+     
 
 
 def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
