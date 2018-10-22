@@ -547,6 +547,7 @@ def model_per_time_wrapper(cellid, batch=307,
         if i == len(contexts)-1:
             ax = plt.subplot(5, 1, 1)
             nplt.state_vars_timeseries(rec, modelspec, ax=ax)
+            ax.set_title('{} {}'.format(cellid, modelnames[-1]))
 
         ax = plt.subplot(5, 1, 2+i)
         nplt.state_vars_psth_all(rec, epoch, psth_name='resp',
