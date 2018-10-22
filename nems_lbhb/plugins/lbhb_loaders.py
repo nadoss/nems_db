@@ -8,7 +8,20 @@ log = logging.getLogger(__name__)
 # Replaced with: load, splitcount, avgep, st, contrast
 
 def psth(loadkey, cellid=None, batch=None):
+    """
+    psth loader (no stim)
+       extra parameters handled by loadkey parser in baphy_load_wrapper
+    """
+    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
+              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
+    return xfspec
 
+
+def ozgf(loadkey, cellid=None, batch=None):
+    """
+    gammatone filter
+       extra parameters handled by loadkey parser in baphy_load_wrapper
+    """
     xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
               {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
     return xfspec
