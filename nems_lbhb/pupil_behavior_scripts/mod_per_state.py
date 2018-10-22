@@ -345,6 +345,8 @@ def hlf_analysis(df, state_list, title=None, norm_sign=True, states=None):
 
     plt.tight_layout()
 
+    return dMI, dMI0
+
 
 def hlf_wrapper():
     """
