@@ -124,12 +124,6 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
     if siteid is not None:
         options['siteid'] = siteid
 
-    # check for run_num specifier
-    if len(cellid.split('_'))>1:
-        run_num = cellid.split('_')[-1]
-        cellid = cellid.split('_')[0]
-        options['rawid'] = nd.get_rawid(cellid, run_num)
-
     options["batch"] = batch
     options["cellid"] = cellid
 
