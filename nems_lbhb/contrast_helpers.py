@@ -66,7 +66,7 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
 
     #filt = np.ones([1, history]) / history
     filt = np.concatenate((np.zeros([bands, history+1]),
-                           np.ones([bands, history])), axis=1) / history
+                           np.ones([bands, history])), axis=1)/(bands*history)
     mn = convolve2d(array, filt, mode='same')
 
     var = convolve2d(array ** 2, filt, mode='same') - mn ** 2
