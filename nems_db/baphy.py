@@ -942,7 +942,7 @@ def fill_default_options(options):
 
     if type(cellid) is list:
         cell_list = cellid
-
+    
     # No matter what the cell_list is, always want to set cell_list to be all
     # stable cells at the site/rawids. No point in caching different recs for
     # [cell1, cell2] and [cell3, cell4] if all four come from same recording

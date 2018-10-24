@@ -207,8 +207,8 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
             log.info('Generating summary plot ...')
             xfspec.append(['nems.xforms.plot_summary', {}])
     else:
-        uri_key = nems.utils.escaped_split(loadkey, '-')[0]
-        recording_uri = generate_recording_uri(cellid, batch, uri_key)
+#        uri_key = nems.utils.escaped_split(loadkey, '-')[0]
+#        recording_uri = generate_recording_uri(cellid, batch, uri_key)
         log.info("Kludge. Moved recording_uri handling to keywords")
         recording_uri = None
         registry_args = {'cellid': cellid, 'batch': int(batch)}

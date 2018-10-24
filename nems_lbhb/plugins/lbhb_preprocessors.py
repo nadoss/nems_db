@@ -131,6 +131,10 @@ def st(loadkey):
             this_sig = ['rem']
         elif l.startswith('eysp'):
             this_sig = ['pupil_eyespeed']
+        elif l.startswith('prw'):
+            this_sig = ['prw']
+        elif l.startswith('pxprw'):
+            this_sig = ['pup_x_prw']
         else:
             raise ValueError("unknown signal code %s for state variable initializer", l)
 
