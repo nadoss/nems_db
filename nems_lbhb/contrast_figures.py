@@ -7,7 +7,7 @@ import matplotlib.gridspec as gridspec
 from bokeh.plotting import show
 
 from nems_db.xform_wrappers import load_model_baphy_xform
-from nems_db.db import get_batch_cells
+from nems_db.db import get_batch_cells, Tables, Session
 import nems.xforms as xf
 from nems_db.plot_helpers import plot_filtered_batch
 from nems.utils import find_module
@@ -33,6 +33,10 @@ gc_cont_reduced = ("ozgf.fs100.ch18-ld-contrast.ms100.cont.n-sev_"
                    "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
                    "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l.k.s_"
                    "init.c-basic")
+
+gc_cont_merged = ('ozgf.fs100.ch18-ld-contrast.ms100.cont.n-sev_'
+                  'dlog.f-gcwc.18x1-gcfir.1x15-gclvl.1-dsig.l_'
+                  'init.c-basic')
 
 stp_model = ("ozgf.fs100.ch18-ld-sev_"
              "dlog.f-wc.18x2.g-stp.2-fir.2x15-lvl.1-logsig_"
@@ -667,6 +671,150 @@ def continuous_contrast_improvements():
     plt.title('cont, r: %.04f'%r2)
     adjustFigAspect(fig, aspect=1)
 
+
+def gd_ratio(cellid=good_cell, modelname=gc_cont_full):
+
+    xfspec, ctx = load_model_baphy_xform(cellid, batch, modelname)
+    mspec = ctx['modelspecs'][0]
+    dsig_idx = find_module('dynamic_sigmoid', mspec)
+    phi = mspec[dsig_idx]['phi']
+
+    return phi['kappa_mod']/phi['kappa']
+
+
+def gd_scatter(batch=289, model1=gc_cont_full, model2=ln_model):
+
+    df1 = fitted_params_per_batch(batch, model1, stats_keys=[])
+    df2 = fitted_params_per_batch(batch, model2, stats_keys=[])
+
+    # fill in missing cellids w/ nan
+    celldata = get_batch_cells(batch=batch)
+    cellids = celldata['cellid'].tolist()
+    nrows = len(df1.index.values.tolist())
+
+    df1_cells = df1.loc['meta--r_test'].index.values.tolist()[5:]
+    df2_cells = df2.loc['meta--r_test'].index.values.tolist()[5:]
+
+    nan_series = pd.Series(np.full((nrows), np.nan))
+
+    df1_nans = 0
+    df2_nans = 0
+
+    for c in cellids:
+        if c not in df1_cells:
+            df1[c] = nan_series
+            df1_nans += 1
+        if c not in df2_cells:
+            df2[c] = nan_series
+            df2_nans += 1
+
+    print("# missing cells: %d, %d" % (df1_nans, df2_nans))
+
+    # Force same cellid order now that cols are filled in
+    df1 = df1[cellids]; df2 = df2[cellids];
+
+    gc_vs_ln = df1.loc['meta--r_test'].values - df2.loc['meta--r_test'].values
+    gc_vs_ln = gc_vs_ln.astype('float32')
+
+    kappa_mod = df1[df1.index.str.contains('kappa_mod')]
+    kappa = df1[df1.index.str.contains('kappa$')]
+    gd_ratio = (kappa_mod.values / kappa.values).astype('float32').flatten()
+
+    ff = np.isfinite(gc_vs_ln) & np.isfinite(gd_ratio)
+    gc_vs_ln = gc_vs_ln[ff]
+    gd_ratio = gd_ratio[ff]
+
+    r = np.corrcoef(gc_vs_ln, gd_ratio)[0, 1]
+    n = gc_vs_ln.size
+
+    y_max = np.max(gd_ratio)
+    y_min = np.min(gd_ratio)
+    x_max = np.max(gc_vs_ln)
+    x_min = np.min(gc_vs_ln)
+
+    abs_max = max(np.abs(y_max), np.abs(x_max), np.abs(y_min), np.abs(x_min))
+    abs_max *= 1.15
+
+    fig = plt.figure(figsize=(6, 6))
+    plt.scatter(gc_vs_ln, gd_ratio)
+    plt.xlabel("GC - LN model")
+    plt.ylabel("Gd ratio")
+    plt.title("r: %.02f, n: %d" % (r, n))
+    gca = plt.gca()
+    gca.axes.axhline(0, color='black', linewidth=1, linestyle='dashed')
+    gca.axes.axvline(0, color='black', linewidth=1, linestyle='dashed')
+    plt.ylim(ymin=(-1)*abs_max, ymax=abs_max)
+    plt.xlim(xmin=(-1)*abs_max, xmax=abs_max)
+    adjustFigAspect(fig, aspect=1)
+
+
+def get_valid_improvements(batch=289, model1=gc_cont_full, model2=ln_model,
+                           threshold = 1.75):
+
+    df1 = fitted_params_per_batch(batch, model1, stats_keys=[])
+    df2 = fitted_params_per_batch(batch, model2, stats_keys=[])
+
+    # fill in missing cellids w/ nan
+    celldata = get_batch_cells(batch=batch)
+    cellids = celldata['cellid'].tolist()
+    nrows = len(df1.index.values.tolist())
+
+    df1_cells = df1.loc['meta--r_test'].index.values.tolist()[5:]
+    df2_cells = df2.loc['meta--r_test'].index.values.tolist()[5:]
+
+    nan_series = pd.Series(np.full((nrows), np.nan))
+
+    df1_nans = 0
+    df2_nans = 0
+
+    for c in cellids:
+        if c not in df1_cells:
+            df1[c] = nan_series
+            df1_nans += 1
+        if c not in df2_cells:
+            df2[c] = nan_series
+            df2_nans += 1
+
+    print("# missing cells: %d, %d" % (df1_nans, df2_nans))
+
+    # Force same cellid order now that cols are filled in
+    df1 = df1[cellids]; df2 = df2[cellids];
+    ratio = df1.loc['meta--r_test'] / df2.loc['meta--r_test']
+
+    valid_improvements = ratio.loc[ratio < threshold].loc[ratio > 1/threshold]
+
+    return valid_improvements.index.values.tolist()
+
+
+def make_batch_from_subset(cellids, source_batch=289, new_batch=311):
+    raise NotImplementedError("WIP, have to do more than just add to"
+                              "NarfBatches apparently.")
+    session = Session()
+    NarfBatches = Tables()['NarfBatches']
+
+    full_batch = (
+            session.query(NarfBatches)
+            .filter(NarfBatches.batch == source_batch)
+            .all()
+            )
+
+    subset = [row for row in full_batch if row.cellid in cellids]
+    new = [NarfBatches(batch=new_batch, cellid=row.cellid,
+                       est_reps=row.est_reps, est_set=row.est_set,
+                       est_snr=row.est_snr, filecodes=row.filecodes,
+                       id=None, lastmod=row.lastmod,
+                       min_isolation=row.min_isolation,
+                       min_snr_index=row.min_snr_index, val_reps=row.val_reps,
+                       val_set=row.val_set, val_snr=row.val_snr)
+           for row in subset]
+
+    [session.add(row) for row in new]
+
+    session.commit()
+    session.close()
+
+# TODO: have to add to narfdata also
+    # and maybe need to do something with rawid?
 
 # Paragraphs describing the model setup and equations:
 # - equations for dlog and linear strf
