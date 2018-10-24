@@ -949,7 +949,7 @@ def fill_default_options(options):
     if cell_list is not None:
         cellid = cell_list[0]
         siteid = cellid.split('-')[0]
-        cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=siteid,
+        cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=cell_list,
                                              rawid=rawid)
         options['rawid'] = rawid
         options['cellid'] = cell_list
