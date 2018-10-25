@@ -942,14 +942,14 @@ def fill_default_options(options):
 
     if type(cellid) is list:
         cell_list = cellid
-
+    
     # No matter what the cell_list is, always want to set cell_list to be all
     # stable cells at the site/rawids. No point in caching different recs for
     # [cell1, cell2] and [cell3, cell4] if all four come from same recording
     if cell_list is not None:
         cellid = cell_list[0]
         siteid = cellid.split('-')[0]
-        cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=siteid,
+        cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=cell_list,
                                              rawid=rawid)
         options['rawid'] = rawid
         options['cellid'] = cell_list

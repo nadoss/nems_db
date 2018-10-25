@@ -124,12 +124,6 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
     if siteid is not None:
         options['siteid'] = siteid
 
-    # check for run_num specifier
-    if len(cellid.split('_'))>1:
-        run_num = cellid.split('_')[-1]
-        cellid = cellid.split('_')[0]
-        options['rawid'] = nd.get_rawid(cellid, run_num)
-
     options["batch"] = batch
     options["cellid"] = cellid
 
@@ -213,8 +207,8 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
             log.info('Generating summary plot ...')
             xfspec.append(['nems.xforms.plot_summary', {}])
     else:
-        uri_key = nems.utils.escaped_split(loadkey, '-')[0]
-        recording_uri = generate_recording_uri(cellid, batch, uri_key)
+#        uri_key = nems.utils.escaped_split(loadkey, '-')[0]
+#        recording_uri = generate_recording_uri(cellid, batch, uri_key)
         log.info("Kludge. Moved recording_uri handling to keywords")
         recording_uri = None
         registry_args = {'cellid': cellid, 'batch': int(batch)}

@@ -1128,26 +1128,40 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
     Used to return only the information for units that were stable across all
     rawids that match this batch and site/cellid.
     '''
+    if (batch is None) | (cellid is None):
+        raise ValueError
+    
     # eg, sql="SELECT * from NarfData WHERE batch=301 and cellid="
     engine = Engine()
     params = ()
     sql = "SELECT cellid FROM NarfData WHERE 1"
-    sql_rawids = "SELECT DISTINCT rawid FROM NarfData WHERE 1"  # for rawids
+    
+    if type(cellid) is list:
+        sql_rawids = "SELECT rawid FROM NarfData WHERE 1"  # for rawids
+    else:
+        sql_rawids = "SELECT DISTINCT rawid FROM NarfData WHERE 1"  # for rawids
+    
 
     if batch is not None:
         sql += " AND batch=%s"
         sql_rawids += " AND batch=%s"
         params = params+(batch,)
-
-    if cellid is not None:
-        sql += " AND cellid like %s"
-        sql_rawids += " AND cellid like %s"
-        params = params+(cellid+"%",)
-
+        
     if label is not None:
        sql += " AND label = %s"
        sql_rawids += " AND label = %s"
        params = params+(label,)
+
+    if cellid is not None:
+        if type(cellid) is list:
+            cellid = tuple(cellid)
+            sql += " AND cellid IN %s"
+            sql_rawids += " AND cellid IN %s"
+            params = params+(cellid,)
+        else:
+            sql += " AND cellid like %s"
+            sql_rawids += " AND cellid like %s"
+            params = params+(cellid+"%",)
 
     if rawid is not None:
         sql += " AND rawid IN %s"
@@ -1173,25 +1187,19 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
         return cellids, list(rawid)
 
     else:
-        rawid = pd.read_sql(sql=sql_rawids, con=engine, params=params)
-        rawid = tuple([str(i[0]) for i in rawid.values])
-        sql += " AND rawid IN %s"
-        params = params+(rawid,)
-
-        d = pd.read_sql(sql=sql, con=engine, params=params)
-
-        cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
-
-        # Make sure cellids is a list
-        if type(cellids) is np.ndarray and type(cellids[0]) is np.ndarray:
-            cellids = list(cellids[0])
-        elif type(cellids) is np.ndarray:
-            cellids = list(cellids)
+        rawid = pd.read_sql(sql=sql_rawids, con=engine, params=params)        
+        if type(cellid) is tuple:
+            rawid = rawid['rawid'].value_counts()[rawid['rawid'].value_counts()==len(cellid)]
+            rawid = rawid.index.tolist()
         else:
-            pass
-
-        siteid = cellids[0].split('-')[0]
-        cellids, rawid = get_stable_batch_cells(batch, siteid, list(rawid))
+            rawid = rawid['rawid'].tolist()
+        
+        if type(cellid) is tuple:
+            siteid = cellid[0].split('-')[0]
+        else:
+            siteid = cellid.split('-')[0]
+        
+        cellids, rawid = get_stable_batch_cells(batch, siteid, rawid)
 
         return cellids, rawid
 
