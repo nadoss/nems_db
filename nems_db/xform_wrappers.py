@@ -224,6 +224,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     
     # kludge for pairwise fitting
     if type(cellid) is list:
+        cellid = cellid[0]
         for i, m in enumerate(modelspecs):
             modelspecs[i][0]['meta']['cellid'] = cellid[0]
             modelspecs[i][0]['meta']['pair'] = cellid[1:]
