@@ -51,10 +51,6 @@ if __name__ == '__main__':
     batch=sys.argv[2]
     modelname=sys.argv[3]
 
-    if '_' in cellid:
-        log.info("passed cellid is list, split based at '_' characters")
-        cellid = cellid.split('_')
-
     log.info("Running fit_single_model({0},{1},{2})".format(cellid,batch,modelname))
     #savefile = nw.fit_model_baphy(cellid,batch,modelname,saveInDB=True)
     savefile = nw.fit_model_xforms_baphy(cellid,batch,modelname,saveInDB=True)
