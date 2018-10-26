@@ -221,6 +221,12 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
 
     # save some extra metadata
     modelspecs = ctx['modelspecs']
+    
+    # kludge for pairwise fitting
+    if type(cellid) is list:
+        for i, m in enumerate(modelspecs):
+            modelspecs[i][0]['meta']['cellid'] = cellid[0]
+            modelspecs[i][0]['meta']['pair'] = cellid[1:]
 
     destination = '/auto/data/nems_db/results/{0}/{1}/{2}/'.format(
             batch, cellid, ms.get_modelspec_longname(modelspecs[0]))
