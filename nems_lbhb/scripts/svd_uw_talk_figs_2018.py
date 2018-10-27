@@ -59,15 +59,15 @@ else:
     # use basemodel = "-ref-psthfr.s_sdexp.S" for better accuracy and
     # statistical power
 
-#    state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']
-#    states = ['PASSIVE_0',  'ACTIVE_1','PASSIVE_1',  'ACTIVE_2','PASSIVE_2']
-#
-    state_list = ['st.pup0.hlf0','st.pup0.hlf','st.pup.hlf0','st.pup.hlf']
+    state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']
+    states = ['PASSIVE_0',  'ACTIVE_1','PASSIVE_1',  'ACTIVE_2','PASSIVE_2']
+
+    # state_list = ['st.pup0.hlf0','st.pup0.hlf','st.pup.hlf0','st.pup.hlf']
     #state_list = ['st.pup0.far0.hit0.hlf0','st.pup0.far0.hit0.hlf',
     #              'st.pup.far.hit.hlf0','st.pup.far.hit.hlf']
-    states = ['PASSIVE_0_A','PASSIVE_0_B', 'ACTIVE_1_A','ACTIVE_1_B',
-              'PASSIVE_1_A','PASSIVE_1_B', 'ACTIVE_2_A','ACTIVE_2_B',
-              'PASSIVE_2_A','PASSIVE_2_B']
+    #states = ['PASSIVE_0_A','PASSIVE_0_B', 'ACTIVE_1_A','ACTIVE_1_B',
+    #          'PASSIVE_1_A','PASSIVE_1_B', 'ACTIVE_2_A','ACTIVE_2_B',
+    #          'PASSIVE_2_A','PASSIVE_2_B']
     #states = ['PASSIVE_0_A','PASSIVE_0_B', 'ACTIVE_1_A','ACTIVE_1_B',
     #          'PASSIVE_1_A','PASSIVE_1_B']
 
