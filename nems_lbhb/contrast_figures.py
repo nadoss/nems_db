@@ -13,6 +13,7 @@ from nems_db.plot_helpers import plot_filtered_batch
 from nems.utils import find_module
 import nems.modelspec as ms
 from nems_db.params import fitted_params_per_batch
+from nems_lbhb.contrast_helpers import make_contrast_signal, rec_from_DRC
 
 gc_model = ("ozgf.fs100.ch18-ld-contrast.ms250-sev_"
             "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
@@ -710,7 +711,7 @@ def gd_scatter(batch=289, model1=gc_cont_full, model2=ln_model):
 
     print("# missing cells: %d, %d" % (df1_nans, df2_nans))
 
-    # Force same cellid order now that cols are filled in
+    # Force same cellid order now that missing cols are filled in
     df1 = df1[cellids]; df2 = df2[cellids];
 
     gc_vs_ln = df1.loc['meta--r_test'].values - df2.loc['meta--r_test'].values
@@ -719,6 +720,16 @@ def gd_scatter(batch=289, model1=gc_cont_full, model2=ln_model):
     kappa_mod = df1[df1.index.str.contains('kappa_mod')]
     kappa = df1[df1.index.str.contains('kappa$')]
     gd_ratio = (kappa_mod.values / kappa.values).astype('float32').flatten()
+
+
+    # For testing: Some times kappa is so small that the ratio ends up
+    # throwing the scale off so far that the plot is worthless.
+    # But majority of the time the ratio is less than 5ish, so try rectifying:
+    gd_ratio[gd_ratio > 5] = 5
+    gd_ratio[gd_ratio < -5] = -5
+    # Then normalize to -1 to 1 scale for easier comparison to r value
+    gd_ratio /= 5
+
 
     ff = np.isfinite(gc_vs_ln) & np.isfinite(gd_ratio)
     gc_vs_ln = gc_vs_ln[ff]
@@ -813,8 +824,44 @@ def make_batch_from_subset(cellids, source_batch=289, new_batch=311):
     session.commit()
     session.close()
 
-# TODO: have to add to narfdata also
-    # and maybe need to do something with rawid?
+
+def test_DRC_with_contrast(ms=200, normalize=True, fs=100, bands=1,
+                           percentile=50, n_segments=12):
+    '''
+    Plot a sample DRC stimulus next to assigned contrast
+    and calculated contrast.
+    '''
+    drc = rec_from_DRC(fs=fs, n_segments=n_segments)
+    rec = make_contrast_signal(drc, name='binary', continuous=False, ms=ms,
+                                percentile=percentile, bands=bands)
+    rec = make_contrast_signal(rec, name='continuous', continuous=True, ms=ms,
+                                bands=bands)
+    s = rec['stim'].as_continuous()
+    c1 = rec['contrast'].as_continuous()
+    c2 = rec['binary'].as_continuous()
+    c3 = rec['continuous'].as_continuous()
+
+    fig, axes = plt.subplots(4, 1)
+
+    plt.sca(axes[0])
+    plt.title('DRC stim')
+    plt.imshow(s, aspect='auto', cmap=plt.get_cmap('jet'))
+
+    plt.sca(axes[1])
+    plt.title('Assigned Contrast')
+    plt.imshow(c1, aspect='auto')
+
+    plt.sca(axes[2])
+    plt.title('Binary Calculated Contrast')
+    plt.imshow(c2, aspect='auto')
+
+    plt.sca(axes[3])
+    plt.title('Continuous Calculated Contrast')
+    plt.imshow(c3, aspect='auto')
+
+    plt.tight_layout(h_pad=0.15)
+    #return fig
+
 
 # Paragraphs describing the model setup and equations:
 # - equations for dlog and linear strf

@@ -3,6 +3,7 @@ import copy
 
 import numpy as np
 from scipy.signal import convolve2d
+import matplotlib.pyplot as plt
 
 import nems.epoch
 import nems.modelspec as ms
@@ -72,6 +73,14 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     var = convolve2d(array ** 2, filt, mode='same') - mn ** 2
 
     contrast = np.sqrt(var) / (mn*.99 + mn.max()*0.01)
+
+    # TODO: How to temporarily pad array so that adding multiple spectral
+    # bands to filter doesn't cause edge effects?
+    # Need to do some calculation so that the added rows have no net effect
+    # on the contrast calculation.
+    # Maybe do valid mode on above calculation, then do a single-band filter on
+    # each of the rows that gets chopped out? But then need to correct for
+    # the edge 'columns' as well, even though they aren't a problem.
 
     # old way, simply smooth amplitude of spectrogram
     #filt = np.concatenate((np.zeros([1, max(2, history+1)]),
@@ -764,3 +773,159 @@ def levelshift(rec, i, o, ci, co, level):
     gc_fn = lambda x: x + np.abs(level)
     return [rec[i].transform(fn, o), rec[ci].transform(gc_fn, co)]
 
+
+def sample_DRC(fs=100, segment_duration=3000, n_segments=120, high_hw=15.0,
+               low_hw=5.0, mean=40.0, n_tones=23, f_low=0.5, f_high=22.6):
+    '''
+    Generate a random contrast dynamic random chord (RC-DRC) stimulus.
+    Implementation based on:
+    "Spectrotemporal Contrast Kernels for Neurons in Primary Auditory Cortex,"
+    Rabinowitz et al., 2012. doi: 10.1523/JNEUROSCI.1715-12.2012
+
+    See rec_from_DRC to convert the array into a NEMS recording.
+
+    Parameters
+    ----------
+    fs : int
+        Sampling frequency in hertz to imitate.
+    segment_duration : int
+        Duration of each tone sampling segment in milliseconds.
+    n_segments : int
+        Total number of segments to sample. Length of axis 1 of the resulting
+        array is fs*n_segments*segment_duration/1000
+    high_hw : float
+        Half-width of uniform distribution for high-contrast segments, in db.
+    low_hw : float
+        Half-width of uniform distribution for low-contrast segments, in db.
+    mean : float
+        Mean level of uniform distribution for both high- and low-contrast
+        segments, in db.
+    n_tones : int
+        Total number of frequencies to use. Also determines length of axis 0
+        of the resulting array.
+    f_low : float
+        Lowest frequency to use in khz.
+    f_high : float
+        Highest frequency to use in khz.
+
+    Returns
+    -------
+    (stim, contrast, frequencies) : 2d Array, 2d Array, 1d Array
+        stim: Sampled segments concatenated along axis 1,
+              shape will be (n_tones, fs*n_segments*segment_duration/1000)
+        contrast: Values set to 1 for high-contrast segments, 0 for low.
+                  Shape will be the same as stim.
+        frequencies: kHz values associated with axis 0 of stim,
+                     shape will be (n_tones, )
+
+    '''
+
+    # Notes from Rab et al 2012
+    # TODO:
+    # levels changed every 25ms with 5ms linear ramps between chords
+
+    # Done:
+    # Nf = 23 pure tones
+    # f_low = 500hz and f_high = 22.6 khz at 1/4 octave intervals
+    # frequencies log-spaced between
+    # amplitude of each tone always non-zero
+    # Within each segment, distribution of levels for each band drawn from
+    # high-contrast (half-width = 15db, SD = 8.7 db) uniform level distribution,
+    # or low-contrast (half-width = 5db, SD = 2.9 db)
+    # both distributions mean level 40 db
+    # 3s duration for each segment split into 120 chords
+    # presented between 80 and 120 segments for recording
+
+    # I guess the freqs aren't actually necessary yet since we aren't generating
+    # the stimuli, but maybe useful later.
+    frequencies = np.logspace(np.log(f_low), np.log(f_high), num=n_tones,
+                              base=np.e)
+    segment_length = round(fs*segment_duration/1000)
+    segment_shape = (n_tones, segment_length)
+
+    stim_segments = []
+    contrast_segments = []
+    # For each segment, pick random number of high-contrast frequencies
+    for i in range(n_segments):
+        stim_segment = np.zeros(segment_shape)
+        contrast_segment = np.zeros(segment_shape)
+        high_low = np.random.randint(0, 2, size=(n_tones))
+        high_bands = np.where(high_low > 0)[0]
+        low_bands = np.where(high_low < 1)[0]
+
+        high_sample = np.random.uniform(low=(mean-high_hw), high=(mean+high_hw),
+                                 size=(high_bands.shape[0], segment_length))
+        low_sample = np.random.uniform(low=(mean-low_hw), high=(mean+low_hw),
+                                size=(low_bands.shape[0], segment_length))
+
+        stim_segment[high_bands] = high_sample
+        stim_segment[low_bands] = low_sample
+        contrast_segment[high_bands] = 1
+
+        stim_segments.append(stim_segment)
+        contrast_segments.append(contrast_segment)
+
+    stim = np.concatenate(stim_segments, axis=1)
+    contrast = np.concatenate(contrast_segments, axis=1)
+    return (stim, contrast, frequencies)
+
+
+def rec_from_DRC(fs=100, n_segments=120, rec_name='DRC Test',
+                 sig_names=['stim', 'contrast']):
+    s, c, f = sample_DRC(fs=fs, n_segments=n_segments)
+    freq_names = ['%.1f kHz' % khz for khz in reversed(f)]
+    drc_rec = nems.recording.load_recording_from_arrays(
+            [s, c], rec_name, fs, sig_names,
+            signal_kwargs=[{'chans': freq_names}, {'chans': freq_names}],
+            )
+
+    return drc_rec
+
+
+def test_DRC():
+    '''
+    Plot a sample DRC stimulus.
+    '''
+    fig = plt.figure()
+    x, _ = sample_DRC(n_segments=12)
+    plt.imshow(x, aspect='auto', cmap=plt.get_cmap('jet'))
+
+    return fig
+
+
+def test_DRC_with_contrast(ms=200, normalize=True, fs=100, bands=1,
+                           n_segments=12):
+    '''
+    Plot a sample DRC stimulus next to assigned contrast
+    and calculated contrast.
+    '''
+    drc = rec_from_DRC(fs=fs, n_segments=n_segments)
+    rec = make_contrast_signal(drc, name='binary', continuous=False, ms=ms,
+                                bands=bands)
+    rec = make_contrast_signal(rec, name='continuous', continuous=True, ms=ms,
+                                bands=bands)
+    s = rec['stim'].as_continuous()
+    c1 = rec['contrast'].as_continuous()
+    c2 = rec['binary'].as_continuous()
+    c3 = rec['continuous'].as_continuous()
+
+    fig, axes = plt.subplots(4, 1)
+
+    plt.sca(axes[0])
+    plt.title('DRC stim')
+    plt.imshow(s, aspect='auto', cmap=plt.get_cmap('jet'))
+
+    plt.sca(axes[1])
+    plt.title('Assigned Contrast')
+    plt.imshow(c1, aspect='auto')
+
+    plt.sca(axes[2])
+    plt.title('Binary Calculated Contrast')
+    plt.imshow(c2, aspect='auto')
+
+    plt.sca(axes[3])
+    plt.title('Continuous Calculated Contrast')
+    plt.imshow(c3, aspect='auto')
+
+    plt.tight_layout(h_pad=0.15)
+    #return fig
