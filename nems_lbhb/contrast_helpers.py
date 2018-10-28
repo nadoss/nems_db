@@ -80,12 +80,13 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     # on the contrast calculation.
     # Maybe do valid mode on above calculation, then do a single-band filter on
     # each of the rows that gets chopped out? But then need to correct for
-    # the edge 'columns' as well, even though they aren't a problem.
+    # the edge 'columns' as well, even though they aren't a problem for
+    # the nat sounds dataset since the temporal 'edges' are usually empty anyway
 
-    # old way, simply smooth amplitude of spectrogram
-    #filt = np.concatenate((np.zeros([1, max(2, history+1)]),
-    #                       np.ones([1, max(1, history)])), axis=1)
-    #contrast = convolve2d(array, filt, mode='same')
+    # number of spectral channels that get removed for mode='valid'
+    # total is times 2 for 'top' and 'bottom'
+#    cropped_khz = round(np.floor(bands/2))
+#    cropped_time = history
 
     if continuous:
         if normalize:
@@ -929,3 +930,10 @@ def test_DRC_with_contrast(ms=200, normalize=True, fs=100, bands=1,
 
     plt.tight_layout(h_pad=0.15)
     #return fig
+
+# Notes:
+
+# Old contrast calculation implementation:
+#filt = np.concatenate((np.zeros([1, max(2, history+1)]),
+#                       np.ones([1, max(1, history)])), axis=1)
+#contrast = convolve2d(array, filt, mode='same')

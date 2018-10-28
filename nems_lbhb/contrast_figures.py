@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from bokeh.plotting import show
 
+import nems_db.db as nd
 from nems_db.xform_wrappers import load_model_baphy_xform
 from nems_db.db import get_batch_cells, Tables, Session
 import nems.xforms as xf
@@ -29,6 +30,11 @@ gc_cont_full = ("ozgf.fs100.ch18-ld-contrast.ms100.cont.n-sev_"
                 "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
                 "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l_"
                 "init.c-basic")
+
+gc_cont_b3 = ("ozgf.fs100.ch18-ld-contrast.ms70.cont.n.b3-sev_"
+              "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
+              "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l_"
+              "init.c-basic")
 
 gc_cont_reduced = ("ozgf.fs100.ch18-ld-contrast.ms100.cont.n-sev_"
                    "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
@@ -88,46 +94,94 @@ def performance_scatters(model1=gc_cont_full, model2=ln_model, display=True):
 
 
 def performance_correlation_scatter(model1=gc_cont_full, model2=stp_model,
-                                    model3=ln_model):
-    df1 = fitted_params_per_batch(batch, model1, stats_keys=[])
-    df2 = fitted_params_per_batch(batch, model2, stats_keys=[])
-    df3 = fitted_params_per_batch(batch, model3, stats_keys=[])
+                                    model3=ln_model, se_filter=False,
+                                    ratio_filter=False, threshold=2.5,
+                                    manual_cellids=None):
+#    df1 = fitted_params_per_batch(batch, model1, stats_keys=[])
+#    df2 = fitted_params_per_batch(batch, model2, stats_keys=[])
+#    df3 = fitted_params_per_batch(batch, model3, stats_keys=[])
+    df_r = nd.batch_comp(batch, [model1, model2, model3], stat='r_test')
+    df_e = nd.batch_comp(batch, [model1, model2, model3], stat='se_test')
+    # Remove any cellids that have NaN for 1 or more models
+    df_r.dropna(axis=0, how='any', inplace=True)
+    df_e.dropna(axis=0, how='any', inplace=True)
 
     # fill in missing cellids w/ nan
-    celldata = get_batch_cells(batch=batch)
-    cellids = celldata['cellid'].tolist()
-    nrows = len(df1.index.values.tolist())
+#    celldata = get_batch_cells(batch=batch)
+#    cellids = celldata['cellid'].tolist()
+#    nrows = len(df1.index.values.tolist())
+#
+#    df1_cells = df1.loc['meta--r_test'].index.values.tolist()[5:]
+#    df2_cells = df2.loc['meta--r_test'].index.values.tolist()[5:]
+#    df3_cells = df3.loc['meta--r_test'].index.values.tolist()[5:]
+#
+#    nan_series = pd.Series(np.full((nrows), np.nan))
+#
+#    df1_nans = 0
+#    df2_nans = 0
+#    df3_nans = 0
+#
+#    for c in cellids:
+#        if c not in df1_cells:
+#            df1[c] = nan_series
+#            df1_nans += 1
+#        if c not in df2_cells:
+#            df2[c] = nan_series
+#            df2_nans += 1
+#        if c not in df3_cells:
+#            df3[c] = nan_series
+#            df3_nans += 1
+#
+#    print("# missing cells: %d, %d, %d" % (df1_nans, df2_nans, df3_nans))
 
-    df1_cells = df1.loc['meta--r_test'].index.values.tolist()[5:]
-    df2_cells = df2.loc['meta--r_test'].index.values.tolist()[5:]
-    df3_cells = df3.loc['meta--r_test'].index.values.tolist()[5:]
+    cellids = df_r.index.values.tolist()
 
-    nan_series = pd.Series(np.full((nrows), np.nan))
+    if se_filter:
+        gc_test = df_r[model1]
+        gc_se = df_e[model1]
+        stp_test = df_r[model2]
+        stp_se = df_e[model2]
+        ln_test = df_r[model3]
+        ln_se = df_e[model3]
 
-    df1_nans = 0
-    df2_nans = 0
-    df3_nans = 0
+        # Remove if performance difference not significant
+        # This results in a huge reduction in cell count, down to ~60
+#        improved_cells = ((gc_test-gc_se > ln_test+ln_se) |
+#                         (stp_test-stp_se > ln_test+ln_se))
 
-    for c in cellids:
-        if c not in df1_cells:
-            df1[c] = nan_series
-            df1_nans += 1
-        if c not in df2_cells:
-            df2[c] = nan_series
-            df2_nans += 1
-        if c not in df3_cells:
-            df3[c] = nan_series
-            df3_nans += 1
+        # Also remove is performance not significant at all
+        good_cells = ((gc_test > gc_se*2) & (stp_test > stp_se*2) &
+                     (ln_test > ln_se*2))
 
-    print("# missing cells: %d, %d, %d" % (df1_nans, df2_nans, df3_nans))
+        cellids = df_r[good_cells].index.values.tolist()
+
+    if ratio_filter:
+        # Ex: for threshold = 2.5
+        # Only use cellids where performance for gc/stp was within 2.5x
+        # of LN performance (or where LN within 2.5x of gc/stp) to filter
+        # outliers.
+        c1 = get_valid_improvements(model1=model1, threshold=threshold)
+        c2 = get_valid_improvements(model1=model2, threshold=threshold)
+        cellids = list(set(c1) & set(c2) & set(cellids))
+
+    if manual_cellids is not None:
+        # WARNING: Will override se and ratio filters even if they are set
+        cellids = manual_cellids
+
+    gc_test = df_r[model1][cellids]
+    stp_test = df_r[model2][cellids]
+    ln_test = df_r[model3][cellids]
 
     # Force same cellid order now that cols are filled in
-    df1 = df1[cellids]; df2 = df2[cellids]; df3 = df3[cellids];
+#    df1 = df1[cellids]
+#    df2 = df2[cellids]
+#    df3 = df3[cellids]
 
-    gc_vs_ln = df1.loc['meta--r_test'].values - df3.loc['meta--r_test'].values
-    stp_vs_ln = df2.loc['meta--r_test'].values - df3.loc['meta--r_test'].values
+    gc_vs_ln = gc_test.values - ln_test.values
+    stp_vs_ln = stp_test.values - ln_test.values
     gc_vs_ln = gc_vs_ln.astype('float32')
     stp_vs_ln = stp_vs_ln.astype('float32')
+
     ff = np.isfinite(gc_vs_ln) & np.isfinite(stp_vs_ln)
     gc_vs_ln = gc_vs_ln[ff]
     stp_vs_ln = stp_vs_ln[ff]
@@ -760,7 +814,14 @@ def gd_scatter(batch=289, model1=gc_cont_full, model2=ln_model):
 
 
 def get_valid_improvements(batch=289, model1=gc_cont_full, model2=ln_model,
-                           threshold = 1.75):
+                           threshold = 2.5):
+    # TODO: threshold 2.5 works for removing outliers in correlation scatter
+    #       and maximizes r, but need an unbiased way to pick this number.
+    #       Otherwise basically just cherrypicked the cutoff to make
+    #       correlation better.
+
+    # NOTE: Also helps to do this for both gc and stp, then
+    #       list(set(gc_cells) & set(stp_cells)) to get the intersection.
 
     df1 = fitted_params_per_batch(batch, model1, stats_keys=[])
     df2 = fitted_params_per_batch(batch, model2, stats_keys=[])
