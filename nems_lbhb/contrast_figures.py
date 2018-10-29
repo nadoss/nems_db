@@ -97,42 +97,12 @@ def performance_correlation_scatter(model1=gc_cont_full, model2=stp_model,
                                     model3=ln_model, se_filter=False,
                                     ratio_filter=False, threshold=2.5,
                                     manual_cellids=None):
-#    df1 = fitted_params_per_batch(batch, model1, stats_keys=[])
-#    df2 = fitted_params_per_batch(batch, model2, stats_keys=[])
-#    df3 = fitted_params_per_batch(batch, model3, stats_keys=[])
+
     df_r = nd.batch_comp(batch, [model1, model2, model3], stat='r_test')
     df_e = nd.batch_comp(batch, [model1, model2, model3], stat='se_test')
     # Remove any cellids that have NaN for 1 or more models
     df_r.dropna(axis=0, how='any', inplace=True)
     df_e.dropna(axis=0, how='any', inplace=True)
-
-    # fill in missing cellids w/ nan
-#    celldata = get_batch_cells(batch=batch)
-#    cellids = celldata['cellid'].tolist()
-#    nrows = len(df1.index.values.tolist())
-#
-#    df1_cells = df1.loc['meta--r_test'].index.values.tolist()[5:]
-#    df2_cells = df2.loc['meta--r_test'].index.values.tolist()[5:]
-#    df3_cells = df3.loc['meta--r_test'].index.values.tolist()[5:]
-#
-#    nan_series = pd.Series(np.full((nrows), np.nan))
-#
-#    df1_nans = 0
-#    df2_nans = 0
-#    df3_nans = 0
-#
-#    for c in cellids:
-#        if c not in df1_cells:
-#            df1[c] = nan_series
-#            df1_nans += 1
-#        if c not in df2_cells:
-#            df2[c] = nan_series
-#            df2_nans += 1
-#        if c not in df3_cells:
-#            df3[c] = nan_series
-#            df3_nans += 1
-#
-#    print("# missing cells: %d, %d, %d" % (df1_nans, df2_nans, df3_nans))
 
     cellids = df_r.index.values.tolist()
 
@@ -171,11 +141,6 @@ def performance_correlation_scatter(model1=gc_cont_full, model2=stp_model,
     gc_test = df_r[model1][cellids]
     stp_test = df_r[model2][cellids]
     ln_test = df_r[model3][cellids]
-
-    # Force same cellid order now that cols are filled in
-#    df1 = df1[cellids]
-#    df2 = df2[cellids]
-#    df3 = df3[cellids]
 
     gc_vs_ln = gc_test.values - ln_test.values
     stp_vs_ln = stp_test.values - ln_test.values
