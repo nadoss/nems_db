@@ -18,6 +18,18 @@ Here's how to set parameters:
 
 batch = 307  # A1 SUA and MUA
 batch = 309  # IC SUA and MUA
+batch = 295  # old (Slee) IC data
+
+# fil only
+state_list = ['st.fil0','st.fil']
+basemodel = "-ref-psthfr.s_stategain.S"
+loader = "psth.fs20-ld-"
+d = get_model_results_per_state_model(batch=batch, state_list=state_list,
+                                      basemodel=basemodel, loader=loader)
+
+
+psth.fs20.pup-ld-st.fil0-ref-psthfr.s_stategain.S_jk.nf20-basic
+psth.fs20-ld-st.fil-ref-psthfr.s_stategain.S_jk.nf20-basic
 
 # pup vs. active/passive
 state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
@@ -240,7 +252,10 @@ def hlf_analysis(df, state_list, title=None, norm_sign=True, states=None):
 
     # figure out what cells show significant state ef
     da = df[df['state_chan']=='pupil']
-    dp = da.pivot(index='cellid',columns='state_sig',values=['r','r_se'])
+    dp = pd.pivot_table(da, index='cellid',columns='state_sig',values=['r','r_se'])
+    #dp = da.pivot(index='cellid',columns='state_sig',values=['r','r_se'])
+    #dp = da.pivot(index='cellid',columns='state_sig',values=['r'])
+
     dr = dp['r'].copy()
     dr['b_unique'] = dr[state_list[3]]**2 - dr[state_list[2]]**2
     dr['p_unique'] = dr[state_list[3]]**2 - dr[state_list[1]]**2
@@ -256,8 +271,8 @@ def hlf_analysis(df, state_list, title=None, norm_sign=True, states=None):
     dfull = df[df['state_sig']==state_list[3]]
     dpup = df[df['state_sig']==state_list[2]]
 
-    dp = dfull.pivot(index='cellid',columns='state_chan',values=['MI'])
-    dp0 = dpup.pivot(index='cellid',columns='state_chan',values=['MI'])
+    dp = pd.pivot_table(dfull, index='cellid',columns='state_chan',values=['MI'])
+    dp0 = pd.pivot_table(dpup, index='cellid',columns='state_chan',values=['MI'])
     if states is not None:
         pass
     elif state_list[-1].endswith('fil'):
@@ -294,7 +309,13 @@ def hlf_analysis(df, state_list, title=None, norm_sign=True, states=None):
         #MI[:,0]=0
         #MIu[:,0]=0
         #MI0[:,0]=0
-        if len(states) == 8:
+        if len(states) >= 10:
+            sg = np.sign(np.mean(MI[:,2:4], axis=1, keepdims=True)*3+
+                         np.mean(MI[:,6:8], axis=1, keepdims=True)*3-
+                         np.mean(MI[:,0:2], axis=1, keepdims=True)*2-
+                         np.mean(MI[:,4:6], axis=1, keepdims=True)*2-
+                         np.mean(MI[:,8:10], axis=1, keepdims=True)*2)
+        elif len(states) >= 8:
             sg = np.sign(np.mean(MI[:,2:4], axis=1, keepdims=True)+
                          np.mean(MI[:,6:8], axis=1, keepdims=True)-
                          np.mean(MI[:,0:2], axis=1, keepdims=True)-
@@ -337,6 +358,10 @@ def hlf_analysis(df, state_list, title=None, norm_sign=True, states=None):
     #plt.plot(np.mean(MIuall, axis=0), 'r--', linewidth=1)
     plt.plot(np.nanmean(MI0, axis=0), 'b--', linewidth=1)
     plt.legend(('MIu','MIraw','MIpup'))
+    plt.plot(np.nanmean(MIu, axis=0), 'k.', linewidth=2)
+    plt.plot(np.nanmean(MI, axis=0), 'k.', linewidth=2)
+    #plt.plot(np.mean(MIuall, axis=0), 'r--', linewidth=1)
+    plt.plot(np.nanmean(MI0, axis=0), 'k.', linewidth=1)
     #plt.plot(np.mean(MI0all, axis=0), 'b--', linewidth=1)
     plt.plot(np.arange(len(states)), np.zeros(len(states)), 'k--', linewidth=1)
     plt.ylabel('mean MI')

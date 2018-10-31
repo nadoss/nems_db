@@ -13,6 +13,42 @@ from nems_lbhb.stateplots import model_per_time_wrapper, beta_comp
 exec(open("/auto/users/svd/python/nems_db/nems_lbhb/pupil_behavior_scripts/mod_per_state.py").read())
 
 
+# fil only
+state_list = ['st.fil0','st.fil']
+basemodel = "-ref-psthfr.s_stategain.S"
+loader = "psth.fs20-ld-"
+
+
+
+batch = 295  # old (Slee) IC data
+
+
+d_295_IC_old = get_model_results_per_state_model(
+        batch=batch, state_list=state_list,
+        basemodel=basemodel, loader=loader)
+
+
+batch = 305  # new (Saderi) IC data, pupil not required
+d_305_IC_new = get_model_results_per_state_model(
+        batch=batch, state_list=state_list,
+        basemodel=basemodel, loader=loader)
+
+save_path="/auto/users/svd/docs/current/conf/sfn2018/"
+
+d_295_IC_old.to_csv(save_path+"d_295_IC_old.csv")
+d_305_IC_new.to_csv(save_path+"d_305_IC_new.csv")
+
+d_295_IC_old=pd.read_csv(save_path+"d_295_IC_old.csv", index_col=0)
+d_305_IC_new=pd.read_csv(save_path+"d_305_IC_new.csv", index_col=0)
+
+_d = d_295_IC_old[d_295_IC_old["state_chan"]=="ACTIVE_1"]
+_d[["MI","g"]].median()
+
+_d = d_305_IC_new[d_305_IC_new["state_chan"]=="ACTIVE_1"]
+_d[["MI","g"]].median()
+
+
+
 do_single_cell = False  # if False, do pop summary
 
 if do_single_cell:
@@ -59,22 +95,20 @@ elif 1:
     # use basemodel = "-ref-psthfr.s_sdexp.S" for better accuracy and
     # statistical power
 
-    #state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']
-    #states = ['PASSIVE_0',  'ACTIVE_1','PASSIVE_1',  'ACTIVE_2','PASSIVE_2']
+    state_list = ['st.fil0','st.fil']
 
-    state_list = ['st.pup0.hlf0','st.pup0.hlf','st.pup.hlf0','st.pup.hlf']
+    # state_list = ['st.pup0.hlf0','st.pup0.hlf','st.pup.hlf0','st.pup.hlf']
     #state_list = ['st.pup0.far0.hit0.hlf0','st.pup0.far0.hit0.hlf',
     #              'st.pup.far.hit.hlf0','st.pup.far.hit.hlf']
-    states = ['PASSIVE_0_A','PASSIVE_0_B', 'ACTIVE_1_A','ACTIVE_1_B',
-              'PASSIVE_1_A','PASSIVE_1_B', 'ACTIVE_2_A','ACTIVE_2_B',
-              'PASSIVE_2_A','PASSIVE_2_B']
+    #states = ['PASSIVE_0_A','PASSIVE_0_B', 'ACTIVE_1_A','ACTIVE_1_B',
+    #          'PASSIVE_1_A','PASSIVE_1_B', 'ACTIVE_2_A','ACTIVE_2_B',
+    #          'PASSIVE_2_A','PASSIVE_2_B']
     #states = ['PASSIVE_0_A','PASSIVE_0_B', 'ACTIVE_1_A','ACTIVE_1_B',
     #          'PASSIVE_1_A','PASSIVE_1_B']
 
     basemodel = "-ref-psthfr.s_sdexp.S"
     #basemodel = "-ref.a-psthfr.s_sdexp.S"
-    #batch = 307
-    batch = 309
+    batch = 307
 
     df = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
