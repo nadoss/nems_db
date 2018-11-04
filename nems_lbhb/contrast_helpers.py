@@ -68,30 +68,56 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     #filt = np.ones([1, history]) / history
     filt = np.concatenate((np.zeros([bands, history+1]),
                            np.ones([bands, history])), axis=1)/(bands*history)
-    mn = convolve2d(array, filt, mode='same')
+    mn = convolve2d(array, filt, mode='same', fillvalue=np.nan)
 
-    var = convolve2d(array ** 2, filt, mode='same') - mn ** 2
+    var = convolve2d(array ** 2, filt, mode='same', fillvalue=np.nan) - mn**2
 
-    contrast = np.sqrt(var) / (mn*.99 + mn.max()*0.01)
+    contrast = np.sqrt(var) / (mn*.99 + np.nanmax(mn)*0.01)
 
-    # TODO: How to temporarily pad array so that adding multiple spectral
-    # bands to filter doesn't cause edge effects?
-    # Need to do some calculation so that the added rows have no net effect
-    # on the contrast calculation.
-    # Maybe do valid mode on above calculation, then do a single-band filter on
-    # each of the rows that gets chopped out? But then need to correct for
-    # the edge 'columns' as well, even though they aren't a problem for
-    # the nat sounds dataset since the temporal 'edges' are usually empty anyway
+    # Cropped time binds need to be filled in, otherwise convolution for
+    # missing spectral bands will end up with empty 'corners'
+    # (and normalization is thrown off for any stimuli with nonzero values
+    #  near edges)
+    # Reasonable to fill in with zeros for natural sounds dataset since
+    # the stimuli are always surrounded by pre-post silence anyway
+    cropped_time = history
+    contrast[:, :cropped_time] = 0
+    contrast[:, -cropped_time:] = 0
 
     # number of spectral channels that get removed for mode='valid'
     # total is times 2 for 'top' and 'bottom'
-#    cropped_khz = round(np.floor(bands/2))
-#    cropped_time = history
+    cropped_khz = int(np.floor(bands/2))
+    i = 0
+    while cropped_khz > 0:
+        reduced_bands = bands-cropped_khz
+        reduced_filt = np.concatenate((np.zeros([reduced_bands, history+1]),
+                                       np.ones([reduced_bands, history])),
+                                       axis=1)/(reduced_bands*history)
+
+        # Replace top
+        top_mean = convolve2d(array[:reduced_bands, :], reduced_filt,
+                              mode='valid')
+        top_var = convolve2d(array[:reduced_bands, :] ** 2, reduced_filt,
+                             mode='valid') - top_mean ** 2
+        top_replacement = np.sqrt(top_var) \
+                          / (top_mean*.99 + np.nanmax(top_mean)*0.01)
+        contrast[i][cropped_time:-cropped_time] = top_replacement
+
+        # Replace bottom
+        bottom_mean = convolve2d(array[-reduced_bands:, :], reduced_filt,
+                                 mode='valid')
+        bottom_var = convolve2d(array[-reduced_bands:, :] ** 2, reduced_filt,
+                                mode='valid') - bottom_mean ** 2
+        bottom_replacement = np.sqrt(bottom_var) \
+                             / (bottom_mean*.99 + np.nanmax(bottom_mean)*0.01)
+        contrast[-(i+1)][cropped_time:-cropped_time] = bottom_replacement
+
+        i += 1
+        cropped_khz -= 1
 
     if continuous:
         if normalize:
             # Map raw values to range 0 - 1
-            #contrast /= np.max(np.abs(contrast), axis=0)
             contrast /= np.max(np.abs(contrast))
         rectified = contrast
 
@@ -888,48 +914,11 @@ def test_DRC():
     Plot a sample DRC stimulus.
     '''
     fig = plt.figure()
-    x, _ = sample_DRC(n_segments=12)
+    x, _, _ = sample_DRC(n_segments=12)
     plt.imshow(x, aspect='auto', cmap=plt.get_cmap('jet'))
 
     return fig
 
-
-def test_DRC_with_contrast(ms=200, normalize=True, fs=100, bands=1,
-                           n_segments=12):
-    '''
-    Plot a sample DRC stimulus next to assigned contrast
-    and calculated contrast.
-    '''
-    drc = rec_from_DRC(fs=fs, n_segments=n_segments)
-    rec = make_contrast_signal(drc, name='binary', continuous=False, ms=ms,
-                                bands=bands)
-    rec = make_contrast_signal(rec, name='continuous', continuous=True, ms=ms,
-                                bands=bands)
-    s = rec['stim'].as_continuous()
-    c1 = rec['contrast'].as_continuous()
-    c2 = rec['binary'].as_continuous()
-    c3 = rec['continuous'].as_continuous()
-
-    fig, axes = plt.subplots(4, 1)
-
-    plt.sca(axes[0])
-    plt.title('DRC stim')
-    plt.imshow(s, aspect='auto', cmap=plt.get_cmap('jet'))
-
-    plt.sca(axes[1])
-    plt.title('Assigned Contrast')
-    plt.imshow(c1, aspect='auto')
-
-    plt.sca(axes[2])
-    plt.title('Binary Calculated Contrast')
-    plt.imshow(c2, aspect='auto')
-
-    plt.sca(axes[3])
-    plt.title('Continuous Calculated Contrast')
-    plt.imshow(c3, aspect='auto')
-
-    plt.tight_layout(h_pad=0.15)
-    #return fig
 
 # Notes:
 
