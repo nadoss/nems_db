@@ -57,22 +57,12 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     else:
         raise ValueError("Either ms or bins parameter must be specified.")
     history = max(1,history)
-    # TODO: Alternatively, base history length on some feature of signal?
-    #       Like average length of some epoch ex 'TRIAL'
 
     # SVD constrast is now std / mean in rolling window (duration ms),
     # confined to each frequency channel
     array = source_signal.as_continuous().copy()
     array[np.isnan(array)] = 0
-
-    #filt = np.ones([1, history]) / history
-    filt = np.concatenate((np.zeros([bands, history+1]),
-                           np.ones([bands, history])), axis=1)/(bands*history)
-    mn = convolve2d(array, filt, mode='same', fillvalue=np.nan)
-
-    var = convolve2d(array ** 2, filt, mode='same', fillvalue=np.nan) - mn**2
-
-    contrast = np.sqrt(var) / (mn*.99 + np.nanmax(mn)*0.01)
+    contrast = _contrast_calculation(array, history, bands, 'same')
 
     # Cropped time binds need to be filled in, otherwise convolution for
     # missing spectral bands will end up with empty 'corners'
@@ -90,26 +80,17 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     i = 0
     while cropped_khz > 0:
         reduced_bands = bands-cropped_khz
-        reduced_filt = np.concatenate((np.zeros([reduced_bands, history+1]),
-                                       np.ones([reduced_bands, history])),
-                                       axis=1)/(reduced_bands*history)
 
         # Replace top
-        top_mean = convolve2d(array[:reduced_bands, :], reduced_filt,
-                              mode='valid')
-        top_var = convolve2d(array[:reduced_bands, :] ** 2, reduced_filt,
-                             mode='valid') - top_mean ** 2
-        top_replacement = np.sqrt(top_var) \
-                          / (top_mean*.99 + np.nanmax(top_mean)*0.01)
+        top_replacement = _contrast_calculation(array[:reduced_bands, :],
+                                                history, reduced_bands,
+                                                'valid')
         contrast[i][cropped_time:-cropped_time] = top_replacement
 
         # Replace bottom
-        bottom_mean = convolve2d(array[-reduced_bands:, :], reduced_filt,
-                                 mode='valid')
-        bottom_var = convolve2d(array[-reduced_bands:, :] ** 2, reduced_filt,
-                                mode='valid') - bottom_mean ** 2
-        bottom_replacement = np.sqrt(bottom_var) \
-                             / (bottom_mean*.99 + np.nanmax(bottom_mean)*0.01)
+        bottom_replacement = _contrast_calculation(array[-reduced_bands:, :],
+                                                   history, reduced_bands,
+                                                   'valid')
         contrast[-(i+1)][cropped_time:-cropped_time] = bottom_replacement
 
         i += 1
@@ -137,6 +118,19 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     rec[name] = contrast_sig
 
     return rec
+
+
+def _contrast_calculation(array, history, bands, mode):
+    array = copy.deepcopy(array)
+    filt = np.concatenate((np.zeros([bands, history+1]),
+                           np.ones([bands, history])), axis=1)/(bands*history)
+    mn = convolve2d(array, filt, mode=mode, fillvalue=np.nan)
+
+    var = convolve2d(array ** 2, filt, mode=mode, fillvalue=np.nan) - mn**2
+
+    contrast = np.sqrt(var) / (mn*.99 + np.nanmax(mn)*0.01)
+
+    return contrast
 
 
 def add_contrast(rec, name='contrast', source_name='stim', ms=500, bins=None,
