@@ -2,8 +2,10 @@ import copy
 
 import numpy as np
 import pandas as pd
+import scipy.stats as st
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib.patches as mpatch
 from bokeh.plotting import show
 
 import nems_db.db as nd
@@ -36,6 +38,11 @@ gc_cont_b3 = ("ozgf.fs100.ch18-ld-contrast.ms70.cont.n.b3-sev_"
               "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l_"
               "init.c-basic")
 
+gc_stp = ("ozgf.fs100.ch18-ld-contrast.ms70.cont.n.b3-sev_"
+          "dlog.f-wc.18x2.g-stp.2-fir.2x15-lvl.1-"
+          "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l_"
+          "init.c-basic")
+
 gc_cont_reduced = ("ozgf.fs100.ch18-ld-contrast.ms100.cont.n-sev_"
                    "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
                    "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l.k.s_"
@@ -65,6 +72,13 @@ stp_win1 = 'TAR010c-58-2'
 stp_win2 = 'BRT033b-12-4'
 ln_win = 'TAR010c-15-4'
 
+
+gc_color = '#69657C'
+stp_color = '#394B5E'
+ln_color = '#62838C'
+gc_stp_color = '#215454'
+
+
 # TODO: make loaded params DFs global as well to save time.
 #       Can also maybe do this with some of the loaded xfspec, ctx tuples
 #       (but not for average_r since that needs the entire batch)
@@ -86,14 +100,104 @@ def run_all():
 # LN versus GC
 # LN versus STP
 # GC versus STP
-def performance_scatters(model1=gc_cont_full, model2=ln_model, display=True):
-    p1 = plot_filtered_batch(batch, [model1, model2], 'r_test', 'Scatter')
+def performance_scatters(model1=gc_cont_b3, model2=stp_model, model3=ln_model,
+                         model4=gc_stp,  se_filter=False, ratio_filter=False,
+                         threshold=2.5, manual_cellids=None):
 
-    if display:
-        show(p1.plot)
+    df_r = nd.batch_comp(batch, [model1, model2, model3, model4],
+                         stat='r_test')
+    df_e = nd.batch_comp(batch, [model1, model2, model3, model4],
+                         stat='se_test')
+    # Remove any cellids that have NaN for 1 or more models
+    df_r.dropna(axis=0, how='any', inplace=True)
+    df_e.dropna(axis=0, how='any', inplace=True)
+
+    cellids = df_r.index.values.tolist()
+
+    if se_filter:
+        gc_test = df_r[model1]
+        gc_se = df_e[model1]
+        stp_test = df_r[model2]
+        stp_se = df_e[model2]
+        ln_test = df_r[model3]
+        ln_se = df_e[model3]
+        gc_stp_test = df_r[model4]
+        gc_stp_se = df_e[model4]
+
+        # Also remove is performance not significant at all
+        good_cells = ((gc_test > gc_se*2) & (stp_test > stp_se*2) &
+                     (ln_test > ln_se*2) & (gc_stp_test > gc_stp_se*2))
+
+        cellids = df_r[good_cells].index.values.tolist()
+
+    if ratio_filter:
+        # Ex: for threshold = 2.5
+        # Only use cellids where performance for gc/stp was within 2.5x
+        # of LN performance (or where LN within 2.5x of gc/stp) to filter
+        # outliers.
+        c1 = get_valid_improvements(model1=model1, threshold=threshold)
+        c2 = get_valid_improvements(model1=model2, threshold=threshold)
+        cellids = list(set(c1) & set(c2) & set(cellids))
+
+    if manual_cellids is not None:
+        # WARNING: Will override se and ratio filters even if they are set
+        cellids = manual_cellids
+
+    gc_test = df_r[model1][cellids]
+    stp_test = df_r[model2][cellids]
+    ln_test = df_r[model3][cellids]
+    gc_stp_test = df_r[model4][cellids]
+
+    fig, axes = plt.subplots(2, 3)
+
+    # Row 1 (vs LN)
+    ax = axes[0][0]
+    ax.scatter(gc_test, ln_test, c='black', s=1)
+    ax.plot(ax.get_xlim(), ax.get_ylim(), 'k--', linewidth=0.5)
+    ax.set_title('GC vs LN')
+    ax.set_xlabel('GC')
+    ax.set_ylabel('LN')
+
+    ax = axes[0][1]
+    ax.scatter(stp_test, ln_test, c='black', s=1)
+    ax.plot(ax.get_xlim(), ax.get_ylim(), 'k--', linewidth=0.5)
+    ax.set_title('STP vs LN')
+    ax.set_xlabel('STP')
+    ax.set_ylabel('LN')
+
+    ax = axes[0][2]
+    ax.scatter(gc_stp_test, ln_test, c='black', s=1)
+    ax.plot(ax.get_xlim(), ax.get_ylim(), 'k--', linewidth=0.5)
+    ax.set_title('GC + STP vs LN')
+    ax.set_xlabel('GC + STP')
+    ax.set_ylabel('LN')
+
+    # Row 2 (head-to-head)
+    ax = axes[1][0]
+    ax.scatter(gc_test, stp_test, c='black', s=1)
+    ax.plot(ax.get_xlim(), ax.get_ylim(), 'k--', linewidth=0.5)
+    ax.set_title('GC vs STP')
+    ax.set_xlabel('GC')
+    ax.set_ylabel('STP')
+
+    ax = axes[1][1]
+    ax.scatter(gc_test, gc_stp_test, c='black', s=1)
+    ax.plot(ax.get_xlim(), ax.get_ylim(), 'k--', linewidth=0.5)
+    ax.set_title('GC vs GC + STP')
+    ax.set_xlabel('GC')
+    ax.set_ylabel('GC + STP')
+
+    ax = axes[1][2]
+    ax.scatter(stp_test, gc_stp_test, c='black', s=1)
+    ax.plot(ax.get_xlim(), ax.get_ylim(), 'k--', linewidth=0.5)
+    ax.set_title('STP vs GC + STP')
+    ax.set_xlabel('STP')
+    ax.set_ylabel('GC + STP')
+
+    plt.tight_layout()
 
 
-def performance_correlation_scatter(model1=gc_cont_full, model2=stp_model,
+def performance_correlation_scatter(model1=gc_cont_b3, model2=stp_model,
                                     model3=ln_model, se_filter=False,
                                     ratio_filter=False, threshold=2.5,
                                     manual_cellids=None):
@@ -165,7 +269,7 @@ def performance_correlation_scatter(model1=gc_cont_full, model2=stp_model,
     plt.scatter(gc_vs_ln, stp_vs_ln)
     plt.xlabel("GC - LN model")
     plt.ylabel("STP - LN model")
-    plt.title("r: %.02f, n: %d" % (r, n))
+    plt.title("Performance Improvements over LN\nr: %.02f, n: %d" % (r, n))
     gca = plt.gca()
     gca.axes.axhline(0, color='black', linewidth=1, linestyle='dashed')
     gca.axes.axvline(0, color='black', linewidth=1, linestyle='dashed')
@@ -174,72 +278,239 @@ def performance_correlation_scatter(model1=gc_cont_full, model2=stp_model,
     adjustFigAspect(fig, aspect=1)
 
 
-def performance_bar(model1=gc_cont_full, model2=stp_model, model3=ln_model):
-    df1 = fitted_params_per_batch(batch, model1)
-    df2 = fitted_params_per_batch(batch, model2)
-    df3 = fitted_params_per_batch(batch, model3)
+def performance_bar(model1=gc_cont_b3, model2=stp_model, model3=ln_model,
+                    model4=gc_stp,  se_filter=False, ratio_filter=False,
+                    threshold=2.5, manual_cellids=None):
 
-    # fill in missing cellids w/ nan
-    celldata = get_batch_cells(batch=batch)
-    cellids = celldata['cellid'].tolist()
-    nrows = len(df1.index.values.tolist())
+    df_r = nd.batch_comp(batch, [model1, model2, model3, model4],
+                         stat='r_test')
+    df_e = nd.batch_comp(batch, [model1, model2, model3, model4],
+                         stat='se_test')
+    # Remove any cellids that have NaN for 1 or more models
+    df_r.dropna(axis=0, how='any', inplace=True)
+    df_e.dropna(axis=0, how='any', inplace=True)
 
-    df1_cells = df1.loc['meta--r_test'].index.values.tolist()[5:]
-    df2_cells = df2.loc['meta--r_test'].index.values.tolist()[5:]
-    df3_cells = df3.loc['meta--r_test'].index.values.tolist()[5:]
+    cellids = df_r.index.values.tolist()
 
-    nan_series = pd.Series(np.full((nrows), np.nan))
+    if se_filter:
+        gc_test = df_r[model1]
+        gc_se = df_e[model1]
+        stp_test = df_r[model2]
+        stp_se = df_e[model2]
+        ln_test = df_r[model3]
+        ln_se = df_e[model3]
+        gc_stp_test = df_r[model4]
+        gc_stp_se = df_e[model4]
 
-    df1_nans = 0
-    df2_nans = 0
-    df3_nans = 0
+        # Also remove is performance not significant at all
+        good_cells = ((gc_test > gc_se*2) & (stp_test > stp_se*2) &
+                     (ln_test > ln_se*2) & (gc_stp_test > gc_stp_se*2))
 
-    for c in cellids:
-        if c not in df1_cells:
-            df1[c] = nan_series
-            df1_nans += 1
-        if c not in df2_cells:
-            df2[c] = nan_series
-            df2_nans += 1
-        if c not in df3_cells:
-            df3[c] = nan_series
-            df3_nans += 1
+        cellids = df_r[good_cells].index.values.tolist()
 
-    print("nans for dfs: %d, %d, %d" % (df1_nans, df2_nans, df3_nans))
+    if ratio_filter:
+        # Ex: for threshold = 2.5
+        # Only use cellids where performance for gc/stp was within 2.5x
+        # of LN performance (or where LN within 2.5x of gc/stp) to filter
+        # outliers.
+        c1 = get_valid_improvements(model1=model1, threshold=threshold)
+        c2 = get_valid_improvements(model1=model2, threshold=threshold)
+        cellids = list(set(c1) & set(c2) & set(cellids))
 
-    # idx 0 = mean, 1 = std, 2 = sem, 3 = max, 4 = min
-    gc = df1.loc['meta--r_test'][0]
-    stp = df2.loc['meta--r_test'][0]
-    ln = df3.loc['meta--r_test'][0]
-    largest = max(gc, stp, ln)
+    if manual_cellids is not None:
+        # WARNING: Will override se and ratio filters even if they are set
+        cellids = manual_cellids
 
-    gc_sem = df1.loc['meta--r_test'][2]
-    stp_sem = df2.loc['meta--r_test'][2]
-    ln_sem = df3.loc['meta--r_test'][2]
+    n_cells = len(cellids)
+    gc_test = df_r[model1][cellids]
+    gc_se = df_e[model1][cellids]
+    stp_test = df_r[model2][cellids]
+    stp_se = df_e[model2][cellids]
+    ln_test = df_r[model3][cellids]
+    ln_se = df_e[model3][cellids]
+    gc_stp_test = df_r[model4][cellids]
+    gc_stp_se = df_e[model4][cellids]
 
-    if len(df1_cells) == len(df2_cells) == len(df3_cells):
-        n_cells = len(df1_cells)
-    else:
-        print("warning: n values for different models didn't match, "
-              "taking minimum")
-        n_cells = min(len(df1_cells), len(df2_cells), len(df3_cells))
+    gc = np.mean(gc_test.values)
+    stp = np.mean(stp_test.values)
+    ln = np.mean(ln_test.values)
+    gc_stp = np.mean(gc_stp_test.values)
+    largest = max(gc, stp, ln, gc_stp)
+
+    # TODO: double check that this is valid, to just take mean of errors
+    gc_sem = np.mean(gc_se.values)
+    stp_sem = np.mean(stp_se.values)
+    ln_sem = np.mean(ln_se.values)
+    gc_stp_sem = np.mean(gc_stp_se.values)
 
     plt.figure()
-    plt.bar([1, 2, 3], [gc, stp, ln], color=['purple', 'green', 'gray'])
-    plt.xticks([1, 2, 3], ['GC', 'STP', 'LN'])
+    plt.bar([1, 2, 3, 4], [gc, stp, ln, gc_stp],
+            #color=['purple', 'green', 'gray', 'blue'])
+            color=[gc_color, stp_color, ln_color, gc_stp_color])
+    plt.xticks([1, 2, 3, 4], ['GC', 'STP', 'LN', 'GC + STP'])
     plt.ylim(ymax=largest*1.4)
-    plt.errorbar([1, 2, 3], [gc, stp, ln], yerr=[gc_sem, stp_sem, ln_sem],
-                 fmt='none', ecolor='black')
+    plt.errorbar([1, 2, 3, 4], [gc, stp, ln, gc_stp], yerr=[gc_sem, stp_sem,
+                 ln_sem, gc_stp_sem], fmt='none', ecolor='black')
     common_kwargs = {'color': 'white', 'horizontalalignment': 'center'}
     plt.text(1, 0.2, "%0.04f" % gc, **common_kwargs)
     plt.text(2, 0.2, "%0.04f" % stp, **common_kwargs)
     plt.text(3, 0.2, "%0.04f" % ln, **common_kwargs)
-    plt.title("Average Performance for GC, STP and LN models,\n"
+    plt.text(4, 0.2, "%0.04f" % gc_stp, **common_kwargs)
+    plt.title("Average Performance for GC, STP, LN, and GC + STP models,\n"
               "n: %d" % n_cells)
 
-# TODO: Maybe need to convert this to matplotlib? Probably easier to adjust
-#       coloring on overlaps etc, bokeh hasn't been very easy to work with
-#       in that respect.
+
+def significance(model1=gc_cont_b3, model2=stp_model, model3=ln_model,
+                 model4=gc_stp,  se_filter=False, ratio_filter=False,
+                 threshold=2.5, manual_cellids=None):
+
+    df_r = nd.batch_comp(batch, [model1, model2, model3, model4],
+                         stat='r_test')
+    df_e = nd.batch_comp(batch, [model1, model2, model3, model4],
+                         stat='se_test')
+    # Remove any cellids that have NaN for 1 or more models
+    df_r.dropna(axis=0, how='any', inplace=True)
+    df_e.dropna(axis=0, how='any', inplace=True)
+
+    cellids = df_r.index.values.tolist()
+
+    if se_filter:
+        gc_test = df_r[model1]
+        gc_se = df_e[model1]
+        stp_test = df_r[model2]
+        stp_se = df_e[model2]
+        ln_test = df_r[model3]
+        ln_se = df_e[model3]
+        gc_stp_test = df_r[model4]
+        gc_stp_se = df_e[model4]
+
+        # Also remove is performance not significant at all
+        good_cells = ((gc_test > gc_se*2) & (stp_test > stp_se*2) &
+                     (ln_test > ln_se*2) & (gc_stp_test > gc_stp_se*2))
+
+        cellids = df_r[good_cells].index.values.tolist()
+
+    if ratio_filter:
+        # Ex: for threshold = 2.5
+        # Only use cellids where performance for gc/stp was within 2.5x
+        # of LN performance (or where LN within 2.5x of gc/stp) to filter
+        # outliers.
+        c1 = get_valid_improvements(model1=model1, threshold=threshold)
+        c2 = get_valid_improvements(model1=model2, threshold=threshold)
+        cellids = list(set(c1) & set(c2) & set(cellids))
+
+    if manual_cellids is not None:
+        # WARNING: Will override se and ratio filters even if they are set
+        cellids = manual_cellids
+
+    gc_test = df_r[model1][cellids]
+    stp_test = df_r[model2][cellids]
+    ln_test = df_r[model3][cellids]
+    gc_stp_test = df_r[model4][cellids]
+
+    modelnames = ['GC', 'STP', 'LN', 'GC + STP']
+    models = {'GC': gc_test, 'STP': stp_test, 'LN': ln_test,
+              'GC + STP': gc_stp_test}
+    array = np.ndarray(shape=(len(modelnames), len(modelnames)), dtype=float)
+
+    for i, m_one in enumerate(modelnames):
+        for j, m_two in enumerate(modelnames):
+            # get series of values corresponding to selected measure
+            # for each model
+            series_one = models[m_one]
+            series_two = models[m_two]
+            if j == i:
+                # if indices equal, on diagonal so no comparison
+                array[i][j] = 0.00
+            elif j > i:
+                # if j is larger, below diagonal so get mean difference
+                mean_one = np.mean(series_one)
+                mean_two = np.mean(series_two)
+                array[i][j] = abs(mean_one - mean_two)
+            else:
+                # if j is smaller, above diagonal so run t-test and
+                # get p-value
+                first = series_one.tolist()
+                second = series_two.tolist()
+                array[i][j] = st.wilcoxon(first, second)[1]
+
+    xticks = range(len(modelnames))
+    yticks = xticks
+    minor_xticks = np.arange(-0.5, len(modelnames), 1)
+    minor_yticks = np.arange(-0.5, len(modelnames), 1)
+
+    plt.figure(figsize=(len(modelnames),len(modelnames)))
+    ax = plt.gca()
+
+    # ripped from stackoverflow. adds text labels to the grid
+    # at positions i,j (model x model)  with text z (value of array at i, j)
+    for (i, j), z in np.ndenumerate(array):
+        if j == i:
+            color="#EBEBEB"
+        elif j > i:
+            color="#368DFF"
+        else:
+            if array[i][j] < 0.001:
+                color="#74E572"
+            elif array[i][j] < 0.01:
+                color="#59AF57"
+            elif array[i][j] < 0.05:
+                color="#397038"
+            else:
+                color="#ABABAB"
+
+        ax.add_patch(mpatch.Rectangle(
+                xy=(j-0.5, i-0.5), width=1.0, height=1.0, angle=0.0,
+                facecolor=color, edgecolor='black',
+                ))
+        if j == i:
+            # don't draw text for diagonal
+            continue
+        formatting = '{:.04f}'
+        if z <= 0.0001:
+            formatting = '{:.2E}'
+        ax.text(
+                j, i, formatting.format(z), ha='center', va='center',
+                )
+
+    ax.set_ylabel('')
+    ax.set_xlabel('')
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(modelnames, fontsize=10)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(modelnames, fontsize=10, rotation="vertical")
+    ax.set_yticks(minor_yticks, minor=True)
+    ax.set_xticks(minor_xticks, minor=True)
+    ax.grid(b=False)
+    ax.grid(which='minor', color='b', linestyle='-', linewidth=0.75)
+    ax.set_title("Wilcoxon Signed Test", ha='center', fontsize = 14)
+
+    blue_patch = mpatch.Patch(
+            color='#368DFF', label='Mean Difference', edgecolor='black'
+            )
+    p001_patch = mpatch.Patch(
+            color='#74E572', label='P < 0.001', edgecolor='black'
+            )
+    p01_patch = mpatch.Patch(
+            color='#59AF57', label='P < 0.01', edgecolor='black'
+            )
+    p05_patch = mpatch.Patch(
+            color='#397038', label='P < 0.05', edgecolor='black'
+            )
+    nonsig_patch = mpatch.Patch(
+            color='#ABABAB', label='Not Significant', edgecolor='black',
+            )
+
+    plt.legend(
+            #bbox_to_anchor=(0., 1.02, 1., .102), ncol=2,
+            bbox_to_anchor=(1.05, 1), ncol=1,
+            loc=2, handles=[
+                    p05_patch, p01_patch, p001_patch,
+                    nonsig_patch, blue_patch,
+                    ]
+            )
+    plt.tight_layout()
+
 
 # Overlay of prediction from STP versus prediction from GC for sample cell(s)
 def example_pred_overlay(cellid=good_cell, model1=gc_cont_full,
