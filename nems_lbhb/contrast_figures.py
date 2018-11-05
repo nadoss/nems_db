@@ -3,6 +3,7 @@ import copy
 import numpy as np
 import pandas as pd
 import scipy.stats as st
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.patches as mpatch
@@ -31,7 +32,7 @@ gc_model_full = ("ozgf.fs100.ch18-ld-contrast.ms250-sev_"
                  "ctwc.18x2.g-ctfir.2x15-ctlvl.1-dsig.l_"
                  "init.c-basic")
 
-gc_cont_full = ("ozgf.fs100.ch18-ld-contrast.ms100.cont.n-sev_"
+gc_cont_full = ("ozgf.fs100.ch18-ld-contrast.ms70.cont.n-sev_"
                 "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
                 "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l_"
                 "init.c-basic")
@@ -71,9 +72,14 @@ bad_cell = 'bbl086b-02-1'
 gc_win1 = 'TAR017b-33-3'
 gc_win2 = 'TAR017b-27-2'
 gc_win3 = 'TAR010c-40-1'
+gc_win4 = 'eno052b-b1'
+gc_win5 = 'bbl104h-12-1'
 stp_win1 = 'TAR010c-58-2'
 stp_win2 = 'BRT033b-12-4'
+gc_stp_both_win = 'TAR010c-21-4'
 ln_win = 'TAR010c-15-4'
+gc_sharp_onset = 'bbl104h-10-2'
+gc_beat_stp = 'TAR009d-28-1'
 
 
 gc_color = '#69657C'
@@ -588,7 +594,7 @@ def contrast_examples():
 # Timeseries showing values of kappa & shift over time, alongside ctpred
 # and final pred before & after
 # TODO: break up this plot, too much going on
-def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_b3,
+def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_full,
                                   sample_every=10):
 
     xfspec, ctx = load_model_baphy_xform(cellid, batch, modelname)
@@ -858,18 +864,22 @@ def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_b3,
     plt.plot(x, y, color='black')
     plt.title('Static Nonlinearity')
 
-    plt.subplot(gs2[2:4, 1])
-    x = np.linspace(-1*s[0], 3*s[0], 1000)
-    y2 = _logistic_sigmoid(x, b[0], a[0], s[0], k[0])
-    plt.plot(x, y2, color='gray')
-    plt.title('Dynamic Nonlinearity (No Stimulus)')
+#    plt.subplot(gs2[2:4, 1])
+#    x = np.linspace(-1*s[0], 3*s[0], 1000)
+#    y2 = _logistic_sigmoid(x, b[0], a[0], s[0], k[0])
+#    plt.plot(x, y2, color='gray')
+#    plt.title('Dynamic Nonlinearity (No Stimulus)')
 
-    plt.subplot(gs2[4:6, 1])
+    ax1 = plt.subplot(gs2[2:4, 1])
+    ax2 = plt.subplot(gs2[4:6, 1])
     y_min = 0
     y_max = 0
+    x = np.linspace(-1*s[0], 3*s[0], 1000)
     sample_every = max(1, sample_every)
     sample_every = min(len(a), sample_every)
-    alpha = 1 - 2/max(2.1052, np.log(sample_every))  # range from 0.05 to 1
+    cmap = matplotlib.cm.get_cmap('copper')
+    color_pred = ctpred/np.max(np.abs(ctpred))
+    alpha = 1 - 2/max(2.222222, np.log(sample_every))  # range from 0.1 to 1
     for i in range(int(len(a)/sample_every)):
         try:
             this_b = b[i*sample_every]
@@ -880,14 +890,17 @@ def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_b3,
             this_y = _logistic_sigmoid(this_x, this_b, this_a, this_s, this_k)
             y_min = min(y_min, this_y.min())
             y_max = max(y_max, this_y.max())
-            plt.plot(x, this_y, color='gray', alpha=alpha)
+            color = cmap(color_pred[i*sample_every])
+            ax1.plot(x, this_y, color='gray', alpha=alpha)
+            ax2.plot(this_x+i*sample_every, this_y, color=color, alpha=alpha)
         except IndexError:
             # Will happen on last attempt if array wasn't evenly divisible
             # by sample_every
             pass
-    plt.ylim(y_min*1.25, y_max*1.25)
-    plt.plot(x, y2, color=gc_color)  # no-stim sigmoid for reference
-    plt.title('Dynamic Nonlinearity (All Variations)')
+    y2 = _logistic_sigmoid(x, b[0], a[0], s[0], k[0])
+    ax1.plot(x, y2, color='black')  # no-stim sigmoid for reference
+    ax1.set_ylim(y_min*1.25, y_max*1.25)
+    ax1.set_title('Dynamic Nonlinearity')
 
     plt.tight_layout(h_pad=2)
     st2.set_y(0.95)
