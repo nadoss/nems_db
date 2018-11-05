@@ -12,11 +12,14 @@ import nems_db.db as nd
 from nems_db.xform_wrappers import load_model_baphy_xform
 from nems_db.db import get_batch_cells, Tables, Session
 import nems.xforms as xf
+from nems.plots.api import before_and_after_stp
 from nems_db.plot_helpers import plot_filtered_batch
 from nems.utils import find_module
 import nems.modelspec as ms
 from nems_db.params import fitted_params_per_batch
 from nems_lbhb.contrast_helpers import make_contrast_signal, rec_from_DRC
+from nems.metrics.stp import stp_magnitude
+from nems.modules.nonlinearity import _logistic_sigmoid
 
 gc_model = ("ozgf.fs100.ch18-ld-contrast.ms250-sev_"
             "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
@@ -266,7 +269,7 @@ def performance_correlation_scatter(model1=gc_cont_b3, model2=stp_model,
     abs_max *= 1.15
 
     fig = plt.figure(figsize=(6, 6))
-    plt.scatter(gc_vs_ln, stp_vs_ln)
+    plt.scatter(gc_vs_ln, stp_vs_ln, c='black', s=1)
     plt.xlabel("GC - LN model")
     plt.ylabel("STP - LN model")
     plt.title("Performance Improvements over LN\nr: %.02f, n: %d" % (r, n))
@@ -584,7 +587,9 @@ def contrast_examples():
 
 # Timeseries showing values of kappa & shift over time, alongside ctpred
 # and final pred before & after
-def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_full):
+# TODO: break up this plot, too much going on
+def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_b3,
+                                  sample_every=10):
 
     xfspec, ctx = load_model_baphy_xform(cellid, batch, modelname)
     val = copy.deepcopy(ctx['val'][0])
@@ -611,10 +616,10 @@ def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_full):
     base_mod = phi['base_mod']
     amplitude_mod = phi['amplitude_mod']
 
-    k = kappa + kappa_mod*ctpred
-    s = shift + shift_mod*ctpred
-    b = base + base_mod*ctpred
-    a = amplitude + amplitude_mod*ctpred
+    k = kappa + (kappa_mod - kappa)*ctpred
+    s = shift + (shift_mod - shift)*ctpred
+    b = base + (base_mod - base)*ctpred
+    a = amplitude + (amplitude_mod - amplitude)*ctpred
 
     xfspec2, ctx2 = load_model_baphy_xform(cellid, batch, ln_model)
     val2 = copy.deepcopy(ctx2['val'][0])
@@ -678,142 +683,217 @@ def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_full):
 
     fig1 = plt.figure(figsize=(6, 12))
     st1 = fig1.suptitle("Cellid: %s\nModelname: %s" % (cellid, modelname))
-    gs = gridspec.GridSpec(6, 1)
+    gs = gridspec.GridSpec(5, 3)
 
+    # LN
     plt.subplot(gs[0, 0])
-    plt.plot(t, pred_before, linewidth=1, color='black')
-    plt.plot(t, pred_before_LN, linewidth=1, color='gray')
-    plt.title("Prediction before Nonlinearity")
+    plt.plot(t, pred_before_LN, linewidth=1, color='black')
+    plt.title("Prediction before Nonlinearity (LN Model)")
 
     plt.subplot(gs[1, 0])
-    plt.plot(t, ctpred, linewidth=1, color='purple')
-    plt.title("Output from Contrast STRF")
+    plt.plot(t, np.ones((len(t),)), linewidth=1, color='purple')
+    plt.title('No Change for LN Model')
 
     plt.subplot(gs[2, 0])
     plt.plot(t, pred_after_LN_only, linewidth=1, color='black')
-    plt.title("Prediction after Nonlinearity (No GC)")
+    plt.title("Prediction after Nonlinearity")
 
     plt.subplot(gs[3, 0])
-    plt.plot(t, pred_after, linewidth=1, color='purple')
-    plt.title("Prediction after Nonlinearity (W/ GC)")
+    plt.plot(t, np.ones((len(t),)), linewidth=1, color='blue')
+    plt.title('No Change for LN Model')
 
     plt.subplot(gs[4, 0])
+    plt.plot(t, resp, linewidth=1, color='green')
+    plt.title("Response")
+
+    # GC
+    plt.subplot(gs[0, 1])
+    plt.plot(t, pred_before, linewidth=1, color='black')
+    plt.title("Prediction before Nonlinearity (GC Model)")
+
+    plt.subplot(gs[1, 1])
+    plt.plot(t, ctpred, linewidth=1, color='purple')
+    plt.title("Output of Contrast STRF")
+
+    plt.subplot(gs[2, 1])
+    plt.plot(t, pred_after, linewidth=1, color='black')
+    plt.title("Prediction after Nonlinearity (W/ GC)")
+
+    plt.subplot(gs[3, 1])
     change = pred_after - pred_after_LN_only
     plt.plot(t, change, linewidth=1, color='blue')
     plt.title("Change to Prediction w/ GC")
 
-    plt.subplot(gs[5, 0])
+    plt.subplot(gs[4, 1])
     plt.plot(t, resp, linewidth=1, color='green')
     plt.title("Response")
 
+    # STP
+    plt.subplot(gs[0, 2])
+    plt.plot(t, pred_before_stp, linewidth=1, color='black')
+    plt.title("Prediction before Nonlinearity (STP Model)")
+
+    plt.subplot(gs[1, 2])
+    # TODO: simplify this? just cut and pasted from existing STP plot
+    for m in mspec3:
+        if 'stp' in m['fn']:
+            break
+
+    stp_mag, pred, pred_out = stp_magnitude(m['phi']['tau'], m['phi']['u'], fs)
+    c = len(m['phi']['tau'])
+    pred.name = 'before'
+    pred_out.name = 'after'
+    signals = []
+    channels = []
+    for i in range(c):
+        signals.append(pred_out)
+        channels.append(i)
+    signals.append(pred)
+    channels.append(0)
+
+    times = []
+    values = []
+    legend = []
+    for sig, c in zip(signals, channels):
+        # Get values from specified channel
+        value_vector = sig.as_continuous()[c]
+        # Convert indices to absolute time based on sampling frequency
+        time_vector = np.arange(0, len(value_vector)) / sig.fs
+        times.append(time_vector)
+        values.append(value_vector)
+        if sig.chans is not None:
+            legend.append(sig.name+' '+sig.chans[c])
+
+    cc = 0
+    for ts, vs in zip(times, values):
+        plt.plot(ts, vs)
+        cc += 1
+
+    plt.legend(legend)
+    plt.title('STP Channel Output')
+    # End STP plot
+
+    plt.subplot(gs[2, 2])
+    plt.plot(t, pred_after_stp, linewidth=1, color='black')
+    plt.title("Prediction after Nonlinearity (W/ STP)")
+
+    plt.subplot(gs[3, 2])
+    change2 = pred_after_stp - pred_after_LN_only
+    plt.plot(t, change2, linewidth=1, color='blue')
+    plt.title("Change to Prediction w/ STP")
+
+    plt.subplot(gs[4, 2])
+    plt.plot(t, resp, linewidth=1, color='green')
+    plt.title("Response")
 
     ymin = 0
     ymax = 0
-    for ax in fig1.axes[2:]:
-        ybottom, ytop = ax.get_ylim()
-        ymin = min(ymin, ybottom)
-        ymax = max(ymax, ytop)
-    for ax in fig1.axes[2:]:
-        ax.set_ylim(ymin, ymax)
-    for ax in fig1.axes[:-1]:
-        ax.axes.get_xaxis().set_visible(False)
+    for i, ax in enumerate(fig1.axes):
+        if i not in [0, 1, 5, 6, 10, 11]:
+            ybottom, ytop = ax.get_ylim()
+            ymin = min(ymin, ybottom)
+            ymax = max(ymax, ytop)
+    for i, ax in enumerate(fig1.axes):
+        if i not in [0, 1, 5, 6, 10, 11]:
+            ax.set_ylim(ymin, ymax)
+    for i, ax in enumerate(fig1.axes):
+        if i not in [4, 9, 14]:
+            ax.axes.get_xaxis().set_visible(False)
 
-    plt.tight_layout()
+    #plt.tight_layout()
     st1.set_y(0.95)
     fig1.subplots_adjust(top=0.85)
+    # End pred comparison
 
-
+    # Contrast variables figure
     fig2 = plt.figure(figsize=(7, 12))
     st2 = fig2.suptitle("Cellid: %s\nModelname: %s" % (cellid, modelname))
-    gs2 = gridspec.GridSpec(7, 1)
+    gs2 = gridspec.GridSpec(6, 2)
 
-    plt.subplot(gs2[0, 0])
+    plt.subplot(gs2[0:2, 0])
     plt.plot(t, ctpred, linewidth=1, color='purple')
     plt.title("Output from Contrast STRF")
 
-    plt.subplot(gs2[1:3, 0])
-    plt.plot(t, sp, linewidth=1, color='red')
-    plt.plot(t, kp, linewidth=1, color='blue')
-    plt.plot(t, bp, linewidth=1, color='gray')
-    plt.plot(t, ap, linewidth=1, color='orange')
-    plt.title("% Change Relative to LN Model")
-    plt.legend(['S', 'K', 'B', 'A'])
+#    plt.subplot(gs2[1:3, 0])
+#    plt.plot(t, sp, linewidth=1, color='red')
+#    plt.plot(t, kp, linewidth=1, color='blue')
+#    plt.plot(t, bp, linewidth=1, color='gray')
+#    plt.plot(t, ap, linewidth=1, color='orange')
+#    plt.title("% Change Relative to LN Model")
+#    plt.legend(['S', 'K', 'B', 'A'])
 
-    plt.subplot(gs2[3, 0])
+    plt.subplot(gs2[2, 0])
     plt.plot(t, s, linewidth=1, color='red')
     plt.plot(t, static_s, linewidth=1, linestyle='dashed', color='red')
     plt.title('Shift w/ GC vs Shift w/ LN')
     plt.legend(['GC', 'LN'])
 
-    plt.subplot(gs2[4, 0])
+    plt.subplot(gs2[3, 0])
     plt.plot(t, k, linewidth=1, color='blue')
     plt.plot(t, static_k, linewidth=1, linestyle='dashed', color='blue')
     plt.title('Kappa w/ GC vs Kappa w/ LN')
     plt.legend(['GC', 'LN'])
 
-    plt.subplot(gs2[5, 0])
+    plt.subplot(gs2[4, 0])
     plt.plot(t, b, linewidth=1, color='gray')
     plt.plot(t, static_b, linewidth=1, linestyle='dashed', color='gray')
     plt.title('Base w/ GC vs Base w/ LN')
     plt.legend(['GC', 'LN'])
 
-    plt.subplot(gs2[6, 0])
+    plt.subplot(gs2[5, 0])
     plt.plot(t, a, linewidth=1, color='orange')
     plt.plot(t, static_a, linewidth=1, linestyle='dashed', color='orange')
     plt.title('Amplitude w/ GC vs Amplitude w/ LN')
     plt.legend(['GC', 'LN'])
 
-    plt.tight_layout()
+    for ax in fig2.axes[:6]:
+        ax.axes.get_xaxis().set_visible(False)
+
+    #x = np.linspace(0, 40, 1000)
+    #_logistic_sigmoid(x, b, a, s, k)
+
+    plt.subplot(gs2[0:2, 1])
+    x = np.linspace(-1*ln_s, 3*ln_s, 1000)
+    y = _logistic_sigmoid(x, ln_b, ln_a, ln_s, ln_k)
+    plt.plot(x, y, color='black')
+    plt.title('Static Nonlinearity')
+
+    plt.subplot(gs2[2:4, 1])
+    x = np.linspace(-1*s[0], 3*s[0], 1000)
+    y2 = _logistic_sigmoid(x, b[0], a[0], s[0], k[0])
+    plt.plot(x, y2, color='gray')
+    plt.title('Dynamic Nonlinearity (No Stimulus)')
+
+    plt.subplot(gs2[4:6, 1])
+    y_min = 0
+    y_max = 0
+    sample_every = max(1, sample_every)
+    sample_every = min(len(a), sample_every)
+    alpha = 1 - 2/max(2.1052, np.log(sample_every))  # range from 0.05 to 1
+    for i in range(int(len(a)/sample_every)):
+        try:
+            this_b = b[i*sample_every]
+            this_a = a[i*sample_every]
+            this_s = s[i*sample_every]
+            this_k = k[i*sample_every]
+            this_x = np.linspace(-1*this_s, 3*this_s, 1000)
+            this_y = _logistic_sigmoid(this_x, this_b, this_a, this_s, this_k)
+            y_min = min(y_min, this_y.min())
+            y_max = max(y_max, this_y.max())
+            plt.plot(x, this_y, color='gray', alpha=alpha)
+        except IndexError:
+            # Will happen on last attempt if array wasn't evenly divisible
+            # by sample_every
+            pass
+    plt.ylim(y_min*1.25, y_max*1.25)
+    plt.plot(x, y2, color=gc_color)  # no-stim sigmoid for reference
+    plt.title('Dynamic Nonlinearity (All Variations)')
+
+    plt.tight_layout(h_pad=2)
     st2.set_y(0.95)
     fig2.subplots_adjust(top=0.85)
-    for ax in fig2.axes[:-1]:
-        ax.axes.get_xaxis().set_visible(False)
 
-
-    fig3 = plt.figure(figsize=(6, 12))
-    st3 = fig3.suptitle("Cellid: %s\nModelname: %s" % (cellid, modelname))
-    gs3 = gridspec.GridSpec(6, 1)
-
-    plt.subplot(gs3[0, 0])
-    plt.plot(t, pred_before_stp, linewidth=1, color='black')
-    plt.plot(t, pred_before_LN, linewidth=1, color='gray')
-    plt.title("Prediction before Nonlinearity")
-
-    plt.subplot(gs3[1, 0])
-    plt.plot(t, np.ones_like(t))
-    plt.title("Skip for now")
-
-    plt.subplot(gs3[2, 0])
-    plt.plot(t, pred_after_LN_only, linewidth=1, color='black')
-    plt.title("Prediction after Nonlinearity (No STP)")
-
-    plt.subplot(gs3[3, 0])
-    plt.plot(t, pred_after_stp, linewidth=1, color='purple')
-    plt.title("Prediction after Nonlinearity (W/ STP)")
-
-    plt.subplot(gs3[4, 0])
-    change2 = pred_after_stp - pred_after_LN_only
-    plt.plot(t, change2, linewidth=1, color='blue')
-    plt.title("Change to Prediction w/ STP")
-
-    plt.subplot(gs3[5, 0])
-    plt.plot(t, resp, linewidth=1, color='green')
-    plt.title("Response")
-
-    ymin = 0
-    ymax = 0
-    for ax in fig3.axes[2:]:
-        ybottom, ytop = ax.get_ylim()
-        ymin = min(ymin, ybottom)
-        ymax = max(ymax, ytop)
-    for ax in fig3.axes[2:]:
-        ax.set_ylim(ymin, ymax)
-    for ax in fig3.axes[:-1]:
-        ax.axes.get_xaxis().set_visible(False)
-
-    plt.tight_layout()
-    st3.set_y(0.95)
-    fig3.subplots_adjust(top=0.85)
+    return fig1, fig2
 
 
 # Average values for fitted contrast parameters, to compare to paper
@@ -1132,7 +1212,7 @@ def test_DRC_with_contrast(ms=200, normalize=True, fs=100, bands=1,
     rec = make_contrast_signal(drc, name='binary', continuous=False, ms=ms,
                                 percentile=percentile, bands=bands)
     rec = make_contrast_signal(rec, name='continuous', continuous=True, ms=ms,
-                                bands=bands)
+                                bands=bands, normalize=normalize)
     s = rec['stim'].as_continuous()
     c1 = rec['contrast'].as_continuous()
     c2 = rec['binary'].as_continuous()
