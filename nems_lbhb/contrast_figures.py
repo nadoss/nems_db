@@ -109,7 +109,7 @@ def run_all():
 # LN versus GC
 # LN versus STP
 # GC versus STP
-def performance_scatters(model1=gc_cont_b3, model2=stp_model, model3=ln_model,
+def performance_scatters(model1=gc_cont_full, model2=stp_model, model3=ln_model,
                          model4=gc_stp,  se_filter=False, ratio_filter=False,
                          threshold=2.5, manual_cellids=None):
 
@@ -206,7 +206,7 @@ def performance_scatters(model1=gc_cont_b3, model2=stp_model, model3=ln_model,
     plt.tight_layout()
 
 
-def performance_correlation_scatter(model1=gc_cont_b3, model2=stp_model,
+def performance_correlation_scatter(model1=gc_cont_full, model2=stp_model,
                                     model3=ln_model, se_filter=False,
                                     ratio_filter=False, threshold=2.5,
                                     manual_cellids=None):
@@ -287,7 +287,7 @@ def performance_correlation_scatter(model1=gc_cont_b3, model2=stp_model,
     adjustFigAspect(fig, aspect=1)
 
 
-def performance_bar(model1=gc_cont_b3, model2=stp_model, model3=ln_model,
+def performance_bar(model1=gc_cont_full, model2=stp_model, model3=ln_model,
                     model4=gc_stp,  se_filter=False, ratio_filter=False,
                     threshold=2.5, manual_cellids=None):
 
@@ -369,7 +369,7 @@ def performance_bar(model1=gc_cont_b3, model2=stp_model, model3=ln_model,
               "n: %d" % n_cells)
 
 
-def significance(model1=gc_cont_b3, model2=stp_model, model3=ln_model,
+def significance(model1=gc_cont_full, model2=stp_model, model3=ln_model,
                  model4=gc_stp,  se_filter=False, ratio_filter=False,
                  threshold=2.5, manual_cellids=None):
 
@@ -887,12 +887,13 @@ def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_full,
             this_s = s[i*sample_every]
             this_k = k[i*sample_every]
             this_x = np.linspace(-1*this_s, 3*this_s, 1000)
-            this_y = _logistic_sigmoid(this_x, this_b, this_a, this_s, this_k)
-            y_min = min(y_min, this_y.min())
-            y_max = max(y_max, this_y.max())
+            this_y1 = _logistic_sigmoid(x, this_b, this_a, this_s, this_k)
+            this_y2 = _logistic_sigmoid(this_x, this_b, this_a, this_s, this_k)
+            y_min = min(y_min, this_y1.min(), this_y2.min())
+            y_max = max(y_max, this_y2.max(), this_y2.max())
             color = cmap(color_pred[i*sample_every])
-            ax1.plot(x, this_y, color='gray', alpha=alpha)
-            ax2.plot(this_x+i*sample_every, this_y, color=color, alpha=alpha)
+            ax1.plot(x, this_y1, color='gray', alpha=alpha)
+            ax2.plot(this_x+i*sample_every, this_y2, color=color, alpha=alpha)
         except IndexError:
             # Will happen on last attempt if array wasn't evenly divisible
             # by sample_every
