@@ -22,40 +22,40 @@ batch = 295  # old (Slee) IC data
 
 # fil only
 state_list = ['st.fil0','st.fil']
-basemodel = "-ref-psthfr.s_stategain.S"
+basemodel = "-ref-psthfr.s_sdexp.S"
 loader = "psth.fs20-ld-"
 d = get_model_results_per_state_model(batch=batch, state_list=state_list,
                                       basemodel=basemodel, loader=loader)
 
 
-psth.fs20.pup-ld-st.fil0-ref-psthfr.s_stategain.S_jk.nf20-basic
-psth.fs20-ld-st.fil-ref-psthfr.s_stategain.S_jk.nf20-basic
+psth.fs20.pup-ld-st.fil0-ref-psthfr.s_sdexp.S_jk.nf20-basic
+psth.fs20-ld-st.fil-ref-psthfr.s_sdexp.S_jk.nf20-basic
 
 # pup vs. active/passive
 state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
-basemodel = "-ref-psthfr.s_stategain.S"
+basemodel = "-ref-psthfr.s_sdexp.S"
 d = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
 # pup vs. per file
 state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']
-basemodel = "-ref-psthfr.s_stategain.S"
+basemodel = "-ref-psthfr.s_sdexp.S"
 d = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
 # pup vs. per 1/2 file
 state_list = ['st.pup0.hlf0','st.pup0.hlf','st.pup.hlf0','st.pup.hlf']
-basemodel = "-ref-psthfr.s_stategain.S"
+basemodel = "-ref-psthfr.s_sdexp.S"
 d = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
 # pup vs. performance
 state_list = ['st.pup0.beh.far0.hit0','st.pup0.beh.far.hit',
               'st.pup.beh.far0.hit0','st.pup.beh.far.hit']
-basemodel = "-ref.a-psthfr.s_stategain.S"
+basemodel = "-ref.a-psthfr.s_sdexp.S"
 d = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
 # pup vs. pre/post passive
 state_list = ['st.pup0.pas0','st.pup0.pas',
               'st.pup.pas0','st.pup.pas']
-basemodel = "-ref-pas-psthfr.s_stategain.S"
+basemodel = "-ref-pas-psthfr.s_sdexp.S"
 d = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
 """
@@ -81,11 +81,11 @@ import nems.modelspec as ms
 def get_model_results_per_state_model(batch=307, state_list=None,
                       loader = "psth.fs20.pup-ld-",
                       fitter = "_jk.nf20-basic",
-                      basemodel = "-ref-psthfr.s_stategain.S"):
+                      basemodel = "-ref-psthfr.s_sdexp.S"):
     """
     loader = "psth.fs20.pup-ld-"
     fitter = "_jk.nf20-basic"
-    basemodel = "-ref-psthfr.s_stategain.S"
+    basemodel = "-ref-psthfr.s_sdexp.S"
     state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
 
     d=get_model_results_per_state_model(batch=307, state_list=state_list,
@@ -104,6 +104,7 @@ def get_model_results_per_state_model(batch=307, state_list=None,
 
     celldata = nd.get_batch_cells(batch=batch)
     cellids = celldata['cellid'].tolist()
+    isolation = [nd.get_isolation(cellid=c, batch=batch).loc[0, 'min_isolation'] for c in cellids]
 
     if state_list[-1].endswith('fil') or state_list[-1].endswith('pas'):
         include_AP = True
@@ -111,7 +112,7 @@ def get_model_results_per_state_model(batch=307, state_list=None,
         include_AP = False
 
     d = pd.DataFrame(columns=['cellid', 'modelname', 'state_sig',
-                              'state_chan', 'MI',
+                              'state_chan', 'MI', 'isolation',
                               'r', 'r_se', 'd', 'g', 'state_chan_alt'])
 
     for mod_i, m in enumerate(modelnames):
@@ -121,6 +122,7 @@ def get_model_results_per_state_model(batch=307, state_list=None,
         for modelspec in modelspecs:
             meta = ms.get_modelspec_metadata(modelspec)
             c = meta['cellid']
+            iso=isolation[cellids.index(c)]
             state_mod = meta['state_mod']
             state_mod_se = meta['se_state_mod']
             state_chans = meta['state_chans']
@@ -133,6 +135,7 @@ def get_model_results_per_state_model(batch=307, state_list=None,
             p_count=0
             for j, sc in enumerate(state_chans):
                 r = {'cellid': c, 'state_chan': sc, 'modelname': m,
+                     'isolation': iso,
                      'state_sig': state_list[mod_i],
                      'g': gain[j], 'd': dc[j],
                      'MI': state_mod[j],
@@ -167,11 +170,11 @@ def get_model_results_per_state_model(batch=307, state_list=None,
 def get_model_results(batch=307, state_list=None,
                       loader = "psth.fs20.pup-ld-",
                       fitter = "_jk.nf20-basic",
-                      basemodel = "-ref-psthfr.s_stategain.S"):
+                      basemodel = "-ref-psthfr.s_sdexp.S"):
     """
     loader = "psth.fs20.pup-ld-"
     fitter = "_jk.nf20-basic"
-    basemodel = "-ref-psthfr.s_stategain.S"
+    basemodel = "-ref-psthfr.s_sdexp.S"
 
     state_list defaults to
        ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
@@ -391,8 +394,8 @@ def hlf_wrapper():
     #state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']
     #states = ['PASSIVE_0',  'ACTIVE_1', 'PASSIVE_1',
     #          'ACTIVE_2', 'PASSIVE_2']
-    #basemodels = ["-ref-psthfr.s_stategain.S"]
-    #basemodels = ["-ref-psthfr.s_stategain.S","-ref-psthfr.s_sdexp.S"]
+    #basemodels = ["-ref-psthfr.s_sdexp.S"]
+    #basemodels = ["-ref-psthfr.s_sdexp.S","-ref-psthfr.s_sdexp.S"]
     basemodels = ["-ref.a-psthfr.s_sdexp.S"]
     batches = [307]
 
@@ -451,11 +454,11 @@ def aud_vs_state(df, nb=5, title=None, state_list=None):
 
     mb=m[:,2:]
 
-    ax=plt.subplot(3,1,1)
+    ax1 = plt.subplot(3,1,1)
     stateplots.beta_comp(mfull[:,0],mfull[:,1],n1='State independent',n2='Full state-dep',
-                         ax=ax, highlight=dm['sig'], hist_range=[-0.1, 1])
+                         ax=ax1, highlight=dm['sig'], hist_range=[-0.1, 1])
 
-    plt.subplot(3,1,2)
+    ax2 = plt.subplot(3,1,2)
     ind = np.arange(mb.shape[0])
     width=0.8
     #ind = m[:,0]
@@ -468,7 +471,7 @@ def aud_vs_state(df, nb=5, title=None, state_list=None):
     plt.xlabel('behavior-independent quintile')
     plt.ylabel('mean r2')
 
-    plt.subplot(3,1,3)
+    ax3 = plt.subplot(3,1,3)
     ind = np.arange(mb.shape[0])
     #ind = m[:,0]
     p1 = plt.plot(ind, mb[:,0])
@@ -479,6 +482,7 @@ def aud_vs_state(df, nb=5, title=None, state_list=None):
     plt.ylabel('mean r2')
 
     plt.tight_layout()
+    return ax1, ax2, ax3
 
 
 def aud_vs_state_wrapper():
@@ -488,12 +492,13 @@ def aud_vs_state_wrapper():
 
     # pup vs. active/passive
     state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
-    basemodel = "-ref-psthfr.s_stategain.S"
+    basemodel = "-ref-psthfr.s_sdexp.S"
 
     #plt.close('all')
     for bi, batch in enumerate([309,307]):
         df = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
-        aud_vs_state(df, nb=5, title='batch {}'.format(batch),
-                     state_list=state_list)
-
+        ax1, ax2, ax3 = aud_vs_state(df, nb=5, title='batch {}'.format(batch),
+                                     state_list=state_list)
+        ax2.set_ylim([0,.1])
+        ax3.set_ylim([0,.1])
