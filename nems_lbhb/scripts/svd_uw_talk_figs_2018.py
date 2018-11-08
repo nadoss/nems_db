@@ -54,7 +54,7 @@ if do_single_cell:
     model_per_time_wrapper(cellid, batch, basemodel=basemodel,
                            state_list=state_list)
 
-elif 1:
+elif 0:
     # POPULATION SUMMARY CELL EXAMPLES
     # use basemodel = "-ref-psthfr.s_sdexp.S" for better accuracy and
     # statistical power
@@ -73,8 +73,8 @@ elif 1:
 
     basemodel = "-ref-psthfr.s_sdexp.S"
     #basemodel = "-ref.a-psthfr.s_sdexp.S"
-    #batch = 307
-    batch = 309
+    batch = 307
+    #batch = 309
 
     df = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
@@ -84,12 +84,15 @@ else:
     basemodel = "-ref-psthfr.s_sdexp.S"
     #basemodel = "-ref.a-psthfr.s_sdexp.S"
     batch = 309
+    #b_unique  mean sig      0.030586
+    #p_unique  mean sig      0.059588
+    #batch = 307
     state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
     df = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
     # figure out what cells show significant state ef
     da = df[df['state_chan']=='pupil']
-    dp = da.pivot(index='cellid',columns='state_sig',values=['r','r_se'])
+    dp = pd.pivot_table(da, index='cellid',columns='state_sig',values=['r','r_se'])
     dr = dp['r'].copy()
     dr['b_unique'] = dr[state_list[3]]**2 - dr[state_list[2]]**2
     dr['p_unique'] = dr[state_list[3]]**2 - dr[state_list[1]]**2

@@ -18,124 +18,64 @@ state_list = ['st.fil0','st.fil']
 basemodel = "-ref-psthfr.s_stategain.S"
 loader = "psth.fs20-ld-"
 
-
-
 batch = 295  # old (Slee) IC data
-
-
 d_295_IC_old = get_model_results_per_state_model(
         batch=batch, state_list=state_list,
         basemodel=basemodel, loader=loader)
-
 
 batch = 305  # new (Saderi) IC data, pupil not required
 d_305_IC_new = get_model_results_per_state_model(
         batch=batch, state_list=state_list,
         basemodel=basemodel, loader=loader)
 
+d_IC_fil = pd.concat((d_295_IC_old, d_305_IC_new), axis=0)
+
+_d = d_IC_fil[d_IC_fil["state_chan"]=="ACTIVE_1"]
+_d['animal'] = _d['cellid'].apply(lambda x: x[:3])
+_d0 = _d[_d["state_sig"]=="st.fil0"]
+_d = _d[_d["state_sig"]=="st.fil"]
+_d0 = _d0.set_index(['animal','cellid'])
+_d = _d.set_index(['animal','cellid'])
+_d['sig'] = (_d['r']-_d0['r']) > (_d['r_se'] + _d0['r_se'])
+#_d[_d['sig']].mean(level=['animal'])
+_d.median(level=['animal'])
+
 save_path="/auto/users/svd/docs/current/conf/sfn2018/"
+d_IC_fil.to_csv(save_path+"d_IC_fil.csv")
 
-d_295_IC_old.to_csv(save_path+"d_295_IC_old.csv")
-d_305_IC_new.to_csv(save_path+"d_305_IC_new.csv")
-
-d_295_IC_old=pd.read_csv(save_path+"d_295_IC_old.csv", index_col=0)
-d_305_IC_new=pd.read_csv(save_path+"d_305_IC_new.csv", index_col=0)
-
-_d = d_295_IC_old[d_295_IC_old["state_chan"]=="ACTIVE_1"]
-_d[["MI","g"]].median()
-
-_d = d_305_IC_new[d_305_IC_new["state_chan"]=="ACTIVE_1"]
-_d[["MI","g"]].median()
+d_IC_fil=pd.read_csv(save_path+"d_IC_fil.csv", index_col=0)
 
 
+# summ active vs. passive
+state_list = ['st.beh0','st.beh']
+basemodel = "-ref-psthfr.s_stategain.S"
+loader = "psth.fs20-ld-"
 
-do_single_cell = False  # if False, do pop summary
+batch = 295  # old (Slee) IC data
+d_295_IC_old = get_model_results_per_state_model(
+        batch=batch, state_list=state_list,
+        basemodel=basemodel, loader=loader)
 
-if do_single_cell:
-    # SINGLE CELL EXAMPLES
+batch = 305  # new (Saderi) IC data, pupil not required
+d_305_IC_new = get_model_results_per_state_model(
+        batch=batch, state_list=state_list,
+        basemodel=basemodel, loader=loader)
 
-    # DEFAULTS
-    #loader= "psth.fs20.pup-ld-"
-    #fitter = "_jk.nf20-basic"
-    basemodel = "-ref-psthfr_stategain.S"
+d_IC_AP = pd.concat((d_295_IC_old, d_305_IC_new), axis=0)
 
-    # alternative state / file breakdowns
-    state_list = ['st.pup0.hlf0','st.pup.hlf0','st.pup.hlf']
-    #state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']
+_d = d_IC_AP[d_IC_AP["state_chan"]=="active"]
+_d['animal'] = _d['cellid'].apply(lambda x: x[:3])
+_d0 = _d[_d["state_sig"]=="st.beh0"]
+_d = _d[_d["state_sig"]=="st.beh"]
+_d0 = _d0.set_index(['animal','cellid'])
+_d = _d.set_index(['animal','cellid'])
+_d['sig'] = (_d['r']-_d0['r']) > (_d['r_se'] + _d0['r_se'])
+_d[_d['sig']].mean(level=['animal'])
 
-    # individual cells - by default
+save_path="/auto/users/svd/docs/current/conf/sfn2018/"
+d_IC_AP.to_csv(save_path+"d_IC_AP.csv")
 
-    cellid="bbl081d-a1"
+d_IC_AP=pd.read_csv(save_path+"d_IC_AP.csv", index_col=0)
 
-    # problem IC cells:
-    #cellid="bbl081d-a2"  # fixed
-    cellid="BRT016f-a1"  # fixed
 
-    batch=309
 
-    cellid="BRT026c-05-2"
-    cellid="TAR010c-19-1"  #
-    cellid="TAR010c-06-1"  # pupil cell
-    cellid="TAR010c-27-2"  # behavior
-    cellid="bbl102d-01-1"  # maybe good hybrid cell?
-    cellid="TAR010c-33-1"
-    cellid="BRT026c-20-1"
-
-    # problem A1 cells:
-    #cellid="BRT037b-24-1" # fixed
-    #cellid="BRT037b-13-1" # fixed
-    #cellid="BRT037b-36-1"# fixed
-    batch=307
-
-    model_per_time_wrapper(cellid, batch, basemodel=basemodel,
-                           state_list=state_list)
-
-elif 1:
-    # POPULATION SUMMARY CELL EXAMPLES
-    # use basemodel = "-ref-psthfr.s_sdexp.S" for better accuracy and
-    # statistical power
-
-    state_list = ['st.fil0','st.fil']
-
-    # state_list = ['st.pup0.hlf0','st.pup0.hlf','st.pup.hlf0','st.pup.hlf']
-    #state_list = ['st.pup0.far0.hit0.hlf0','st.pup0.far0.hit0.hlf',
-    #              'st.pup.far.hit.hlf0','st.pup.far.hit.hlf']
-    #states = ['PASSIVE_0_A','PASSIVE_0_B', 'ACTIVE_1_A','ACTIVE_1_B',
-    #          'PASSIVE_1_A','PASSIVE_1_B', 'ACTIVE_2_A','ACTIVE_2_B',
-    #          'PASSIVE_2_A','PASSIVE_2_B']
-    #states = ['PASSIVE_0_A','PASSIVE_0_B', 'ACTIVE_1_A','ACTIVE_1_B',
-    #          'PASSIVE_1_A','PASSIVE_1_B']
-
-    basemodel = "-ref-psthfr.s_sdexp.S"
-    #basemodel = "-ref.a-psthfr.s_sdexp.S"
-    batch = 307
-
-    df = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
-
-    dMI, dMI0 = hlf_analysis(df, state_list, states=states)
-
-else:
-    basemodel = "-ref-psthfr.s_sdexp.S"
-    #basemodel = "-ref.a-psthfr.s_sdexp.S"
-    batch = 309
-    state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
-    df = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
-
-    # figure out what cells show significant state ef
-    da = df[df['state_chan']=='pupil']
-    dp = da.pivot(index='cellid',columns='state_sig',values=['r','r_se'])
-    dr = dp['r'].copy()
-    dr['b_unique'] = dr[state_list[3]]**2 - dr[state_list[2]]**2
-    dr['p_unique'] = dr[state_list[3]]**2 - dr[state_list[1]]**2
-    dr['bp_common'] = dr[state_list[3]]**2 - dr[state_list[0]]**2 - dr['b_unique'] - dr['p_unique']
-    dr['bp_full'] = dr['b_unique']+dr['p_unique']+dr['bp_common']
-    dr['null']=dr[state_list[0]]**2 * np.sign(dr[state_list[0]])
-    dr['full']=dr[state_list[3]]**2 * np.sign(dr[state_list[3]])
-
-    dr['sig']=((dp['r'][state_list[3]]-dp['r'][state_list[0]]) > \
-         (dp['r_se'][state_list[3]]+dp['r_se'][state_list[0]]))
-    plt.close('all')
-    fig = plt.figure()
-    ax = plt.subplot(1,1,1)
-    beta_comp(dr['p_unique'], dr['b_unique'], n1='Pupil', n2='Behavior',
-              highlight=dr['sig'], ax=ax, hist_range=[-0.05, 0.15]);
