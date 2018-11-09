@@ -410,7 +410,7 @@ def baphy_load_data(parmfilepath, **options):
                 except:
                     log.info('No eyespeed data exists for this recording')
                     state_dict['pupiltrace'] = pupildata
-                
+
             else:
                 pupiltrace, ptrialidx = load_pupil_trace(
                         pupilfilepath, exptevents, **options
@@ -469,24 +469,24 @@ def baphy_load_dataset(parmfilepath, **options):
     tag_mask_start = "TRIALSTART"
     tag_mask_stop = "TRIALSTOP"
     ffstart = exptevents['name'].str.startswith(tag_mask_start)
-    # Set trial stops to the beginning of the next trial for continuous data 
+    # Set trial stops to the beginning of the next trial for continuous data
     # loading
     ffstop = exptevents['name'].str.startswith(tag_mask_start)
-    
+
     # end at the end of last trial
     final_trial = np.argwhere((exptevents['name'] == tag_mask_stop)==True)[-1][0]
-    ffstop.iloc[final_trial] = True  
-    
+    ffstop.iloc[final_trial] = True
+
     # set first True to False (the start of the first trial)
     first_true = np.argwhere(ffstop==True)[0][0]
     ffstop.iloc[first_true] = False
-    
+
     TrialCount = np.max(exptevents.loc[ffstart, 'Trial'])
     event_times = pd.concat([exptevents.loc[ffstart, ['start']].reset_index(),
                              exptevents.loc[ffstop, ['end']].reset_index()],
                             axis=1)
     event_times['name'] = "TRIAL"
-    event_times = event_times.drop(columns=['index'])    
+    event_times = event_times.drop(columns=['index'])
 
     print('Removing post-response stimuli')
     keepevents = np.full(len(exptevents), True, dtype=bool)
@@ -949,7 +949,7 @@ def fill_default_options(options):
     if cell_list is not None:
         cellid = cell_list[0]
         siteid = cellid.split('-')[0]
-        cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=siteid,
+        cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=cell_list,
                                              rawid=rawid)
         options['rawid'] = rawid
         options['cellid'] = cell_list
@@ -1305,7 +1305,7 @@ def baphy_data_path(**options):
 
     elif cellid is None and options.get('siteid') is not None:
         cellid = options.get('siteid')
-    
+
     siteid = options.get('siteid', cellid.split("-")[0])
 
     # TODO : base filename on siteid/cellid plus hash from JSON-ized options
@@ -1341,10 +1341,13 @@ def baphy_load_recording_uri(**options):
 
     input:
         options: dictionary
+
         required fields:
             batch - (int) batch number
             cellid (single string or list of cellids) or siteid
-
+            TODO: confirm this is valid:
+               if only siteid is specifified, only load cells that are stable
+               across files for that site.
 
     return:
         data_file : string

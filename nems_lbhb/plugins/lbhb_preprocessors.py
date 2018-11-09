@@ -115,6 +115,8 @@ def st(loadkey):
             this_sig = ["each_passive"]
         elif l.startswith("fil"):
             this_sig = ["each_file"]
+        elif l.startswith("hlf"):
+            this_sig = ["each_half"]
         elif l.startswith("r1"):
             this_sig = ["r1"]
         elif l.startswith("r2"):
@@ -129,6 +131,10 @@ def st(loadkey):
             this_sig = ['rem']
         elif l.startswith('eysp'):
             this_sig = ['pupil_eyespeed']
+        elif l.startswith('prw'):
+            this_sig = ['prw']
+        elif l.startswith('pxprw'):
+            this_sig = ['pup_x_prw']
         else:
             raise ValueError("unknown signal code %s for state variable initializer", l)
 

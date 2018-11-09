@@ -577,27 +577,27 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     duration = np.diff(timestamp) * 24*60*60
     frame_count = np.diff(firstframe)
 
-    
+
     if pupil_eyespeed & options['pupil']:
         l = ['pupil', 'pupil_eyespeed']
     elif pupil_eyespeed:
         l = ['pupil_eyespeed']
     elif options['pupil']:
         l = ['pupil']
-    
+
     big_rs_dict = {}
-    
+
     for signal in l:
         if signal == 'pupil_eyespeed':
             pupil_eyespeed = True
         else:
             pupil_eyespeed = False
-            
+
         # warp/resample each trial to compensate for dropped frames
         strialidx = np.zeros([ntrials + 1])
         big_rs = np.array([])
         all_fs = np.empty([ntrials])
-            
+
         for ii in range(0, ntrials):
             if signal == 'pupil_eyespeed':
                 d = eye_speed[
@@ -624,40 +624,40 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
             elif ii == ntrials-1:
                 big_rs = big_rs[:stop_e[ii]]
             strialidx[ii+1] = len(big_rs)
-    
+
         if pupil_median:
             kernel_size = int(round(pupil_median*rasterfs/2)*2+1)
             big_rs = scipy.signal.medfilt(big_rs, kernel_size=kernel_size)
-    
+
         # shift pupil (or eye speed) trace by offset, usually 0.75 sec
         offset_frames = int(pupil_offset*rasterfs)
         big_rs = np.roll(big_rs, -offset_frames)
-    
+
         # svd pad with final pupil value (was np.nan before)
         big_rs[-offset_frames:] = big_rs[-offset_frames]
-    
+
         # shape to 1 x T to match NEMS signal specs
         big_rs = big_rs[np.newaxis, :]
-    
+
         if pupil_mm:
             #convert measurements from pixels to mm
             eye_width_px = matdata['pupil_data']['results'][0][0]['eye_width'][0][0][0]
             eye_width_mm = matdata['pupil_data']['params'][0][0]['eye_width_mm'][0][0][0]
             big_rs = big_rs*(eye_width_mm/eye_width_px)
-    
+
         if verbose:
             #plot framerate for each trial (for checking camera performance)
             plt.figure()
             plt.plot(all_fs.T)
             plt.xlabel('Trial')
             plt.ylabel('Sampling rate (Hz)')
-    
+
         if verbose:
             plt.show()
 
         if len(l)==2:
             big_rs_dict[signal] = big_rs
-    
+
     if len(l)==2:
         return big_rs_dict, strialidx
     else:
@@ -728,11 +728,10 @@ def get_rem(pupilfilepath, exptevents=None, **options):
         raise ValueError("TODO: support for norm pupil diam/speed by max")
         load_options['norm_max'] = True
 
-    load_options["pupil_eyespeed"] = False
-    pupil_size, _ = load_pupil_trace(pupilfilepath, exptevents, **load_options)
-
     load_options["pupil_eyespeed"] = True
-    eye_speed, _ = load_pupil_trace(pupilfilepath, exptevents, **load_options)
+    pupil_trace, _ = load_pupil_trace(pupilfilepath, exptevents, **load_options)
+    pupil_size = pupil_trace["pupil"]
+    eye_speed = pupil_trace["pupil_eyespeed"]
 
     pupil_size = pupil_size[0,:]
     eye_speed = eye_speed[0,:]
