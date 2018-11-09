@@ -1219,7 +1219,7 @@ def get_wft(cellid=None):
 
     wft = json.loads(d.values[0][0])
     ## 1 is fast spiking, 0 is regular spiking
-    celltype = wft['wft_celltype']
+    celltype = int(wft['wft_celltype'])
 
     return celltype
 
