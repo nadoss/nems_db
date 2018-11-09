@@ -8,12 +8,12 @@ Created on Mon Oct 22 09:13:33 2018
 
 # scripts for showing changes in response across behabior blocks
 
-from nems_lbhb.stateplots import model_per_time_wrapper
+from nems_lbhb.stateplots import model_per_time_wrapper, beta_comp
 #from nems_lbhb.behavior_pupil_scripts.mod_per_state import get_model_results_per_state_model
 exec(open("/auto/users/svd/python/nems_db/nems_lbhb/pupil_behavior_scripts/mod_per_state.py").read())
 
 
-do_single_cell = True  # if False, do pop summary
+do_single_cell = False  # if False, do pop summary
 
 if do_single_cell:
     # SINGLE CELL EXAMPLES
@@ -54,14 +54,14 @@ if do_single_cell:
     model_per_time_wrapper(cellid, batch, basemodel=basemodel,
                            state_list=state_list)
 
-else:
+elif 0:
     # POPULATION SUMMARY CELL EXAMPLES
     # use basemodel = "-ref-psthfr.s_sdexp.S" for better accuracy and
     # statistical power
 
-#    state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']
-#    states = ['PASSIVE_0',  'ACTIVE_1','PASSIVE_1',  'ACTIVE_2','PASSIVE_2']
-#
+    #state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']
+    #states = ['PASSIVE_0',  'ACTIVE_1','PASSIVE_1',  'ACTIVE_2','PASSIVE_2']
+
     state_list = ['st.pup0.hlf0','st.pup0.hlf','st.pup.hlf0','st.pup.hlf']
     #state_list = ['st.pup0.far0.hit0.hlf0','st.pup0.far0.hit0.hlf',
     #              'st.pup.far.hit.hlf0','st.pup.far.hit.hlf']
@@ -74,9 +74,37 @@ else:
     basemodel = "-ref-psthfr.s_sdexp.S"
     #basemodel = "-ref.a-psthfr.s_sdexp.S"
     batch = 307
+    #batch = 309
 
     df = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
     dMI, dMI0 = hlf_analysis(df, state_list, states=states)
 
+else:
+    basemodel = "-ref-psthfr.s_sdexp.S"
+    #basemodel = "-ref.a-psthfr.s_sdexp.S"
+    batch = 309
+    #b_unique  mean sig      0.030586
+    #p_unique  mean sig      0.059588
+    #batch = 307
+    state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
+    df = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
+    # figure out what cells show significant state ef
+    da = df[df['state_chan']=='pupil']
+    dp = pd.pivot_table(da, index='cellid',columns='state_sig',values=['r','r_se'])
+    dr = dp['r'].copy()
+    dr['b_unique'] = dr[state_list[3]]**2 - dr[state_list[2]]**2
+    dr['p_unique'] = dr[state_list[3]]**2 - dr[state_list[1]]**2
+    dr['bp_common'] = dr[state_list[3]]**2 - dr[state_list[0]]**2 - dr['b_unique'] - dr['p_unique']
+    dr['bp_full'] = dr['b_unique']+dr['p_unique']+dr['bp_common']
+    dr['null']=dr[state_list[0]]**2 * np.sign(dr[state_list[0]])
+    dr['full']=dr[state_list[3]]**2 * np.sign(dr[state_list[3]])
+
+    dr['sig']=((dp['r'][state_list[3]]-dp['r'][state_list[0]]) > \
+         (dp['r_se'][state_list[3]]+dp['r_se'][state_list[0]]))
+    plt.close('all')
+    fig = plt.figure()
+    ax = plt.subplot(1,1,1)
+    beta_comp(dr['p_unique'], dr['b_unique'], n1='Pupil', n2='Behavior',
+              highlight=dr['sig'], ax=ax, hist_range=[-0.05, 0.15]);

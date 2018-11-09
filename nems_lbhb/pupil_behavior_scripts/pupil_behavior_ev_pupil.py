@@ -28,7 +28,7 @@ import nems_lbhb.stateplots as sp
 
 
 def ev_pupil(cellid, batch, presilence=0.35):
-    modelname = "psth.fs20-st.pup.beh_stategain.3_init.st-basic"
+    modelname = "psth.fs20.pup-st.pup.beh_stategain.3_init.st-basic"
 
     print('Finding recording for cell/batch {0}/{1}...'.format(cellid, batch))
 
