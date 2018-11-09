@@ -21,7 +21,7 @@ import datetime
 import glob
 from math import isclose
 import copy
-from itertools import groupby, repeat, chain
+from itertools import groupby, repeat, chain, product
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -125,6 +125,22 @@ def baphy_parm_read(filepath):
     for i in range(len(exptevents)):
         if exptevents.loc[i, 'end'] == []:
             exptevents.loc[i, 'end'] = exptevents.loc[i, 'start']
+
+    # CPP special case, deletes added commas
+    if exptparams['TrialObject'][1]['ReferenceClass'] == 'ContextProbe':
+        tags = exptparams['TrialObject'][1]['ReferenceHandle'][1]['Names']  # gets the list of tags
+        tag_map = {oldtag: re.sub(r' , ', r'  ', oldtag)
+                   for oldtag in tags}  # eliminates commas with regexp and maps old tag to new commales tag
+        # places the commaless tags back in place
+        exptparams['TrialObject'][1]['ReferenceHandle'][1]['Names'] = list(tag_map.values())
+        # extends the tag map adding pre stim and post prefix, and Reference sufix
+        epoch_map = dict()
+        for sufix, tag in product(['PreStimSilence', 'Stim', 'PostStimSilence'], tags):
+            key = '{} , {} , Reference'.format(sufix, tag)
+            val = '{} , {} , Reference'.format(sufix, tag_map[tag])
+            epoch_map[key] = val
+        # replaces exptevents names using the map, i.e. get rid of commas
+        exptevents.replace(epoch_map, inplace=True)
 
     return globalparams, exptparams, exptevents
 
