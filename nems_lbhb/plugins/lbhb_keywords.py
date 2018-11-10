@@ -96,12 +96,22 @@ def ctfir(kw):
     else:
         p_coefficients['mean'][:, 0] = 1
 
-    template = {
-            'fn': 'nems.modules.fir.filter_bank',
-            'fn_kwargs': {'i': 'ctpred', 'o': 'ctpred', 'bank_count': n_banks},
-            'prior': {
-                'coefficients': ('Normal', p_coefficients)},
-            }
+
+    if n_banks > 1:
+        template = {
+                'fn': 'nems.modules.fir.filter_bank',
+                'fn_kwargs': {'i': 'ctpred', 'o': 'ctpred',
+                              'bank_count': n_banks},
+                'prior': {
+                    'coefficients': ('Normal', p_coefficients)},
+                }
+    else:
+        template = {
+                'fn': 'nems.modules.fir.basic',
+                'fn_kwargs': {'i': 'ctpred', 'o': 'ctpred'},
+                'prior': {
+                    'coefficients': ('Normal', p_coefficients)},
+                }
 
 #    p_coefficients = {'beta': np.full((n_outputs * n_banks, n_coefs), 0.1)}
 #    template = {
