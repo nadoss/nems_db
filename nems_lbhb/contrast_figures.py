@@ -21,6 +21,7 @@ from nems_db.params import fitted_params_per_batch
 from nems_lbhb.contrast_helpers import make_contrast_signal, rec_from_DRC
 from nems.metrics.stp import stp_magnitude
 from nems.modules.nonlinearity import _logistic_sigmoid
+from nems.plots.heatmap import _get_wc_coefficients, _get_fir_coefficients
 
 gc_model = ("ozgf.fs100.ch18-ld-contrast.ms250-sev_"
             "dlog.f-wc.18x2.g-fir.2x15-lvl.1-"
@@ -95,13 +96,17 @@ gc_stp_color = '#215454'
 # TODO: better font (or maybe easier to just edit that stuff in illustrator?
 
 
-def run_all():
-    performance_correlation_scatter()
-    performance_bar()
-    example_pred_overlay()
-    average_r()  # Note: This one is *very* slow right now, hour or more
-    contrast_examples()
-    contrast_variables_timeseries()
+def run_all(model1=gc_cont_full, cellid=gc_beat_stp, se_filter=True,
+            sample_every=1):
+    performance_scatters(model1=model1, se_filter=se_filter)
+    performance_correlation_scatter(model1=model1, se_filter=se_filter)
+    performance_bar(model1=model1, se_filter=se_filter)
+    #example_pred_overlay()
+    #average_r()  # Note: This one is *very* slow right now, hour or more
+    #contrast_examples()
+    contrast_variables_timeseries(modelname=model1, cellid=cellid,
+                                  se_filter=se_filter,
+                                  sample_every=sample_every)
 
 
 # Scatter comparisons of overall model performance (similar to web ui)
@@ -673,17 +678,12 @@ def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_full,
     b = b[ff] * fs
     a = a[ff] * fs
 
-    kp = (k - ln_k)/ln_k * 100
-    sp = (s - ln_s)/ln_s * 100
-    bp = (b - ln_b)/ln_b * 100
-    ap = (a - ln_a)/ln_a * 100
-
     phi = xf.get_module(ctx2, 'logistic_sigmoid', key='fn')['phi']
-    static_k = np.full_like(k, ln_k)
-    static_s = np.full_like(s, ln_s)
-
-    static_b = np.full_like(b, ln_b)
-    static_a = np.full_like(a, ln_a)
+#    static_k = np.full_like(k, ln_k)
+#    static_s = np.full_like(s, ln_s)
+#
+#    static_b = np.full_like(b, ln_b)
+#    static_a = np.full_like(a, ln_a)
 
     t = np.arange(len(pred_before))/fs
 
@@ -811,67 +811,176 @@ def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_full,
     fig1.subplots_adjust(top=0.85)
     # End pred comparison
 
+###############################################################################
+
     # Contrast variables figure
     fig2 = plt.figure(figsize=(7, 12))
     st2 = fig2.suptitle("Cellid: %s\nModelname: %s" % (cellid, modelname))
-    gs2 = gridspec.GridSpec(6, 2)
+    gs2 = gridspec.GridSpec(12, 3)
 
-    plt.subplot(gs2[0:2, 0])
+    plt.subplot(gs2[0:3, 0])
+    val = ctx['val'][0].apply_mask()
+    plt.imshow(val['stim'].as_continuous(), aspect='auto')
+    plt.title('Stimulus')
+
+
+    modelspec = ctx['modelspecs'][0]
+
+    plt.subplot(gs2[3:6, 0])
+    wcc = _get_wc_coefficients(modelspec, idx=0)
+    firc = _get_fir_coefficients(modelspec, idx=0)
+    wc_coefs = np.array(wcc).T
+    fir_coefs = np.array(firc)
+    if wc_coefs.shape[1] == fir_coefs.shape[0]:
+        strf = wc_coefs @ fir_coefs
+        show_factorized = True
+    else:
+        strf = fir_coefs
+        show_factorized = False
+
+    cscale = np.nanmax(np.abs(strf.reshape(-1)))
+    clim = [-cscale, cscale]
+
+    if show_factorized:
+        # Never rescale the STRF or CLIM!
+        # The STRF should be the final word and respect input colormap and clim
+        # However: rescaling WC and FIR coefs to make them more visible is ok
+        wc_max = np.nanmax(np.abs(wc_coefs[:]))
+        fir_max = np.nanmax(np.abs(fir_coefs[:]))
+        wc_coefs = wc_coefs * (cscale / wc_max)
+        fir_coefs = fir_coefs * (cscale / fir_max)
+
+        n_inputs, _ = wc_coefs.shape
+        nchans, ntimes = fir_coefs.shape
+        gap = np.full([nchans + 1, nchans + 1], np.nan)
+        horz_space = np.full([1, ntimes], np.nan)
+        vert_space = np.full([n_inputs, 1], np.nan)
+        top_right = np.concatenate([fir_coefs, horz_space], axis=0)
+        top_left = np.concatenate([wc_coefs, vert_space], axis=1)
+        bot = np.concatenate([top_left, strf], axis=1)
+        top = np.concatenate([gap, top_right], axis=1)
+        everything = np.concatenate([top, bot], axis=0)
+    else:
+        everything = strf
+
+    array = everything
+
+    if clim is None:
+        mmax = np.nanmax(np.abs(array.reshape(-1)))
+        clim = [-mmax, mmax]
+
+    if fs is not None:
+        extent = [0.5/fs, (array.shape[1]+0.5)/fs, 0.5, array.shape[0]+0.5]
+    else:
+        extent = None
+
+    plt.imshow(array, aspect='auto', origin='lower', cmap=plt.get_cmap('jet'),
+               clim=clim, extent=extent)
+    plt.title('STRF')
+
+#    plt.subplot(gs2[0:3, 1])
+#    plt.plot(t, s, linewidth=1, color='red')
+#    plt.plot(t, static_s, linewidth=1, linestyle='dashed', color='red')
+#    plt.title('Shift w/ GC vs Shift w/ LN')
+#    plt.legend(['GC', 'LN'])
+#
+#    plt.subplot(gs2[3:6, 1])
+#    plt.plot(t, k, linewidth=1, color='blue')
+#    plt.plot(t, static_k, linewidth=1, linestyle='dashed', color='blue')
+#    plt.title('Kappa w/ GC vs Kappa w/ LN')
+#    plt.legend(['GC', 'LN'])
+#
+#    plt.subplot(gs2[6:9, 1])
+#    plt.plot(t, b, linewidth=1, color='gray')
+#    plt.plot(t, static_b, linewidth=1, linestyle='dashed', color='gray')
+#    plt.title('Base w/ GC vs Base w/ LN')
+#    plt.legend(['GC', 'LN'])
+#
+#    plt.subplot(gs2[9:12, 1])
+#    plt.plot(t, a, linewidth=1, color='orange')
+#    plt.plot(t, static_a, linewidth=1, linestyle='dashed', color='orange')
+#    plt.title('Amplitude w/ GC vs Amplitude w/ LN')
+#    plt.legend(['GC', 'LN'])
+
+    ax2 = plt.subplot(gs2[6:9, 0])
+
+    plt.subplot(gs2[9:12, 0])
+    plt.plot(t, pred_after, color='black')
+    plt.title('Prediction')
+
+    plt.subplot(gs2[0:3, 1])
+    plt.imshow(val['contrast'].as_continuous(), aspect='auto')
+    plt.title('Contrast')
+
+    plt.subplot(gs2[3:6, 1])
+
+    wcc = _get_wc_coefficients(modelspec, idx=1)
+    firc = _get_fir_coefficients(modelspec, idx=1)
+    wc_coefs = np.array(wcc).T
+    fir_coefs = np.array(firc)
+    if wc_coefs.shape[1] == fir_coefs.shape[0]:
+        strf = wc_coefs @ fir_coefs
+        show_factorized = True
+    else:
+        strf = fir_coefs
+        show_factorized = False
+
+    cscale = np.nanmax(np.abs(strf.reshape(-1)))
+    clim = [-cscale, cscale]
+
+    if show_factorized:
+        # Never rescale the STRF or CLIM!
+        # The STRF should be the final word and respect input colormap and clim
+        # However: rescaling WC and FIR coefs to make them more visible is ok
+        wc_max = np.nanmax(np.abs(wc_coefs[:]))
+        fir_max = np.nanmax(np.abs(fir_coefs[:]))
+        wc_coefs = wc_coefs * (cscale / wc_max)
+        fir_coefs = fir_coefs * (cscale / fir_max)
+
+        n_inputs, _ = wc_coefs.shape
+        nchans, ntimes = fir_coefs.shape
+        gap = np.full([nchans + 1, nchans + 1], np.nan)
+        horz_space = np.full([1, ntimes], np.nan)
+        vert_space = np.full([n_inputs, 1], np.nan)
+        top_right = np.concatenate([fir_coefs, horz_space], axis=0)
+        top_left = np.concatenate([wc_coefs, vert_space], axis=1)
+        bot = np.concatenate([top_left, strf], axis=1)
+        top = np.concatenate([gap, top_right], axis=1)
+        everything = np.concatenate([top, bot], axis=0)
+    else:
+        everything = strf
+
+    array = everything
+
+    if clim is None:
+        mmax = np.nanmax(np.abs(array.reshape(-1)))
+        clim = [-mmax, mmax]
+
+    if fs is not None:
+        extent = [0.5/fs, (array.shape[1]+0.5)/fs, 0.5, array.shape[0]+0.5]
+    else:
+        extent = None
+
+    plt.imshow(array, aspect='auto', origin='lower', cmap=plt.get_cmap('jet'),
+               clim=clim, extent=extent)
+    plt.title('Contrast STRF')
+
+    plt.subplot(gs2[6:9, 1])
     plt.plot(t, ctpred, linewidth=1, color='purple')
     plt.title("Output from Contrast STRF")
 
-#    plt.subplot(gs2[1:3, 0])
-#    plt.plot(t, sp, linewidth=1, color='red')
-#    plt.plot(t, kp, linewidth=1, color='blue')
-#    plt.plot(t, bp, linewidth=1, color='gray')
-#    plt.plot(t, ap, linewidth=1, color='orange')
-#    plt.title("% Change Relative to LN Model")
-#    plt.legend(['S', 'K', 'B', 'A'])
+    plt.subplot(gs2[9:12, 1])
+    plt.plot(t, resp, color='green')
+    plt.title('Response')
 
-    plt.subplot(gs2[2, 0])
-    plt.plot(t, s, linewidth=1, color='red')
-    plt.plot(t, static_s, linewidth=1, linestyle='dashed', color='red')
-    plt.title('Shift w/ GC vs Shift w/ LN')
-    plt.legend(['GC', 'LN'])
-
-    plt.subplot(gs2[3, 0])
-    plt.plot(t, k, linewidth=1, color='blue')
-    plt.plot(t, static_k, linewidth=1, linestyle='dashed', color='blue')
-    plt.title('Kappa w/ GC vs Kappa w/ LN')
-    plt.legend(['GC', 'LN'])
-
-    plt.subplot(gs2[4, 0])
-    plt.plot(t, b, linewidth=1, color='gray')
-    plt.plot(t, static_b, linewidth=1, linestyle='dashed', color='gray')
-    plt.title('Base w/ GC vs Base w/ LN')
-    plt.legend(['GC', 'LN'])
-
-    plt.subplot(gs2[5, 0])
-    plt.plot(t, a, linewidth=1, color='orange')
-    plt.plot(t, static_a, linewidth=1, linestyle='dashed', color='orange')
-    plt.title('Amplitude w/ GC vs Amplitude w/ LN')
-    plt.legend(['GC', 'LN'])
-
-    for ax in fig2.axes[:6]:
-        ax.axes.get_xaxis().set_visible(False)
-
-    #x = np.linspace(0, 40, 1000)
-    #_logistic_sigmoid(x, b, a, s, k)
-
-    plt.subplot(gs2[0:2, 1])
+    plt.subplot(gs2[0:6, 2])
     x = np.linspace(-1*ln_s, 3*ln_s, 1000)
     y = _logistic_sigmoid(x, ln_b, ln_a, ln_s, ln_k)
     plt.plot(x, y, color='black')
     plt.title('Static Nonlinearity')
 
-#    plt.subplot(gs2[2:4, 1])
-#    x = np.linspace(-1*s[0], 3*s[0], 1000)
-#    y2 = _logistic_sigmoid(x, b[0], a[0], s[0], k[0])
-#    plt.plot(x, y2, color='gray')
-#    plt.title('Dynamic Nonlinearity (No Stimulus)')
+    ax1 = plt.subplot(gs2[6:12, 2])
 
-    ax1 = plt.subplot(gs2[2:4, 1])
-    ax2 = plt.subplot(gs2[4:6, 1])
     y_min = 0
     y_max = 0
     x = np.linspace(-1*s[0], 3*s[0], 1000)
@@ -879,7 +988,7 @@ def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_full,
     sample_every = min(len(a), sample_every)
     cmap = matplotlib.cm.get_cmap('copper')
     color_pred = ctpred/np.max(np.abs(ctpred))
-    alpha = 1 - 2/max(2.222222, np.log(sample_every))  # range from 0.1 to 1
+    alpha = 1.1 - 2/max(2.222222, np.log(sample_every))  # range from 0.1 to 1
     for i in range(int(len(a)/sample_every)):
         try:
             this_b = b[i*sample_every]
@@ -898,12 +1007,44 @@ def contrast_variables_timeseries(cellid=good_cell, modelname=gc_cont_full,
             # Will happen on last attempt if array wasn't evenly divisible
             # by sample_every
             pass
+
     y2 = _logistic_sigmoid(x, b[0], a[0], s[0], k[0])
-    ax1.plot(x, y2, color='black')  # no-stim sigmoid for reference
+    # no-stim sigmoid for reference
+    ax1.plot(x, y2, color='black')
+    # highest-contrast sigmoid for reference
+    max_idx = np.argmax(ctpred)
+    y3 = _logistic_sigmoid(x, b[max_idx], a[max_idx], s[max_idx], k[max_idx])
+    ax1.plot(x, y3, color='red')
     ax1.set_ylim(y_min*1.25, y_max*1.25)
     ax1.set_title('Dynamic Nonlinearity')
+    ax2.set_title('Dynamic Nonlinearity')
+#    labels = ax2.get_xaxis().get_majorticklabels()
+#    #new_labels = [str(float(s.get_text())/(fs/1000)) for s in labels]
+#    new_labels = []
+#    for s in labels:
+#        try:
+#            num = float(s.get_text())
+#        except:
+#            num = float(s.get_text()[1:])
+#        new_labels.append(str(num/(fs/1000)))
+#    ax2.get_xaxis().set_ticklabels(new_labels)
 
-    plt.tight_layout(h_pad=2)
+    ymin = 0
+    ymax = 0
+    for i, ax in enumerate(fig2.axes[:8]):
+        if i not in [3, 7]:
+            ax.axes.get_xaxis().set_visible(False)
+        else:
+            ybottom, ytop = ax.get_ylim()
+            ymin = min(ymin, ybottom)
+            ymax = max(ymax, ytop)
+        #ax.axes.get_yaxis().set_visible(False)
+
+    # Set pred and resp on same scale
+    fig2.axes[3].set_ylim(ymin, ymax)
+    fig2.axes[7].set_ylim(ymin, ymax)
+
+    plt.tight_layout(h_pad=1, w_pad=-1)
     st2.set_y(0.95)
     fig2.subplots_adjust(top=0.85)
 

@@ -26,154 +26,31 @@ def ozgf(loadkey, cellid=None, batch=None):
               {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
     return xfspec
 
+
 def ns(loadkey, cellid=None, batch=None):
-    
+
     xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
               {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
     return xfspec
 
-#def ozgf(loadkey, recording_uri):
-#    recordings = [recording_uri]
-#    pattern = re.compile(r'^ozgf\.fs(\d{1,}).ch(\d{1,})([a-zA-Z0-9\.]*)?')
-#    parsed = re.match(pattern, loadkey)
-#    # TODO: fs and chans useful for anything for the loader? They don't
-#    #       seem to be used here, only in the baphy-specific stuff.
-#    fs = parsed.group(1)
-#    chans = parsed.group(2)
-#    options = parsed.group(3)
-#
-#    # NOTE: These are dumb/greedy searches, so if many more options need
-#    #       to be added later will need something more sofisticated.
-#    #       The other loader keywords follow a similar pattern.
-#    normalize = ('n' in options)
-#    contrast = ('c' in options)
-#    pupil = ('pup' in options)
-#
-#    if pupil:
-#        xfspec = [['nems.xforms.load_recordings',
-#                   {'recording_uri_list': recordings, 'normalize': normalize}],
-#                  ['nems.xforms.make_state_signal',
-#                   {'state_signals': ['pupil'], 'permute_signals': [],
-#                    'new_signalname': 'state'}]]
-#    else:
-#        xfspec = [['nems.xforms.load_recordings',
-#                   {'recording_uri_list': recordings, 'normalize': normalize}],
-#                  ['nems.xforms.split_by_occurrence_counts',
-#                   {'epoch_regex': '^STIM_'}],
-#                  ['nems.xforms.average_away_stim_occurrences', {}]]
-#
-#    if contrast:
-#        xfspec.insert(1, ['nems.xforms.add_contrast', {}])
-#
-#    return xfspec
 
+def loadpop(loadkey, cellid=None, batch=None):
+    ops = loadkey.split('.')[1:]
 
-# Replaced by: load, st, ref, splitep, avgep
+    rand_match = False
+    cell_count = 20
 
-#def env(loadkey, recording_uri):
-#    pattern = re.compile(r'^env\.fs(\d{1,})([a-zA-Z0-9\.]*)$')
-#    parsed = re.match(pattern, loadkey)
-#    fs = parsed.group(1)
-#    options = parsed.group(2)
-#
-#    normalize = ('n' in options)
-#    pt = ('pt' in options)
-#    mask = ('m' in options)
-#
-#    recordings = [recording_uri]
-#    state_signals, permute_signals, _ = _state_model_loadkey_helper(loadkey)
-#    use_state = (state_signals or permute_signals)
-#
-#    xfspec = [['nems.xforms.load_recordings',
-#               {'recording_uri_list': recordings, 'normalize': normalize}]]
-#    if use_state:
-#        xfspec.append(['nems.xforms.make_state_signal',
-#                       {'state_signals': state_signals,
-#                        'permute_signals': permute_signals,
-#                        'new_signalname': 'state'}])
-#        if mask:
-#            xfspec.append(['nems.xforms.remove_all_but_correct_references',
-#                           {}])
-#    elif pt:
-#        xfspec.append(['nems.xforms.use_all_data_for_est_and_val', {}])
-#    else:
-#        xfspec.extend([['nems.xforms.split_by_occurrence_counts',
-#                        {'epoch_regex': '^STIM_'}],
-#                       ['nems.xforms.average_away_stim_occurrences', {}]])
-#
-#    return xfspec
+    for op in ops:
+        if op=='rnd':
+            rand_match = True
+        elif op.startswith('cc'):
+            cell_count = int(op[2:])
 
+    xfspec = [['nems_db.xform_wrappers.pop_selector',
+              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch,
+               'rand_match': rand_match, 'cell_count': cell_count}]]
 
-# replaced by: load, .. evs, etc? SVD working on this.
-
-#def psth(loadkey, recording_uri):
-#    """
-#    deprecated
-#    m- replaced by masking
-#    tar - to be replaced by evs load keyword
-#    state signal generator - to be replaced by st load keyword
-#    """
-#    pattern = re.compile(r'^psth\.fs(\d{1,})([a-zA-Z0-9\.]*)$')
-#    parsed = re.match(pattern, loadkey)
-#    options = parsed.group(2)
-#    fs = parsed.group(1)
-#    smooth = ('s' in options)
-#    mask = ('m' in options)
-#    tar = ('tar' in options)
-#
-#    recordings = [recording_uri]
-#    epoch_regex = '^STIM_'
-##    state_signals, permute_signals, _ = _state_model_loadkey_helper(loadkey)
-##
-##    xfspec = [['nems.xforms.load_recordings',
-##               {'recording_uri_list': recordings}],
-##              ['nems.xforms.make_state_signal',
-##               {'state_signals': state_signals,
-##                'permute_signals': permute_signals,
-##                'new_signalname': 'state'}]]
-#    xfspec = [['nems.xforms.load_recordings',
-#               {'recording_uri_list': recordings}]]
-#    if mask:
-#        xfspec.append(['nems.xforms.remove_all_but_correct_references', {}])
-#    elif tar:
-#        epoch_regex = '^TAR_'
-#        xfspec.append(['nems.xforms.mask_all_but_targets', {}])
-#    else:
-#        xfspec.append(['nems.xforms.mask_all_but_correct_references', {}])
-#
-#    xfspec.append(['nems.xforms.generate_psth_from_resp',
-#                   {'smooth_resp': smooth, 'epoch_regex': epoch_regex}])
-#
-#    return xfspec
-
-
-# Replaced by: load, st, evs?
-
-#def evt(loadkey, recording_uri):
-#    pattern = re.compile(r'^evt\.fs(\d{0,})\.?(\w{0,})$')
-#    parsed = re.match(pattern, loadkey)
-#    fs = parsed.group(1)  # what is this?
-#    state = parsed.group(2)  # handled by _state_model_loadkey_helper right now.
-#    recordings = [recording_uri]
-#
-#    state_signals, permute_signals, epoch2_shuffle = \
-#            _state_model_loadkey_helper(loadkey)
-#
-#    xfspec = [['nems.xforms.load_recordings',
-#               {'recording_uri_list': recordings}],
-#              ['nems.xforms.make_state_signal',
-#               {'state_signals': state_signals,
-#                'permute_signals': permute_signals,
-#                'new_signalname': 'state'}],
-#              ['nems.preprocessing.generate_stim_from_epochs',
-#               {'new_signal_name': 'stim',
-#                'epoch_regex': '^TAR_', 'epoch_shift': 5,
-#                'epoch2_regex': 'LICK', 'epoch2_shift': -5,
-#                'epoch2_shuffle': epoch2_shuffle, 'onsets_only': True},
-#               ['rec'], ['rec']],
-#              ['nems.xforms.mask_all_but_targets', {}]]
-#
-#    return xfspec
+    return xfspec
 
 
 # TODO: delete after finished deprecating, no longer used in this module.
