@@ -85,8 +85,8 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
     ops = loader.split(".")
 
-    # some defaults
-    options = {'rasterfs': 100, 'chancount': 0}
+    # updates some some defaults
+    options.update({'rasterfs': 100, 'chancount': 0})
 
     for op in ops:
         if op=='ozgf':
@@ -133,10 +133,10 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
 
 def baphy_load_wrapper(cellid=None, batch=None, loadkey=None,
-                       siteid=None, normalize=False, **context):
+                       siteid=None, normalize=False, options={}, **context,):
 
     recording_uri = generate_recording_uri(cellid=cellid, batch=batch,
-                                           loadkey=loadkey, siteid=None)
+                                           loadkey=loadkey, siteid=None, **options)
     print('cellid: {}, recording_uri: {}'.format(cellid, recording_uri))
 
     return {'recording_uri_list': [recording_uri]}
