@@ -184,7 +184,7 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
 
 def baphy_load_wrapper(cellid=None, batch=None, loadkey=None,
-                       siteid=None, normalize=False, options={}, **context,):
+                       siteid=None, normalize=False, options={}, **context):
 
     recording_uri = generate_recording_uri(cellid=cellid, batch=batch,
                                            loadkey=loadkey, siteid=None, **options)
