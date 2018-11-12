@@ -7,14 +7,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.patches as mpatch
-from bokeh.plotting import show
 
 import nems_db.db as nd
 from nems_db.xform_wrappers import load_model_baphy_xform
 from nems_db.db import get_batch_cells, Tables, Session
 import nems.xforms as xf
-from nems.plots.api import before_and_after_stp
-from nems_db.plot_helpers import plot_filtered_batch
 from nems.utils import find_module
 import nems.modelspec as ms
 from nems_db.params import fitted_params_per_batch
@@ -594,38 +591,39 @@ def contrast_breakdown(cellid=gc_beat_stp, model1=gc_cont_full,
     base_mod = phi['base_mod']
     amplitude_mod = phi['amplitude_mod']
 
-    k = kappa + (kappa_mod - kappa)*ctpred
-    s = shift + (shift_mod - shift)*ctpred
-    b = base + (base_mod - base)*ctpred
-    a = amplitude + (amplitude_mod - amplitude)*ctpred
+    k = (kappa + (kappa_mod - kappa)*ctpred).flatten()
+    s = (shift + (shift_mod - shift)*ctpred).flatten()
+    b = (base + (base_mod - base)*ctpred).flatten()
+    a = (amplitude + (amplitude_mod - amplitude)*ctpred).flatten()
 
     xfspec2, ctx2 = load_model_baphy_xform(cellid, batch, model3)
     val2 = copy.deepcopy(ctx2['val'][0])
     mspec2 = ctx2['modelspecs'][0]
     logsig_idx = find_module('logistic_sigmoid', mspec2)
-    #dexp_idx = find_module('double_exponential', mspec2)
-    before2 = ms.evaluate(val2, mspec2, start=None, stop=logsig_idx)
+    dexp_idx = find_module('double_exponential', mspec2)
+    nl_idx = logsig_idx if logsig_idx is not None else dexp_idx
+    before2 = ms.evaluate(val2, mspec2, start=None, stop=nl_idx)
     pred_before_LN = copy.deepcopy(before2['pred']).as_continuous()[0, :].T
-    after2 = ms.evaluate(before2.copy(), mspec2, start=logsig_idx, stop=logsig_idx+1)
+    after2 = ms.evaluate(before2.copy(), mspec2, start=nl_idx, stop=nl_idx+1)
     pred_after_LN_only = after2['pred'].as_continuous()[0, :].T
 
-    xfspec3, ctx3 = load_model_baphy_xform(cellid, batch, model2)
-    val3 = copy.deepcopy(ctx3['val'][0])
-    mspec3 = ctx3['modelspecs'][0]
-    logsig_idx = find_module('logistic_sigmoid', mspec3)
-    #dexp_idx = find_module('double_exponential', mspec2)
-    before3 = ms.evaluate(val3, mspec3, start=None, stop=logsig_idx)
-    pred_before_stp = copy.deepcopy(before3['pred']).as_continuous()[0, :].T
-    after3 = ms.evaluate(before3.copy(), mspec3, start=logsig_idx, stop=logsig_idx+1)
-    pred_after_stp = after3['pred'].as_continuous()[0, :].T
-
     mspec2 = ctx2['modelspecs'][0]
-    logsig_idx = find_module('logistic_sigmoid', mspec2)
-    ln_phi = mspec2[logsig_idx]['phi']
+    ln_phi = mspec2[nl_idx]['phi']
     ln_k = ln_phi['kappa']
     ln_s = ln_phi['shift']
     ln_b = ln_phi['base']
     ln_a = ln_phi['amplitude']
+
+    xfspec3, ctx3 = load_model_baphy_xform(cellid, batch, model2)
+    val3 = copy.deepcopy(ctx3['val'][0])
+    mspec3 = ctx3['modelspecs'][0]
+    logsig_idx = find_module('logistic_sigmoid', mspec2)
+    dexp_idx = find_module('double_exponential', mspec2)
+    nl_idx = logsig_idx if logsig_idx is not None else dexp_idx
+    before3 = ms.evaluate(val3, mspec3, start=None, stop=nl_idx)
+    pred_before_stp = copy.deepcopy(before3['pred']).as_continuous()[0, :].T
+    after3 = ms.evaluate(before3.copy(), mspec3, start=nl_idx, stop=nl_idx+1)
+    pred_after_stp = after3['pred'].as_continuous()[0, :].T
 
     # Re-align data w/o any NaN predictions and convert to real-time
     ff = np.isfinite(pred_before) & np.isfinite(pred_before_LN) \
@@ -645,7 +643,6 @@ def contrast_breakdown(cellid=gc_beat_stp, model1=gc_cont_full,
     b = b[ff]
     a = a[ff]
 
-    phi = xf.get_module(ctx2, 'logistic_sigmoid', key='fn')['phi']
 #    static_k = np.full_like(k, ln_k)
 #    static_s = np.full_like(s, ln_s)
 #
@@ -920,39 +917,26 @@ def contrast_vs_stp_timeseries(cellid=good_cell, model1=gc_cont_full,
     ctpred = after['ctpred'].as_continuous()[0, :]
     resp = after['resp'].as_continuous()[0, :]
 
-    phi = mspec[dsig_idx]['phi']
-    kappa = phi['kappa']
-    shift = phi['shift']
-    kappa_mod = phi['kappa_mod']
-    shift_mod = phi['shift_mod']
-    base = phi['base']
-    amplitude = phi['amplitude']
-    base_mod = phi['base_mod']
-    amplitude_mod = phi['amplitude_mod']
-
-    k = kappa + (kappa_mod - kappa)*ctpred
-    s = shift + (shift_mod - shift)*ctpred
-    b = base + (base_mod - base)*ctpred
-    a = amplitude + (amplitude_mod - amplitude)*ctpred
-
     xfspec2, ctx2 = load_model_baphy_xform(cellid, batch, model3)
     val2 = copy.deepcopy(ctx2['val'][0])
     mspec2 = ctx2['modelspecs'][0]
     logsig_idx = find_module('logistic_sigmoid', mspec2)
-    #dexp_idx = find_module('double_exponential', mspec2)
-    before2 = ms.evaluate(val2, mspec2, start=None, stop=logsig_idx)
+    dexp_idx = find_module('double_exponential', mspec2)
+    nl_idx = logsig_idx if logsig_idx is not None else dexp_idx
+    before2 = ms.evaluate(val2, mspec2, start=None, stop=nl_idx)
     pred_before_LN = copy.deepcopy(before2['pred']).as_continuous()[0, :].T
-    after2 = ms.evaluate(before2.copy(), mspec2, start=logsig_idx, stop=logsig_idx+1)
+    after2 = ms.evaluate(before2.copy(), mspec2, start=nl_idx, stop=nl_idx+1)
     pred_after_LN_only = after2['pred'].as_continuous()[0, :].T
 
     xfspec3, ctx3 = load_model_baphy_xform(cellid, batch, model2)
     val3 = copy.deepcopy(ctx3['val'][0])
     mspec3 = ctx3['modelspecs'][0]
-    logsig_idx = find_module('logistic_sigmoid', mspec3)
-    #dexp_idx = find_module('double_exponential', mspec2)
-    before3 = ms.evaluate(val3, mspec3, start=None, stop=logsig_idx)
+    logsig_idx = find_module('logistic_sigmoid', mspec2)
+    dexp_idx = find_module('double_exponential', mspec2)
+    nl_idx = logsig_idx if logsig_idx is not None else dexp_idx
+    before3 = ms.evaluate(val3, mspec3, start=None, stop=nl_idx)
     pred_before_stp = copy.deepcopy(before3['pred']).as_continuous()[0, :].T
-    after3 = ms.evaluate(before3.copy(), mspec3, start=logsig_idx, stop=logsig_idx+1)
+    after3 = ms.evaluate(before3.copy(), mspec3, start=nl_idx, stop=nl_idx+1)
     pred_after_stp = after3['pred'].as_continuous()[0, :].T
 
     xfspec4, ctx4 = load_model_baphy_xform(cellid, batch, model4)
@@ -964,14 +948,6 @@ def contrast_vs_stp_timeseries(cellid=good_cell, model1=gc_cont_full,
     after4 = ms.evaluate(before4.copy(), mspec4, start=dsig_idx, stop=dsig_idx+1)
     pred_after_gc_stp = after4['pred'].as_continuous()[0, :].T
     gc_stp_ctpred = after4['ctpred'].as_continuous()[0, :]
-
-    mspec2 = ctx2['modelspecs'][0]
-    logsig_idx = find_module('logistic_sigmoid', mspec2)
-    ln_phi = mspec2[logsig_idx]['phi']
-    ln_k = ln_phi['kappa']
-    ln_s = ln_phi['shift']
-    ln_b = ln_phi['base']
-    ln_a = ln_phi['amplitude']
 
     # Re-align data w/o any NaN predictions and convert to real-time
     ff = np.isfinite(pred_before) & np.isfinite(pred_before_LN) \
@@ -989,18 +965,6 @@ def contrast_vs_stp_timeseries(cellid=good_cell, model1=gc_cont_full,
     ctpred = ctpred[ff]
     gc_stp_ctpred = gc_stp_ctpred[ff]
     resp = resp[ff]
-
-    k = k[ff]
-    s = s[ff]
-    b = b[ff]
-    a = a[ff]
-
-    phi = xf.get_module(ctx2, 'logistic_sigmoid', key='fn')['phi']
-#    static_k = np.full_like(k, ln_k)
-#    static_s = np.full_like(s, ln_s)
-#
-#    static_b = np.full_like(b, ln_b)
-#    static_a = np.full_like(a, ln_a)
 
     t = np.arange(len(pred_before))/fs
 
@@ -1262,28 +1226,17 @@ def gc_vs_stp_strengths(batch=289, model1=gc_cont_full, model2=stp_model,
 
         cellids = df_r[keep].index.values.tolist()
 
+    gc_test = gc_test[cellids]
+    stp_test = stp_test[cellids]
+    ln_test = ln_test[cellids]
+
     gcs = []
     stps = []
     for c in cellids:
-        xfspec2, ctx2 = load_model_baphy_xform(c, batch, model2, only=0,
+        xfspec1, ctx1 = load_model_baphy_xform(c, batch, model1,
                                                eval_model=False)
-        #val2 = copy.deepcopy(ctx2['val'][0])
-        fs = ctx2['rec']['resp'].fs
-        mspec2 = ctx2['modelspecs'][0]
-        stp_idx = find_module('stp', mspec2)
-        phi2 = mspec2[stp_idx]['phi']
-        tau = phi2['tau']
-        u = phi2['u']
-
-        stp = stp_magnitude(tau, u, fs)[0]
-        stps.extend(stp)
-
-        xfspec1, ctx1 = load_model_baphy_xform(c, batch, model1, only=0,
-                                               eval_model=False)
-        #val1 = copy.deepcopy(ctx1['val'][0])
         mspec1 = ctx1['modelspecs'][0]
         dsig_idx = find_module('dynamic_sigmoid', mspec1)
-        #ctpred = val1['ctpred'].as_continuous()[0, :]
         phi1 = mspec1[dsig_idx]['phi']
         k = phi1['kappa']
         s = phi1['shift']
@@ -1295,16 +1248,41 @@ def gc_vs_stp_strengths(batch=289, model1=gc_cont_full, model2=stp_model,
         a_m = phi1['amplitude_mod']
 
         gc = gc_magnitude(b, b_m, a, a_m, s, s_m, k, k_m)
-        gcs.extend([gc]*len(stp))
+        gcs.append(gc)
 
-    fig = plt.figure(figsize=(6, 6))
-    plt.scatter(gcs, stps, c='black', s=1)
-    plt.xlabel('GC Strength')
-    plt.ylabel('STP Magnitude')
-    gca = plt.gca()
-    gca.axes.axhline(0, color='black', linewidth=1, linestyle='dashed')
-    gca.axes.axvline(0, color='black', linewidth=1, linestyle='dashed')
-    adjustFigAspect(fig, aspect=1)
+        xfspec2, ctx2 = load_model_baphy_xform(c, batch, model2,
+                                               eval_model=False)
+        mspec2 = ctx2['modelspecs'][0]
+        stp_idx = find_module('stp', mspec2)
+        phi2 = mspec2[stp_idx]['phi']
+        tau = phi2['tau']
+        u = phi2['u']
+
+        stp = stp_magnitude(tau, u)[0]
+        stps.append(stp)
+
+    stps_arr = np.mean(np.array(stps), axis=1)
+    gcs_arr = np.array(gcs)
+#    stps_arr /= np.abs(stps_arr.max())
+#    gcs_arr /= np.abs(gcs_arr.max())
+    r_diff = np.abs(gc_test - stp_test)
+
+    fig, axes = plt.subplots(3, 1)
+    axes[0].scatter(r_diff, stps_arr, c='green', s=1)
+    axes[0].scatter(r_diff, gcs_arr, c='black', s=1)
+    axes[0].set_xlabel('Difference in Performance')
+    axes[0].set_ylabel('GC, STP Magnitudes')
+
+    axes[1].scatter(gcs_arr, stps_arr, c='black', s=1)
+    axes[1].set_xlabel('GC Magnitude')
+    axes[1].set_ylabel('STP Magnitude')
+
+    axes[2].scatter(gcs_arr[gcs_arr < 0]*-1, stps_arr[gcs_arr < 0], c='black', s=1)
+    axes[2].set_xlabel('|GC Magnitude|, Negatives Only')
+    axes[2].set_ylabel('STP Magnitude')
+
+    fig.tight_layout()
+
 
 
 ###############################################################################
