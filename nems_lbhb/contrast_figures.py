@@ -91,13 +91,6 @@ gc_beat_stp = 'TAR009d-28-1'
 
 # Interesting example cells to look at in more detail:
 
-# STP = LN = Bad, flat fit for noisy response
-# But GC starts capturing some of it, GC + STP does even better
-# *Shows facilitation instead of depression*
-# Still not a great fit, and GC models push pred negative which isn't ideal,
-# but they're definitely fitting something that STP/LN are missing.
-#cellid = 'TAR010c-27-3'
-
 # STP does better, GC about equal to LN
 #cellid = 'bbl104h-33-1'
 
@@ -108,11 +101,11 @@ gc_beat_stp = 'TAR009d-28-1'
 # GC + STP also looks like it tracks resp better, even though R is slightly lower
 #cellid = 'TAR009d-22-1'
 
-# Seems like GC and STP are improving in a similar way, but
+# Seems like GC and STP are improving in a similar(?) way, but
 # GC + STP does even better.
 #cellid = 'TAR010c-13-1'
 
-# Similar example to previous
+# Similar example to previous? STRFS very different
 #cellid = 'TAR010c-20-1'
 
 # Weird failure that responds to offsets between stims
@@ -123,10 +116,6 @@ gc_beat_stp = 'TAR009d-28-1'
 
 # Bit noisy but similar performance boosts for all 3
 #cellid = 'TAR017b-22-1'
-
-# GC and STP each help a little but not much,
-# GC + STP helps a lot
-#cellid = 'gus019c-a2'
 
 # Another case with facilitation where STP doesn't help but
 # GC and GC+STP do.
@@ -139,18 +128,6 @@ gc_beat_stp = 'TAR009d-28-1'
 
 # Both improving in a somehwat similar way?
 #cellid = 'TAR009d-15-1'
-
-# Maybe an interesting 'failure'? STP helps a ton (almost double vs LN),
-# but neither GC nor GC+STP helps much (even though GC+STP should be able to
-# get the same effect as STP alone).
-#cellid = 'BRT026c-16-2'
-
-#cellid = 'BRT036b-45-2'
-
-# Good example of combo model taking pieces from each of the individuals.
-# GC overcorrects the LN model, STP undercorrects, but GC+STP goes in between.
-#cellid = 'BRT037b-36-1'
-
 
 
 
