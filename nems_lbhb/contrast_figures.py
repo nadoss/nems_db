@@ -89,6 +89,70 @@ ln_win = 'TAR010c-15-4'
 gc_sharp_onset = 'bbl104h-10-2'
 gc_beat_stp = 'TAR009d-28-1'
 
+# Interesting example cells to look at in more detail:
+
+# STP = LN = Bad, flat fit for noisy response
+# But GC starts capturing some of it, GC + STP does even better
+# *Shows facilitation instead of depression*
+# Still not a great fit, and GC models push pred negative which isn't ideal,
+# but they're definitely fitting something that STP/LN are missing.
+#cellid = 'TAR010c-27-3'
+
+# STP does better, GC about equal to LN
+#cellid = 'bbl104h-33-1'
+
+# Same as previous but much bigger difference in performance
+#cellid = 'BRT026c-16-2'
+
+# Reverse again: GC better, STP about equal to LN
+# GC + STP also looks like it tracks resp better, even though R is slightly lower
+#cellid = 'TAR009d-22-1'
+
+# Seems like GC and STP are improving in a similar way, but
+# GC + STP does even better.
+#cellid = 'TAR010c-13-1'
+
+# Similar example to previous
+#cellid = 'TAR010c-20-1'
+
+# Weird failure that responds to offsets between stims
+#cellid = 'TAR010c-58-2'
+
+# Long depression, STP does well but GC and GC+STP do worse
+#cellid = 'TAR017b-04-1'
+
+# Bit noisy but similar performance boosts for all 3
+#cellid = 'TAR017b-22-1'
+
+# GC and STP each help a little but not much,
+# GC + STP helps a lot
+#cellid = 'gus019c-a2'
+
+# Another case with facilitation where STP doesn't help but
+# GC and GC+STP do.
+#cellid = 'gus018b-a2'
+
+# Another case where GC and STP each help a little, but GC+STP helps a lot
+# Maybe implies a case where the two individual models are capturing
+# mostly independent rather than shared info?
+#cellid = 'gus019c-a2'
+
+# Both improving in a somehwat similar way?
+#cellid = 'TAR009d-15-1'
+
+# Maybe an interesting 'failure'? STP helps a ton (almost double vs LN),
+# but neither GC nor GC+STP helps much (even though GC+STP should be able to
+# get the same effect as STP alone).
+#cellid = 'BRT026c-16-2'
+
+#cellid = 'BRT036b-45-2'
+
+# Good example of combo model taking pieces from each of the individuals.
+# GC overcorrects the LN model, STP undercorrects, but GC+STP goes in between.
+#cellid = 'BRT037b-36-1'
+
+
+
 
 gc_color = '#69657C'
 stp_color = '#394B5E'
@@ -118,7 +182,7 @@ def run_all(model1=gc_cont_full, model2=stp_model, model3=ln_model,
     #contrast_examples()
     contrast_breakdown(model1=model1, model2=model2, model3=model3,
                        cellid=cellid, sample_every=sample_every)
-    contrast_vs_stp_timeseries(modelname=model1, model2=model2, model3=model3,
+    contrast_vs_stp_comparison(modelname=model1, model2=model2, model3=model3,
                                model4=model4, cellid=cellid)
 
 
@@ -313,6 +377,89 @@ def performance_correlation_scatter(model1=gc_cont_full, model2=stp_model,
     plt.ylim(ymin=(-1)*abs_max, ymax=abs_max)
     plt.xlim(xmin=(-1)*abs_max, xmax=abs_max)
     adjustFigAspect(fig, aspect=1)
+
+
+def equivalence_histogram(batch=289, model1=gc_cont_full, model2=stp_model,
+                          model3=ln_model, se_filter=False, test_limit=None):
+
+    df_r = nd.batch_comp(batch, [model1, model2, model3], stat='r_test')
+    df_e = nd.batch_comp(batch, [model1, model2, model3], stat='se_test')
+    # Remove any cellids that have NaN for 1 or more models
+    df_r.dropna(axis=0, how='any', inplace=True)
+    df_e.dropna(axis=0, how='any', inplace=True)
+
+    cellids = df_r.index.values.tolist()
+
+    if se_filter:
+        gc_test = df_r[model1]
+        gc_se = df_e[model1]
+        stp_test = df_r[model2]
+        stp_se = df_e[model2]
+        ln_test = df_r[model3]
+        ln_se = df_e[model3]
+
+        # Also remove is performance not significant at all
+        good_cells = ((gc_test > gc_se*2) & (stp_test > stp_se*2) &
+                     (ln_test > ln_se*2))
+
+        # Remove if performance significantly worse than LN
+        bad_cells = ((gc_test+gc_se < ln_test-ln_se) |
+                     (stp_test+stp_se < ln_test-ln_se))
+
+        keep = good_cells & ~bad_cells
+
+        cellids = df_r[keep].index.values.tolist()
+
+    rs = []
+    for c in cellids[:test_limit]:
+        xf1, ctx1 = load_model_baphy_xform(c, batch, model1)
+        xf2, ctx2 = load_model_baphy_xform(c, batch, model2)
+        xf3, ctx3 = load_model_baphy_xform(c, batch, model3)
+
+        gc = ctx1['val'][0].apply_mask()['pred'].as_continuous()
+        stp = ctx2['val'][0].apply_mask()['pred'].as_continuous()
+        ln = ctx3['val'][0].apply_mask()['pred'].as_continuous()
+
+        ff = np.isfinite(gc) & np.isfinite(stp) & np.isfinite(ln)
+        rs.append(np.corrcoef(gc[ff]-ln[ff], stp[ff]-ln[ff])[0, 1])
+
+    rs = np.array(rs)
+    md = np.nanmedian(rs)
+
+    onetwo = np.percentile(rs, 20)
+#    twothree = np.percentile(rs, 40)
+#    threefour = np.percentile(rs, 60)
+    fourfive = np.percentile(rs, 80)
+#    first = rs <= onetwo
+#    second = rs <= twothree
+#    third = rs <= threefour
+#    fourth = rs <= fourfive
+#    fifth = rs > fourfive
+
+    n_cells = len(cellids)
+    fig = plt.figure(figsize=(6, 6))
+    plt.hist(rs, bins=30, range=[-0.5, 1], histtype='bar', color=['gray'])
+
+#    plt.hist(rs[first], bins=30, range=[-0.5, 1], histtype='bar',
+#             color=['#2A4738'])
+#    plt.hist(rs[second], bins=30, range=[-0.5, 1], histtype='bar',
+#             color=['#345945'])
+#    plt.hist(rs[third], bins=30, range=[-0.5, 1], histtype='bar',
+#             color=['#4A7F65'])
+#    plt.hist(rs[fourth], bins=30, range=[-0.5, 1], histtype='bar',
+#             color=['#26615C'])
+#    plt.hist(rs[fifth], bins=30, range=[-0.5, 1], histtype='bar',
+#             color=['#113842'])
+
+    plt.plot(np.array([0,0]), np.array(fig.axes[0].get_ylim()), 'k--')
+    plt.plot(np.array([onetwo, onetwo]), np.array(fig.axes[0].get_ylim()),
+             'g--')
+    plt.plot(np.array([fourfive, fourfive]), np.array(fig.axes[0].get_ylim()),
+             'g--')
+    plt.text(0.05, 0.95, 'n = %d\nmd = %.2f' % (n_cells, md),
+             ha='left', va='top', transform=fig.axes[0].transAxes)
+    plt.xlabel('CC, GC-LN vs STP-LN')
+    plt.title('Equivalence of Change in Prediction Relative to LN Model')
 
 
 def performance_bar(model1=gc_cont_full, model2=stp_model, model3=ln_model,
@@ -898,7 +1045,7 @@ def contrast_breakdown(cellid=gc_beat_stp, model1=gc_cont_full,
     #return fig2
 
 
-def contrast_vs_stp_timeseries(cellid=good_cell, model1=gc_cont_full,
+def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
                                model2=stp_model, model3=ln_model,
                                model4=gc_stp):
 
@@ -906,6 +1053,7 @@ def contrast_vs_stp_timeseries(cellid=good_cell, model1=gc_cont_full,
     val = copy.deepcopy(ctx['val'][0])
     fs = val['resp'].fs
     mspec = ctx['modelspecs'][0]
+    gc_r_test = mspec[0]['meta']['r_test']
     dsig_idx = find_module('dynamic_sigmoid', mspec)
 
     before = ms.evaluate(val, mspec, start=None, stop=dsig_idx)
@@ -920,6 +1068,7 @@ def contrast_vs_stp_timeseries(cellid=good_cell, model1=gc_cont_full,
     xfspec2, ctx2 = load_model_baphy_xform(cellid, batch, model3)
     val2 = copy.deepcopy(ctx2['val'][0])
     mspec2 = ctx2['modelspecs'][0]
+    ln_r_test = mspec2[0]['meta']['r_test']
     logsig_idx = find_module('logistic_sigmoid', mspec2)
     dexp_idx = find_module('double_exponential', mspec2)
     nl_idx = logsig_idx if logsig_idx is not None else dexp_idx
@@ -931,6 +1080,7 @@ def contrast_vs_stp_timeseries(cellid=good_cell, model1=gc_cont_full,
     xfspec3, ctx3 = load_model_baphy_xform(cellid, batch, model2)
     val3 = copy.deepcopy(ctx3['val'][0])
     mspec3 = ctx3['modelspecs'][0]
+    stp_r_test = mspec3[0]['meta']['r_test']
     logsig_idx = find_module('logistic_sigmoid', mspec2)
     dexp_idx = find_module('double_exponential', mspec2)
     nl_idx = logsig_idx if logsig_idx is not None else dexp_idx
@@ -942,6 +1092,7 @@ def contrast_vs_stp_timeseries(cellid=good_cell, model1=gc_cont_full,
     xfspec4, ctx4 = load_model_baphy_xform(cellid, batch, model4)
     val4 = copy.deepcopy(ctx4['val'][0])
     mspec4 = ctx4['modelspecs'][0]
+    gc_stp_r_test = mspec4[0]['meta']['r_test']
     dsig_idx = find_module('dynamic_sigmoid', mspec4)
     before4 = ms.evaluate(val4, mspec4, start=None, stop=dsig_idx)
     pred_before_gc_stp = copy.deepcopy(before4['pred']).as_continuous()[0, :].T
@@ -970,57 +1121,244 @@ def contrast_vs_stp_timeseries(cellid=good_cell, model1=gc_cont_full,
 
     fig1 = plt.figure(figsize=(6, 12))
     st1 = fig1.suptitle("Cellid: %s\nModelname: %s" % (cellid, model1))
-    gs = gridspec.GridSpec(6, 4)
+    gs = gridspec.GridSpec(8, 5)
+
+    # Labels
+    ax = plt.subplot(gs[0, 0])
+    plt.text(1, 1, 'STP Output', ha='right', va='top', transform=ax.transAxes)
+    plt.axis('off')
+    ax = plt.subplot(gs[1, 0])
+    plt.text(1, 1, 'STRF', ha='right', va='top', transform=ax.transAxes)
+    plt.axis('off')
+    ax = plt.subplot(gs[2, 0])
+    plt.text(1, 1, 'Pred Before NL', ha='right', va='top', transform=ax.transAxes)
+    plt.axis('off')
+    ax = plt.subplot(gs[3, 0])
+    plt.text(1, 1, 'GC STRF', ha='right', va='top', transform=ax.transAxes)
+    plt.axis('off')
+    ax = plt.subplot(gs[4, 0])
+    plt.text(1, 1, 'GC Output', ha='right', va='top', transform=ax.transAxes)
+    plt.axis('off')
+    ax = plt.subplot(gs[5, 0])
+    plt.text(1, 1, 'Pred After NL', ha='right', va='top', transform=ax.transAxes)
+    plt.axis('off')
+    ax = plt.subplot(gs[6, 0])
+    plt.text(1, 1, 'Change vs LN', ha='right', va='top', transform=ax.transAxes)
+    plt.axis('off')
+    ax = plt.subplot(gs[7, 0])
+    plt.text(1, 1, 'Response', ha='right', va='top', transform=ax.transAxes)
+    plt.axis('off')
+
 
     # LN
-    plt.subplot(gs[0, 0])
-    plt.plot(t, pred_before_LN, linewidth=1, color='black')
-    plt.title("Prediction before Nonlinearity (LN Model)")
-
-    plt.subplot(gs[1, 0])
-    plt.plot(t, np.ones((len(t),)), linewidth=1, color='purple')
-    plt.title('No Change for LN Model')
-
-    plt.subplot(gs[2, 0])
-    plt.plot(t, pred_after_LN_only, linewidth=1, color='black')
-    plt.title("Prediction after Nonlinearity")
-
-    plt.subplot(gs[3, 0])
-    plt.plot(t, np.ones((len(t),)), linewidth=1, color='blue')
-    plt.title('No Change for LN Model')
-
-    plt.subplot(gs[4, 0])
-    plt.plot(t, resp, linewidth=1, color='green')
-    plt.title("Response")
-
-    # GC
     plt.subplot(gs[0, 1])
-    plt.plot(t, pred_before, linewidth=1, color='black')
-    plt.title("Prediction before Nonlinearity (GC Model)")
+    plt.axis('off')
+    plt.title('LN, r_test: %.2f' % ln_r_test)
 
     plt.subplot(gs[1, 1])
-    plt.plot(t, ctpred, linewidth=1, color='purple')
-    plt.title("Output of Contrast STRF")
+    # STRF
+    modelspec = mspec2
+    wcc = _get_wc_coefficients(modelspec, idx=0)
+    firc = _get_fir_coefficients(modelspec, idx=0)
+    wc_coefs = np.array(wcc).T
+    fir_coefs = np.array(firc)
+    if wc_coefs.shape[1] == fir_coefs.shape[0]:
+        strf = wc_coefs @ fir_coefs
+        show_factorized = True
+    else:
+        strf = fir_coefs
+        show_factorized = False
+
+    cscale = np.nanmax(np.abs(strf.reshape(-1)))
+    clim = [-cscale, cscale]
+
+    if show_factorized:
+        # Never rescale the STRF or CLIM!
+        # The STRF should be the final word and respect input colormap and clim
+        # However: rescaling WC and FIR coefs to make them more visible is ok
+        wc_max = np.nanmax(np.abs(wc_coefs[:]))
+        fir_max = np.nanmax(np.abs(fir_coefs[:]))
+        wc_coefs = wc_coefs * (cscale / wc_max)
+        fir_coefs = fir_coefs * (cscale / fir_max)
+
+        n_inputs, _ = wc_coefs.shape
+        nchans, ntimes = fir_coefs.shape
+        gap = np.full([nchans + 1, nchans + 1], np.nan)
+        horz_space = np.full([1, ntimes], np.nan)
+        vert_space = np.full([n_inputs, 1], np.nan)
+        top_right = np.concatenate([fir_coefs, horz_space], axis=0)
+        top_left = np.concatenate([wc_coefs, vert_space], axis=1)
+        bot = np.concatenate([top_left, strf], axis=1)
+        top = np.concatenate([gap, top_right], axis=1)
+        everything = np.concatenate([top, bot], axis=0)
+    else:
+        everything = strf
+
+    array = everything
+
+    if clim is None:
+        mmax = np.nanmax(np.abs(array.reshape(-1)))
+        clim = [-mmax, mmax]
+
+    if fs is not None:
+        extent = [0.5/fs, (array.shape[1]+0.5)/fs, 0.5, array.shape[0]+0.5]
+    else:
+        extent = None
+
+    plt.imshow(array, aspect='auto', origin='lower', cmap=plt.get_cmap('jet'),
+               clim=clim, extent=extent)
+    # End STRF
 
     plt.subplot(gs[2, 1])
-    plt.plot(t, pred_after, linewidth=1, color='black')
-    plt.title("Prediction after Nonlinearity (W/ GC)")
+    plt.plot(t, pred_before_LN, linewidth=1, color='black')
 
     plt.subplot(gs[3, 1])
-    change = pred_after - pred_after_LN_only
-    plt.plot(t, change, linewidth=1, color='blue')
-    plt.title("Change to Prediction w/ GC")
+    plt.axis('off')
 
     plt.subplot(gs[4, 1])
-    plt.plot(t, resp, linewidth=1, color='green')
-    plt.title("Response")
+    plt.axis('off')
 
-    # STP
+    plt.subplot(gs[5, 1])
+    plt.plot(t, pred_after_LN_only, linewidth=1, color='black')
+
+    plt.subplot(gs[6, 1])
+    plt.axis('off')
+
+    plt.subplot(gs[7, 1])
+    plt.plot(t, resp, linewidth=1, color='green')
+
+
+    # GC
     plt.subplot(gs[0, 2])
-    plt.plot(t, pred_before_stp, linewidth=1, color='black')
-    plt.title("Prediction before Nonlinearity (STP Model)")
+    plt.axis('off')
+    plt.title('GC, r_test: %.2f' % gc_r_test)
 
     plt.subplot(gs[1, 2])
+    # STRF
+    modelspec = mspec
+    wcc = _get_wc_coefficients(modelspec, idx=0)
+    firc = _get_fir_coefficients(modelspec, idx=0)
+    wc_coefs = np.array(wcc).T
+    fir_coefs = np.array(firc)
+    if wc_coefs.shape[1] == fir_coefs.shape[0]:
+        strf = wc_coefs @ fir_coefs
+        show_factorized = True
+    else:
+        strf = fir_coefs
+        show_factorized = False
+
+    cscale = np.nanmax(np.abs(strf.reshape(-1)))
+    clim = [-cscale, cscale]
+
+    if show_factorized:
+        # Never rescale the STRF or CLIM!
+        # The STRF should be the final word and respect input colormap and clim
+        # However: rescaling WC and FIR coefs to make them more visible is ok
+        wc_max = np.nanmax(np.abs(wc_coefs[:]))
+        fir_max = np.nanmax(np.abs(fir_coefs[:]))
+        wc_coefs = wc_coefs * (cscale / wc_max)
+        fir_coefs = fir_coefs * (cscale / fir_max)
+
+        n_inputs, _ = wc_coefs.shape
+        nchans, ntimes = fir_coefs.shape
+        gap = np.full([nchans + 1, nchans + 1], np.nan)
+        horz_space = np.full([1, ntimes], np.nan)
+        vert_space = np.full([n_inputs, 1], np.nan)
+        top_right = np.concatenate([fir_coefs, horz_space], axis=0)
+        top_left = np.concatenate([wc_coefs, vert_space], axis=1)
+        bot = np.concatenate([top_left, strf], axis=1)
+        top = np.concatenate([gap, top_right], axis=1)
+        everything = np.concatenate([top, bot], axis=0)
+    else:
+        everything = strf
+
+    array = everything
+
+    if clim is None:
+        mmax = np.nanmax(np.abs(array.reshape(-1)))
+        clim = [-mmax, mmax]
+
+    if fs is not None:
+        extent = [0.5/fs, (array.shape[1]+0.5)/fs, 0.5, array.shape[0]+0.5]
+    else:
+        extent = None
+
+    plt.imshow(array, aspect='auto', origin='lower', cmap=plt.get_cmap('jet'),
+               clim=clim, extent=extent)
+    # End STRF
+
+    plt.subplot(gs[2, 2])
+    plt.plot(t, pred_before, linewidth=1, color='black')
+
+    plt.subplot(gs[3, 2])
+    # GC STRF
+    wcc = _get_wc_coefficients(modelspec, idx=1)
+    firc = _get_fir_coefficients(modelspec, idx=1)
+    wc_coefs = np.array(wcc).T
+    fir_coefs = np.array(firc)
+    if wc_coefs.shape[1] == fir_coefs.shape[0]:
+        strf = wc_coefs @ fir_coefs
+        show_factorized = True
+    else:
+        strf = fir_coefs
+        show_factorized = False
+
+    cscale = np.nanmax(np.abs(strf.reshape(-1)))
+    clim = [-cscale, cscale]
+
+    if show_factorized:
+        # Never rescale the STRF or CLIM!
+        # The STRF should be the final word and respect input colormap and clim
+        # However: rescaling WC and FIR coefs to make them more visible is ok
+        wc_max = np.nanmax(np.abs(wc_coefs[:]))
+        fir_max = np.nanmax(np.abs(fir_coefs[:]))
+        wc_coefs = wc_coefs * (cscale / wc_max)
+        fir_coefs = fir_coefs * (cscale / fir_max)
+
+        n_inputs, _ = wc_coefs.shape
+        nchans, ntimes = fir_coefs.shape
+        gap = np.full([nchans + 1, nchans + 1], np.nan)
+        horz_space = np.full([1, ntimes], np.nan)
+        vert_space = np.full([n_inputs, 1], np.nan)
+        top_right = np.concatenate([fir_coefs, horz_space], axis=0)
+        top_left = np.concatenate([wc_coefs, vert_space], axis=1)
+        bot = np.concatenate([top_left, strf], axis=1)
+        top = np.concatenate([gap, top_right], axis=1)
+        everything = np.concatenate([top, bot], axis=0)
+    else:
+        everything = strf
+
+    array = everything
+
+    if clim is None:
+        mmax = np.nanmax(np.abs(array.reshape(-1)))
+        clim = [-mmax, mmax]
+
+    if fs is not None:
+        extent = [0.5/fs, (array.shape[1]+0.5)/fs, 0.5, array.shape[0]+0.5]
+    else:
+        extent = None
+
+    plt.imshow(array, aspect='auto', origin='lower', cmap=plt.get_cmap('jet'),
+               clim=clim, extent=extent)
+    # End GC STRF
+
+    plt.subplot(gs[4, 2])
+    plt.plot(t, ctpred, linewidth=1, color='purple')
+
+    plt.subplot(gs[5, 2])
+    plt.plot(t, pred_after, linewidth=1, color='black')
+
+    plt.subplot(gs[6, 2])
+    change = pred_after - pred_after_LN_only
+    plt.plot(t, change, linewidth=1, color='blue')
+
+    plt.subplot(gs[7, 2])
+    plt.plot(t, resp, linewidth=1, color='green')
+
+
+    # STP
+    plt.subplot(gs[0, 3])
     # TODO: simplify this? just cut and pasted from existing STP plot
     for m in mspec3:
         if 'stp' in m['fn']:
@@ -1040,7 +1378,7 @@ def contrast_vs_stp_timeseries(cellid=good_cell, model1=gc_cont_full,
 
     times = []
     values = []
-    legend = []
+    #legend = []
     for sig, c in zip(signals, channels):
         # Get values from specified channel
         value_vector = sig.as_continuous()[c]
@@ -1048,38 +1386,94 @@ def contrast_vs_stp_timeseries(cellid=good_cell, model1=gc_cont_full,
         time_vector = np.arange(0, len(value_vector)) / sig.fs
         times.append(time_vector)
         values.append(value_vector)
-        if sig.chans is not None:
-            legend.append(sig.name+' '+sig.chans[c])
+        #if sig.chans is not None:
+            #legend.append(sig.name+' '+sig.chans[c])
 
     cc = 0
     for ts, vs in zip(times, values):
         plt.plot(ts, vs)
         cc += 1
 
-    plt.legend(legend)
-    plt.title('STP Channel Output')
+    #plt.legend(legend)
+    plt.title('STP, r_test: %.2f' % stp_r_test)
     # End STP plot
 
-    plt.subplot(gs[2, 2])
-    plt.plot(t, pred_after_stp, linewidth=1, color='black')
-    plt.title("Prediction after Nonlinearity (W/ STP)")
+    plt.subplot(gs[1, 3])
+    # STRF
+    modelspec = mspec3
+    wcc = _get_wc_coefficients(modelspec, idx=0)
+    firc = _get_fir_coefficients(modelspec, idx=0)
+    wc_coefs = np.array(wcc).T
+    fir_coefs = np.array(firc)
+    if wc_coefs.shape[1] == fir_coefs.shape[0]:
+        strf = wc_coefs @ fir_coefs
+        show_factorized = True
+    else:
+        strf = fir_coefs
+        show_factorized = False
 
-    plt.subplot(gs[3, 2])
+    cscale = np.nanmax(np.abs(strf.reshape(-1)))
+    clim = [-cscale, cscale]
+
+    if show_factorized:
+        # Never rescale the STRF or CLIM!
+        # The STRF should be the final word and respect input colormap and clim
+        # However: rescaling WC and FIR coefs to make them more visible is ok
+        wc_max = np.nanmax(np.abs(wc_coefs[:]))
+        fir_max = np.nanmax(np.abs(fir_coefs[:]))
+        wc_coefs = wc_coefs * (cscale / wc_max)
+        fir_coefs = fir_coefs * (cscale / fir_max)
+
+        n_inputs, _ = wc_coefs.shape
+        nchans, ntimes = fir_coefs.shape
+        gap = np.full([nchans + 1, nchans + 1], np.nan)
+        horz_space = np.full([1, ntimes], np.nan)
+        vert_space = np.full([n_inputs, 1], np.nan)
+        top_right = np.concatenate([fir_coefs, horz_space], axis=0)
+        top_left = np.concatenate([wc_coefs, vert_space], axis=1)
+        bot = np.concatenate([top_left, strf], axis=1)
+        top = np.concatenate([gap, top_right], axis=1)
+        everything = np.concatenate([top, bot], axis=0)
+    else:
+        everything = strf
+
+    array = everything
+
+    if clim is None:
+        mmax = np.nanmax(np.abs(array.reshape(-1)))
+        clim = [-mmax, mmax]
+
+    if fs is not None:
+        extent = [0.5/fs, (array.shape[1]+0.5)/fs, 0.5, array.shape[0]+0.5]
+    else:
+        extent = None
+
+    plt.imshow(array, aspect='auto', origin='lower', cmap=plt.get_cmap('jet'),
+               clim=clim, extent=extent)
+    # End STRF
+
+    plt.subplot(gs[2, 3])
+    plt.plot(t, pred_before_stp, linewidth=1, color='black')
+
+    plt.subplot(gs[3, 3])
+    plt.axis('off')
+
+    plt.subplot(gs[4, 3])
+    plt.axis('off')
+
+    plt.subplot(gs[5, 3])
+    plt.plot(t, pred_after_stp, linewidth=1, color='black')
+
+    plt.subplot(gs[6, 3])
     change2 = pred_after_stp - pred_after_LN_only
     plt.plot(t, change2, linewidth=1, color='blue')
-    plt.title("Change to Prediction w/ STP")
 
-    plt.subplot(gs[4, 2])
+    plt.subplot(gs[7, 3])
     plt.plot(t, resp, linewidth=1, color='green')
-    plt.title("Response")
 
 
     # GC + STP
-    plt.subplot(gs[0, 3])
-    plt.plot(t, pred_before_gc_stp, linewidth=1, color='black')
-    plt.title("Prediction before Nonlinearity (GC+STP Model)")
-
-    plt.subplot(gs[1, 3])
+    plt.subplot(gs[0, 4])
     # TODO: simplify this? just cut and pasted from existing STP plot
     for m in mspec4:
         if 'stp' in m['fn']:
@@ -1099,7 +1493,7 @@ def contrast_vs_stp_timeseries(cellid=good_cell, model1=gc_cont_full,
 
     times = []
     values = []
-    legend = []
+    #legend = []
     for sig, c in zip(signals, channels):
         # Get values from specified channel
         value_vector = sig.as_continuous()[c]
@@ -1107,49 +1501,191 @@ def contrast_vs_stp_timeseries(cellid=good_cell, model1=gc_cont_full,
         time_vector = np.arange(0, len(value_vector)) / sig.fs
         times.append(time_vector)
         values.append(value_vector)
-        if sig.chans is not None:
-            legend.append(sig.name+' '+sig.chans[c])
+        #if sig.chans is not None:
+            #legend.append(sig.name+' '+sig.chans[c])
 
     cc = 0
     for ts, vs in zip(times, values):
         plt.plot(ts, vs)
         cc += 1
 
-    plt.legend(legend)
-    plt.title('STP Channel Output')
+    #plt.legend(legend)
+    plt.title('GC + STP, r_test: %.2f' % gc_stp_r_test)
     # End STP plot
 
-    plt.subplot(gs[2, 3])
+    plt.subplot(gs[1, 4])
+    # STRF
+    modelspec = mspec4
+    wcc = _get_wc_coefficients(modelspec, idx=0)
+    firc = _get_fir_coefficients(modelspec, idx=0)
+    wc_coefs = np.array(wcc).T
+    fir_coefs = np.array(firc)
+    if wc_coefs.shape[1] == fir_coefs.shape[0]:
+        strf = wc_coefs @ fir_coefs
+        show_factorized = True
+    else:
+        strf = fir_coefs
+        show_factorized = False
+
+    cscale = np.nanmax(np.abs(strf.reshape(-1)))
+    clim = [-cscale, cscale]
+
+    if show_factorized:
+        # Never rescale the STRF or CLIM!
+        # The STRF should be the final word and respect input colormap and clim
+        # However: rescaling WC and FIR coefs to make them more visible is ok
+        wc_max = np.nanmax(np.abs(wc_coefs[:]))
+        fir_max = np.nanmax(np.abs(fir_coefs[:]))
+        wc_coefs = wc_coefs * (cscale / wc_max)
+        fir_coefs = fir_coefs * (cscale / fir_max)
+
+        n_inputs, _ = wc_coefs.shape
+        nchans, ntimes = fir_coefs.shape
+        gap = np.full([nchans + 1, nchans + 1], np.nan)
+        horz_space = np.full([1, ntimes], np.nan)
+        vert_space = np.full([n_inputs, 1], np.nan)
+        top_right = np.concatenate([fir_coefs, horz_space], axis=0)
+        top_left = np.concatenate([wc_coefs, vert_space], axis=1)
+        bot = np.concatenate([top_left, strf], axis=1)
+        top = np.concatenate([gap, top_right], axis=1)
+        everything = np.concatenate([top, bot], axis=0)
+    else:
+        everything = strf
+
+    array = everything
+
+    if clim is None:
+        mmax = np.nanmax(np.abs(array.reshape(-1)))
+        clim = [-mmax, mmax]
+
+    if fs is not None:
+        extent = [0.5/fs, (array.shape[1]+0.5)/fs, 0.5, array.shape[0]+0.5]
+    else:
+        extent = None
+
+    plt.imshow(array, aspect='auto', origin='lower', cmap=plt.get_cmap('jet'),
+               clim=clim, extent=extent)
+    # End STRF
+
+    plt.subplot(gs[2, 4])
+    plt.plot(t, pred_before_gc_stp, linewidth=1, color='black')
+
+    plt.subplot(gs[3, 4])
+    # GC STRF
+    wcc = _get_wc_coefficients(modelspec, idx=1)
+    firc = _get_fir_coefficients(modelspec, idx=1)
+    wc_coefs = np.array(wcc).T
+    fir_coefs = np.array(firc)
+    if wc_coefs.shape[1] == fir_coefs.shape[0]:
+        strf = wc_coefs @ fir_coefs
+        show_factorized = True
+    else:
+        strf = fir_coefs
+        show_factorized = False
+
+    cscale = np.nanmax(np.abs(strf.reshape(-1)))
+    clim = [-cscale, cscale]
+
+    if show_factorized:
+        # Never rescale the STRF or CLIM!
+        # The STRF should be the final word and respect input colormap and clim
+        # However: rescaling WC and FIR coefs to make them more visible is ok
+        wc_max = np.nanmax(np.abs(wc_coefs[:]))
+        fir_max = np.nanmax(np.abs(fir_coefs[:]))
+        wc_coefs = wc_coefs * (cscale / wc_max)
+        fir_coefs = fir_coefs * (cscale / fir_max)
+
+        n_inputs, _ = wc_coefs.shape
+        nchans, ntimes = fir_coefs.shape
+        gap = np.full([nchans + 1, nchans + 1], np.nan)
+        horz_space = np.full([1, ntimes], np.nan)
+        vert_space = np.full([n_inputs, 1], np.nan)
+        top_right = np.concatenate([fir_coefs, horz_space], axis=0)
+        top_left = np.concatenate([wc_coefs, vert_space], axis=1)
+        bot = np.concatenate([top_left, strf], axis=1)
+        top = np.concatenate([gap, top_right], axis=1)
+        everything = np.concatenate([top, bot], axis=0)
+    else:
+        everything = strf
+
+    array = everything
+
+    if clim is None:
+        mmax = np.nanmax(np.abs(array.reshape(-1)))
+        clim = [-mmax, mmax]
+
+    if fs is not None:
+        extent = [0.5/fs, (array.shape[1]+0.5)/fs, 0.5, array.shape[0]+0.5]
+    else:
+        extent = None
+
+    plt.imshow(array, aspect='auto', origin='lower', cmap=plt.get_cmap('jet'),
+               clim=clim, extent=extent)
+    # End GC STRF
+
+    plt.subplot(gs[4, 4])
     plt.plot(t, gc_stp_ctpred, linewidth=1, color='purple')
-    plt.title("Output of Contrast STRF")
 
-    plt.subplot(gs[3, 3])
+    plt.subplot(gs[5, 4])
     plt.plot(t, pred_after_gc_stp, linewidth=1, color='black')
-    plt.title("Prediction after Nonlinearity (W/ STP)")
 
-    plt.subplot(gs[4, 3])
+    plt.subplot(gs[6, 4])
     change3 = pred_after_gc_stp - pred_after_LN_only
     plt.plot(t, change3, linewidth=1, color='blue')
-    plt.title("Change to Prediction w/ STP")
 
-    plt.subplot(gs[5, 3])
+    plt.subplot(gs[7, 4])
     plt.plot(t, resp, linewidth=1, color='green')
-    plt.title("Response")
 
 
+    # Normalize y axis across rows where appropriate
     ymin = 0
     ymax = 0
+    pred_befores = [10, 18, 26, 34]
     for i, ax in enumerate(fig1.axes):
-        if i not in [0, 1, 5, 6, 10, 11, 15, 16]:
+        if i in pred_befores:
             ybottom, ytop = ax.get_ylim()
             ymin = min(ymin, ybottom)
             ymax = max(ymax, ytop)
     for i, ax in enumerate(fig1.axes):
-        if i not in [0, 1, 5, 6, 10, 11, 15, 16]:
+        if i in pred_befores:
             ax.set_ylim(ymin, ymax)
+
+    ymin = 0
+    ymax = 0
+    gc_outputs = [12, 36]
     for i, ax in enumerate(fig1.axes):
-        if i not in [4, 9, 14, 20]:
+        if i in gc_outputs:
+            ybottom, ytop = ax.get_ylim()
+            ymin = min(ymin, ybottom)
+            ymax = max(ymax, ytop)
+    for i, ax in enumerate(fig1.axes):
+        if i in gc_outputs:
+            ax.set_ylim(ymin, ymax)
+
+    ymin = 0
+    ymax = 0
+    pred_afters = [13, 21, 29, 37]
+    pred_diffs = [14, 22, 30, 38]
+    resp = [15, 23, 31, 39]
+    for i, ax in enumerate(fig1.axes):
+        if i in pred_afters + pred_diffs + resp:
+            ybottom, ytop = ax.get_ylim()
+            ymin = min(ymin, ybottom)
+            ymax = max(ymax, ytop)
+    for i, ax in enumerate(fig1.axes):
+        if i in pred_afters + pred_diffs + resp:
+            ax.set_ylim(ymin, ymax)
+
+    # Only show x_axis on bottom row
+    # Only show y_axis on right column
+    for i, ax in enumerate(fig1.axes):
+        if i not in [15, 23, 31, 39]:
             ax.axes.get_xaxis().set_visible(False)
+
+        if not i >= 32:
+            ax.axes.get_yaxis().set_visible(False)
+        else:
+            ax.axes.get_yaxis().tick_right()
 
     #plt.tight_layout()
     st1.set_y(0.95)
@@ -1282,7 +1818,6 @@ def gc_vs_stp_strengths(batch=289, model1=gc_cont_full, model2=stp_model,
     axes[2].set_ylabel('STP Magnitude')
 
     fig.tight_layout()
-
 
 
 ###############################################################################
