@@ -130,8 +130,8 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
     ops = loader.split(".")
 
-    # some defaults
-    options = {'rasterfs': 100, 'chancount': 0}
+    # updates some some defaults
+    options.update({'rasterfs': 100, 'chancount': 0})
     load_pop_file = False
 
     for op in ops:
@@ -179,11 +179,12 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
     else:
         recording_uri = nb.baphy_load_recording_uri(**options)
 
+
     return recording_uri
 
 
 def baphy_load_wrapper(cellid=None, batch=None, loadkey=None,
-                       siteid=None, normalize=False, **context):
+                       siteid=None, normalize=False, options={}, **context):
 
     # check for special pop signal code
     cc=cellid.split("_")
@@ -193,7 +194,7 @@ def baphy_load_wrapper(cellid=None, batch=None, loadkey=None,
         cellid=cc[0]
 
     recording_uri = generate_recording_uri(cellid=cellid, batch=batch,
-                                           loadkey=loadkey, siteid=None)
+                                           loadkey=loadkey, siteid=None, **options)
 
     context = {'recording_uri_list': [recording_uri]}
 
