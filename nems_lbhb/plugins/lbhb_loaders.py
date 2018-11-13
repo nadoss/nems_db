@@ -27,6 +27,16 @@ def ozgf(loadkey, cellid=None, batch=None):
     return xfspec
 
 
+def parm(loadkey, cellid=None, batch=None):
+    """
+    gammatone filter
+       extra parameters handled by loadkey parser in baphy_load_wrapper
+    """
+    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
+              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
+    return xfspec
+
+
 def ns(loadkey, cellid=None, batch=None):
 
     xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',

@@ -170,6 +170,32 @@ def mod(loadkey):
     return xfspec
 
 
+def pca(loadkey):
+    """
+    computer pca (or some other state-space) on response
+    """
+
+    ops = loadkey.split(".")
+    pc_source = "psth"
+
+    for op in ops:
+        if op == "psth":
+            pc_source = "psth"
+        elif op == "full":
+            pc_source = "full"
+        elif op == "noise":
+            pc_source = "noise"
+
+    if op == 'r':
+        sig = 'resp'
+    elif op == 'p':
+        sig = 'pred'
+
+    xfspec = [['nems.preprocessing.resp_to_pc',
+               {'pc_source': pc_source}]]
+    return xfspec
+
+
 def contrast(loadkey):
     ops = loadkey.split('.')[1:]
     kwargs = {}

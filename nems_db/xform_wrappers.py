@@ -185,11 +185,24 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 def baphy_load_wrapper(cellid=None, batch=None, loadkey=None,
                        siteid=None, normalize=False, **context):
 
+    # check for special pop signal code
+    cc=cellid.split("_")
+    pc_idx = None
+    if (len(cc) > 1) and (cc[1][0]=="P"):
+        pc_idx=[int(cc[1][1:])]
+        cellid=cc[0]
+
     recording_uri = generate_recording_uri(cellid=cellid, batch=batch,
                                            loadkey=loadkey, siteid=None)
+
+    context = {'recording_uri_list': [recording_uri]}
+
+    if pc_idx is not None:
+        context['pc_idx'] = pc_idx
+
     print('cellid: {}, recording_uri: {}'.format(cellid, recording_uri))
 
-    return {'recording_uri_list': [recording_uri]}
+    return context
 
 
 def fit_model_xforms_baphy(cellid, batch, modelname,
