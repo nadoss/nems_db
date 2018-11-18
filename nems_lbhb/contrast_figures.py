@@ -163,6 +163,24 @@ def run_all(model1=gc_cont_full, model2=stp_model, model3=ln_model,
                                model4=model4, cellid=cellid)
 
 
+def example_cells(model1=gc_cont_full, model2=stp_model, model3=ln_model,
+                  model4=gc_stp):
+    example_cells = ['bbl104h-33-1', 'BRT026c-16-2', 'TAR009d-22-1',
+                     'TAR010c-13-1', 'TAR010c-20-1', 'TAR010c-58-2',
+                     'TAR017b-04-1', 'TAR017b-22-1', 'gus018b-a2',
+                     'gus019c-a2', 'TAR009d-15-1']
+    save_directory = ("/auto/users/jacob/notes/gc_figures/matplot_figs/"
+                      "example_cells/run2/")
+
+    for c in example_cells:
+        f = contrast_vs_stp_comparison(cellid=c, model1=model1, model2=model2,
+                                       model3=model3, model4=model4)
+        f.savefig(save_directory + c + '.pdf')
+        f.savefig(save_directory + c + '.png')
+
+        plt.close('all')
+
+
 # Scatter comparisons of overall model performance (similar to web ui)
 # For:
 # LN versus GC
@@ -192,7 +210,7 @@ def performance_scatters(model1=gc_cont_full, model2=stp_model, model3=ln_model,
         gc_stp_test = df_r[model4]
         gc_stp_se = df_e[model4]
 
-        # Also remove is performance not significant at all
+        # Also remove if performance not significant at all
         good_cells = ((gc_test > gc_se*2) & (stp_test > stp_se*2) &
                      (ln_test > ln_se*2) & (gc_stp_test > gc_stp_se*2))
 
@@ -204,6 +222,8 @@ def performance_scatters(model1=gc_cont_full, model2=stp_model, model3=ln_model,
         keep = good_cells & ~bad_cells
 
         cellids = df_r[keep].index.values.tolist()
+        under_chance = df_r[~good_cells].index.values.tolist()
+        less_LN = df_r[bad_cells].index.values.tolist()
 
     if ratio_filter:
         # Ex: for threshold = 2.5
@@ -218,11 +238,29 @@ def performance_scatters(model1=gc_cont_full, model2=stp_model, model3=ln_model,
         # WARNING: Will override se and ratio filters even if they are set
         cellids = manual_cellids
 
+    if not se_filter:
+        under_chance = np.array([True]*len(df_r[model1]))
+        less_LN = copy.deepcopy(under_chance)
+
     n_cells = len(cellids)
+    n_under_chance = len(under_chance) if under_chance != cellids else 0
+    n_less_LN = len(less_LN) if less_LN != cellids else 0
+
     gc_test = df_r[model1][cellids]
+    gc_test_under_chance = df_r[model1][under_chance]
+    gc_test_less_LN = df_r[model1][less_LN]
+
     stp_test = df_r[model2][cellids]
+    stp_test_under_chance = df_r[model2][under_chance]
+    stp_test_less_LN = df_r[model2][less_LN]
+
     ln_test = df_r[model3][cellids]
+    ln_test_under_chance = df_r[model3][under_chance]
+    ln_test_less_LN = df_r[model3][less_LN]
+
     gc_stp_test = df_r[model4][cellids]
+    gc_stp_test_under_chance = df_r[model4][under_chance]
+    gc_stp_test_less_LN = df_r[model4][less_LN]
 
     fig, axes = plt.subplots(2, 3)
 
@@ -230,14 +268,22 @@ def performance_scatters(model1=gc_cont_full, model2=stp_model, model3=ln_model,
     ax = axes[0][0]
     ax.scatter(gc_test, ln_test, c='black', s=1)
     ax.plot(ax.get_xlim(), ax.get_ylim(), 'k--', linewidth=0.5)
+    ax.scatter(gc_test_under_chance, ln_test_under_chance, c='red', s=1)
+    ax.scatter(gc_test_less_LN, ln_test_less_LN, c='blue', s=1)
     ax.set_title('GC vs LN')
     ax.set_xlabel('GC')
     ax.set_ylabel('LN')
     ax.text(0.90, 0.00, 'n = %d' % n_cells, ha='right', va='bottom')
+    ax.text(0.90, 0.10, 'uc = %d' % n_under_chance, ha='right', va='bottom',
+            color='red')
+    ax.text(0.90, 0.20, '<ln = %d' % n_less_LN, ha='right', va='bottom',
+            color='blue')
 
     ax = axes[0][1]
     ax.scatter(stp_test, ln_test, c='black', s=1)
     ax.plot(ax.get_xlim(), ax.get_ylim(), 'k--', linewidth=0.5)
+    ax.scatter(stp_test_under_chance, ln_test_under_chance, c='red', s=1)
+    ax.scatter(stp_test_less_LN, ln_test_less_LN, c='blue', s=1)
     ax.set_title('STP vs LN')
     ax.set_xlabel('STP')
     ax.set_ylabel('LN')
@@ -245,6 +291,8 @@ def performance_scatters(model1=gc_cont_full, model2=stp_model, model3=ln_model,
     ax = axes[0][2]
     ax.scatter(gc_stp_test, ln_test, c='black', s=1)
     ax.plot(ax.get_xlim(), ax.get_ylim(), 'k--', linewidth=0.5)
+    ax.scatter(gc_stp_test_under_chance, ln_test_under_chance, c='red', s=1)
+    ax.scatter(gc_stp_test_less_LN, ln_test_less_LN, c='blue', s=1)
     ax.set_title('GC + STP vs LN')
     ax.set_xlabel('GC + STP')
     ax.set_ylabel('LN')
@@ -253,6 +301,8 @@ def performance_scatters(model1=gc_cont_full, model2=stp_model, model3=ln_model,
     ax = axes[1][0]
     ax.scatter(gc_test, stp_test, c='black', s=1)
     ax.plot(ax.get_xlim(), ax.get_ylim(), 'k--', linewidth=0.5)
+    ax.scatter(gc_test_under_chance, stp_test_under_chance, c='red', s=1)
+    ax.scatter(gc_test_less_LN, stp_test_less_LN, c='blue', s=1)
     ax.set_title('GC vs STP')
     ax.set_xlabel('GC')
     ax.set_ylabel('STP')
@@ -260,6 +310,8 @@ def performance_scatters(model1=gc_cont_full, model2=stp_model, model3=ln_model,
     ax = axes[1][1]
     ax.scatter(gc_test, gc_stp_test, c='black', s=1)
     ax.plot(ax.get_xlim(), ax.get_ylim(), 'k--', linewidth=0.5)
+    ax.scatter(gc_test_under_chance, gc_stp_test_under_chance, c='red', s=1)
+    ax.scatter(gc_test_less_LN, gc_stp_test_less_LN, c='blue', s=1)
     ax.set_title('GC vs GC + STP')
     ax.set_xlabel('GC')
     ax.set_ylabel('GC + STP')
@@ -267,6 +319,8 @@ def performance_scatters(model1=gc_cont_full, model2=stp_model, model3=ln_model,
     ax = axes[1][2]
     ax.scatter(stp_test, gc_stp_test, c='black', s=1)
     ax.plot(ax.get_xlim(), ax.get_ylim(), 'k--', linewidth=0.5)
+    ax.scatter(stp_test_under_chance, gc_stp_test_under_chance, c='red', s=1)
+    ax.scatter(stp_test_less_LN, gc_stp_test_less_LN, c='blue', s=1)
     ax.set_title('STP vs GC + STP')
     ax.set_xlabel('STP')
     ax.set_ylabel('GC + STP')
@@ -977,24 +1031,35 @@ def contrast_breakdown(cellid=gc_beat_stp, model1=gc_cont_full,
     max_idx = np.argmax(np.abs(ctpred - ctpred[0]))
     y3 = _logistic_sigmoid(x, b[max_idx], a[max_idx], s[max_idx], k[max_idx])
     ax1.plot(x, y3, color='red')
-    some_contrast = ctpred[np.abs(ctpred - ctpred[0])/np.abs(ctpred[0]) > 0.02]
-    high_contrast = ctpred > np.percentile(some_contrast, 50)
-    high_b = b[high_contrast]
-    high_a = a[high_contrast]
-    high_s = s[high_contrast]
-    high_k = k[high_contrast]
+    some_contrast = np.abs(ctpred - ctpred[0])/np.abs(ctpred[0]) > 0.02
+    threshold = np.percentile(ctpred[some_contrast], 50)
+    # Ctpred goes "up" for higher contrast
+    if ctpred[max_idx] >= ctpred[0]:
+        high_contrast = ctpred >= threshold
+        low_contrast = np.logical_and(ctpred < threshold, some_contrast)
+    # '' goes "down" for higher contrast
+    else:
+        high_contrast = ctpred <= threshold
+        low_contrast = np.logical_and(ctpred > threshold, some_contrast)
+
+    high_b = b[high_contrast]; low_b = b[low_contrast]
+    high_a = a[high_contrast]; low_a = a[low_contrast]
+    high_s = s[high_contrast]; low_s = s[low_contrast]
+    high_k = k[high_contrast]; low_k = k[low_contrast]
     y4 = _logistic_sigmoid(x, np.median(high_b), np.median(high_a),
                            np.median(high_s), np.median(high_k))
+    y5 = _logistic_sigmoid(x, np.median(low_b), np.median(low_a),
+                           np.median(low_s), np.median(low_k))
     ax1.plot(x, y4, color='orange')
-    strength = gc_magnitude(base, base_mod, amplitude,
-                                     amplitude_mod, shift, shift_mod, kappa,
-                                     kappa_mod)
-    if strength > 0:
-        ax1.text(0.95, 0.05, "GC Strength: %.2f" % strength,
-                 ha='right', va='bottom', transform=ax1.transAxes)
-    else:
-        ax1.text(0.05, 0.95, "GC Strength: %.2f" % strength,
-                 ha='left', va='top', transform=ax1.transAxes)
+    ax1.plot(x, y5, color='blue')
+#    strength = gc_magnitude(base, base_mod, amplitude, amplitude_mod, shift,
+#                            shift_mod, kappa, kappa_mod)
+#    if strength > 0:
+#        ax1.text(0.95, 0.05, "GC Strength: %.2f" % strength,
+#                 ha='right', va='bottom', transform=ax1.transAxes)
+#    else:
+#        ax1.text(0.05, 0.95, "GC Strength: %.2f" % strength,
+#                 ha='left', va='top', transform=ax1.transAxes)
 
     ax1.set_ylim(y_min*1.25, y_max*1.25)
     ax1.set_title('Dynamic Nonlinearity')
@@ -1032,15 +1097,26 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     mspec = ctx['modelspecs'][0]
     gc_r_test = mspec[0]['meta']['r_test']
     dsig_idx = find_module('dynamic_sigmoid', mspec)
-
     before = ms.evaluate(val, mspec, start=None, stop=dsig_idx)
     pred_before = copy.deepcopy(before['pred']).as_continuous()[0, :].T
-
     after = ms.evaluate(before.copy(), mspec, start=dsig_idx, stop=dsig_idx+1)
     pred_after = after['pred'].as_continuous()[0, :].T
-
     ctpred = after['ctpred'].as_continuous()[0, :]
     resp = after['resp'].as_continuous()[0, :]
+
+    phi = mspec[dsig_idx]['phi']
+    kappa = phi['kappa']
+    shift = phi['shift']
+    kappa_mod = phi['kappa_mod']
+    shift_mod = phi['shift_mod']
+    base = phi['base']
+    amplitude = phi['amplitude']
+    base_mod = phi['base_mod']
+    amplitude_mod = phi['amplitude_mod']
+    k = (kappa + (kappa_mod - kappa)*ctpred).flatten()
+    s = (shift + (shift_mod - shift)*ctpred).flatten()
+    b = (base + (base_mod - base)*ctpred).flatten()
+    a = (amplitude + (amplitude_mod - amplitude)*ctpred).flatten()
 
     xfspec2, ctx2 = load_model_baphy_xform(cellid, batch, model3)
     val2 = copy.deepcopy(ctx2['val'][0])
@@ -1054,17 +1130,31 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     after2 = ms.evaluate(before2.copy(), mspec2, start=nl_idx, stop=nl_idx+1)
     pred_after_LN_only = after2['pred'].as_continuous()[0, :].T
 
+    mspec2 = ctx2['modelspecs'][0]
+    ln_phi = mspec2[nl_idx]['phi']
+    ln_k = ln_phi['kappa']
+    ln_s = ln_phi['shift']
+    ln_b = ln_phi['base']
+    ln_a = ln_phi['amplitude']
+
     xfspec3, ctx3 = load_model_baphy_xform(cellid, batch, model2)
     val3 = copy.deepcopy(ctx3['val'][0])
     mspec3 = ctx3['modelspecs'][0]
     stp_r_test = mspec3[0]['meta']['r_test']
-    logsig_idx = find_module('logistic_sigmoid', mspec2)
-    dexp_idx = find_module('double_exponential', mspec2)
+    logsig_idx = find_module('logistic_sigmoid', mspec3)
+    dexp_idx = find_module('double_exponential', mspec3)
     nl_idx = logsig_idx if logsig_idx is not None else dexp_idx
     before3 = ms.evaluate(val3, mspec3, start=None, stop=nl_idx)
     pred_before_stp = copy.deepcopy(before3['pred']).as_continuous()[0, :].T
     after3 = ms.evaluate(before3.copy(), mspec3, start=nl_idx, stop=nl_idx+1)
     pred_after_stp = after3['pred'].as_continuous()[0, :].T
+
+    mspec3 = ctx3['modelspecs'][0]
+    stp_phi = mspec3[nl_idx]['phi']
+    stp_k = stp_phi['kappa']
+    stp_s = stp_phi['shift']
+    stp_b = stp_phi['base']
+    stp_a = stp_phi['amplitude']
 
     xfspec4, ctx4 = load_model_baphy_xform(cellid, batch, model4)
     val4 = copy.deepcopy(ctx4['val'][0])
@@ -1076,6 +1166,20 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     after4 = ms.evaluate(before4.copy(), mspec4, start=dsig_idx, stop=dsig_idx+1)
     pred_after_gc_stp = after4['pred'].as_continuous()[0, :].T
     gc_stp_ctpred = after4['ctpred'].as_continuous()[0, :]
+
+    gs_phi = mspec4[dsig_idx]['phi']
+    gs_kappa = gs_phi['kappa']
+    gs_shift = gs_phi['shift']
+    gs_kappa_mod = gs_phi['kappa_mod']
+    gs_shift_mod = gs_phi['shift_mod']
+    gs_base = gs_phi['base']
+    gs_amplitude = gs_phi['amplitude']
+    gs_base_mod = gs_phi['base_mod']
+    gs_amplitude_mod = gs_phi['amplitude_mod']
+    gs_k = (kappa + (kappa_mod - kappa)*gc_stp_ctpred).flatten()
+    gs_s = (shift + (shift_mod - shift)*gc_stp_ctpred).flatten()
+    gs_b = (base + (base_mod - base)*gc_stp_ctpred).flatten()
+    gs_a = (amplitude + (amplitude_mod - amplitude)*gc_stp_ctpred).flatten()
 
     # Re-align data w/o any NaN predictions and convert to real-time
     ff = np.isfinite(pred_before) & np.isfinite(pred_before_LN) \
@@ -1094,11 +1198,20 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     gc_stp_ctpred = gc_stp_ctpred[ff]
     resp = resp[ff]
 
+    k = k[ff]
+    s = s[ff]
+    b = b[ff]
+    a = a[ff]
+    gs_k = gs_k[ff]
+    gs_s = gs_s[ff]
+    gs_b = gs_b[ff]
+    gs_a = gs_a[ff]
+
     t = np.arange(len(pred_before))/fs
 
-    fig1 = plt.figure(figsize=(6, 12))
+    fig1 = plt.figure(figsize=(10, 10))
     st1 = fig1.suptitle("Cellid: %s\nModelname: %s" % (cellid, model1))
-    gs = gridspec.GridSpec(8, 5)
+    gs = gridspec.GridSpec(10, 5)
 
     # Labels
     ax = plt.subplot(gs[0, 0])
@@ -1108,7 +1221,8 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     plt.text(1, 1, 'STRF', ha='right', va='top', transform=ax.transAxes)
     plt.axis('off')
     ax = plt.subplot(gs[2, 0])
-    plt.text(1, 1, 'Pred Before NL', ha='right', va='top', transform=ax.transAxes)
+    plt.text(1, 1, 'Pred Before NL', ha='right', va='top',
+             transform=ax.transAxes)
     plt.axis('off')
     ax = plt.subplot(gs[3, 0])
     plt.text(1, 1, 'GC STRF', ha='right', va='top', transform=ax.transAxes)
@@ -1116,13 +1230,19 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     ax = plt.subplot(gs[4, 0])
     plt.text(1, 1, 'GC Output', ha='right', va='top', transform=ax.transAxes)
     plt.axis('off')
-    ax = plt.subplot(gs[5, 0])
-    plt.text(1, 1, 'Pred After NL', ha='right', va='top', transform=ax.transAxes)
-    plt.axis('off')
-    ax = plt.subplot(gs[6, 0])
-    plt.text(1, 1, 'Change vs LN', ha='right', va='top', transform=ax.transAxes)
+    ax = plt.subplot(gs[5:7, 0])
+    plt.text(1, 1, 'Nonlinearity', ha='right', va='top',
+             transform=ax.transAxes)
     plt.axis('off')
     ax = plt.subplot(gs[7, 0])
+    plt.text(1, 1, 'Pred After NL', ha='right', va='top',
+             transform=ax.transAxes)
+    plt.axis('off')
+    ax = plt.subplot(gs[8, 0])
+    plt.text(1, 1, 'Change vs LN', ha='right', va='top',
+             transform=ax.transAxes)
+    plt.axis('off')
+    ax = plt.subplot(gs[9, 0])
     plt.text(1, 1, 'Response', ha='right', va='top', transform=ax.transAxes)
     plt.axis('off')
 
@@ -1195,13 +1315,18 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     plt.subplot(gs[4, 1])
     plt.axis('off')
 
-    plt.subplot(gs[5, 1])
-    plt.plot(t, pred_after_LN_only, linewidth=1, color='black')
-
-    plt.subplot(gs[6, 1])
-    plt.axis('off')
+    plt.subplot(gs[5:7, 1])
+    x = np.linspace(-1*ln_s, 3*ln_s, 1000)
+    y = _logistic_sigmoid(x, ln_b, ln_a, ln_s, ln_k)
+    plt.plot(x, y, color='black')
 
     plt.subplot(gs[7, 1])
+    plt.plot(t, pred_after_LN_only, linewidth=1, color='black')
+
+    plt.subplot(gs[8, 1])
+    plt.axis('off')
+
+    plt.subplot(gs[9, 1])
     plt.plot(t, resp, linewidth=1, color='green')
 
 
@@ -1323,14 +1448,75 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     plt.subplot(gs[4, 2])
     plt.plot(t, ctpred, linewidth=1, color='purple')
 
-    plt.subplot(gs[5, 2])
+    ax = plt.subplot(gs[5:7, 2])
+    # Dynamic sigmoid plot
+    y_min = 0
+    y_max = 0
+    x = np.linspace(-1*s[0], 3*s[0], 1000)
+    sample_every = 10
+    alpha = 1.1 - 2/max(2.222222, np.log(sample_every))
+    for i in range(int(len(a)/sample_every)):
+        try:
+            this_b = b[i*sample_every]
+            this_a = a[i*sample_every]
+            this_s = s[i*sample_every]
+            this_k = k[i*sample_every]
+            this_y1 = _logistic_sigmoid(x, this_b, this_a, this_s, this_k)
+            y_min = min(y_min, this_y1.min())
+            y_max = max(y_max, this_y1.max())
+            plt.plot(x, this_y1, color='gray', alpha=alpha)
+        except IndexError:
+            # Will happen on last attempt if array wasn't evenly divisible
+            # by sample_every
+            pass
+
+    y2 = _logistic_sigmoid(x, b[0], a[0], s[0], k[0])
+    # no-stim sigmoid for reference
+    plt.plot(x, y2, color='black')
+    # highest-contrast sigmoid for reference
+    max_idx = np.argmax(np.abs(ctpred - ctpred[0]))
+    y3 = _logistic_sigmoid(x, b[max_idx], a[max_idx], s[max_idx], k[max_idx])
+    plt.plot(x, y3, color='red')
+    some_contrast = np.abs(ctpred - ctpred[0])/np.abs(ctpred[0]) > 0.02
+    threshold = np.percentile(ctpred[some_contrast], 50)
+    # Ctpred goes "up" for higher contrast
+    if ctpred[max_idx] >= ctpred[0]:
+        high_contrast = ctpred >= threshold
+        low_contrast = np.logical_and(ctpred < threshold, some_contrast)
+    # '' goes "down" for higher contrast
+    else:
+        high_contrast = ctpred <= threshold
+        low_contrast = np.logical_and(ctpred > threshold, some_contrast)
+
+    high_b = b[high_contrast]; low_b = b[low_contrast]
+    high_a = a[high_contrast]; low_a = a[low_contrast]
+    high_s = s[high_contrast]; low_s = s[low_contrast]
+    high_k = k[high_contrast]; low_k = k[low_contrast]
+    y4 = _logistic_sigmoid(x, np.median(high_b), np.median(high_a),
+                           np.median(high_s), np.median(high_k))
+    y5 = _logistic_sigmoid(x, np.median(low_b), np.median(low_a),
+                           np.median(low_s), np.median(low_k))
+    plt.plot(x, y4, color='orange')
+    plt.plot(x, y5, color='blue')
+    # Strength metric is still weird, leave out for now.
+#    strength = gc_magnitude(base, base_mod, amplitude, amplitude_mod, shift,
+#                            shift_mod, kappa, kappa_mod)
+#    if strength > 0:
+#        plt.text(0.95, 0.05, "GC Strength: %.2f" % strength,
+#                 ha='right', va='bottom', transform=ax.transAxes)
+#    else:
+#        plt.text(0.05, 0.95, "GC Strength: %.2f" % strength,
+#                 ha='left', va='top', transform=ax.transAxes)
+    # End nonlinearity plot
+
+    plt.subplot(gs[7, 2])
     plt.plot(t, pred_after, linewidth=1, color='black')
 
-    plt.subplot(gs[6, 2])
+    plt.subplot(gs[8, 2])
     change = pred_after - pred_after_LN_only
     plt.plot(t, change, linewidth=1, color='blue')
 
-    plt.subplot(gs[7, 2])
+    plt.subplot(gs[9, 2])
     plt.plot(t, resp, linewidth=1, color='green')
 
 
@@ -1438,14 +1624,19 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     plt.subplot(gs[4, 3])
     plt.axis('off')
 
-    plt.subplot(gs[5, 3])
+    plt.subplot(gs[5:7, 3])
+    x = np.linspace(-1*stp_s, 3*stp_s, 1000)
+    y = _logistic_sigmoid(x, stp_b, stp_a, stp_s, stp_k)
+    plt.plot(x, y, color='black')
+
+    plt.subplot(gs[7, 3])
     plt.plot(t, pred_after_stp, linewidth=1, color='black')
 
-    plt.subplot(gs[6, 3])
+    plt.subplot(gs[8, 3])
     change2 = pred_after_stp - pred_after_LN_only
     plt.plot(t, change2, linewidth=1, color='blue')
 
-    plt.subplot(gs[7, 3])
+    plt.subplot(gs[9, 3])
     plt.plot(t, resp, linewidth=1, color='green')
 
 
@@ -1603,21 +1794,84 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     plt.subplot(gs[4, 4])
     plt.plot(t, gc_stp_ctpred, linewidth=1, color='purple')
 
-    plt.subplot(gs[5, 4])
+    ax = plt.subplot(gs[5:7, 4])
+    # Dynamic sigmoid plot
+    y_min = 0
+    y_max = 0
+    x = np.linspace(-1*gs_s[0], 3*gs_s[0], 1000)
+    sample_every = 10
+    alpha = 1.1 - 2/max(2.222222, np.log(sample_every))
+    for i in range(int(len(a)/sample_every)):
+        try:
+            this_b = gs_b[i*sample_every]
+            this_a = gs_a[i*sample_every]
+            this_s = gs_s[i*sample_every]
+            this_k = gs_k[i*sample_every]
+            this_y1 = _logistic_sigmoid(x, this_b, this_a, this_s, this_k)
+            y_min = min(y_min, this_y1.min())
+            y_max = max(y_max, this_y1.max())
+            plt.plot(x, this_y1, color='gray', alpha=alpha)
+        except IndexError:
+            # Will happen on last attempt if array wasn't evenly divisible
+            # by sample_every
+            pass
+
+    y2 = _logistic_sigmoid(x, gs_b[0], gs_a[0], gs_s[0], gs_k[0])
+    # no-stim sigmoid for reference
+    plt.plot(x, y2, color='black')
+    # highest-contrast sigmoid for reference
+    max_idx = np.argmax(np.abs(gc_stp_ctpred - gc_stp_ctpred[0]))
+    y3 = _logistic_sigmoid(x, gs_b[max_idx], gs_a[max_idx], gs_s[max_idx],
+                           gs_k[max_idx])
+    plt.plot(x, y3, color='red')
+    some_contrast = np.abs(gc_stp_ctpred - gc_stp_ctpred[0])\
+                           /np.abs(gc_stp_ctpred[0]) > 0.02
+    threshold = np.percentile(gc_stp_ctpred[some_contrast], 50)
+    # Ctpred goes "up" for higher contrast
+    if gc_stp_ctpred[max_idx] >= gc_stp_ctpred[0]:
+        high_contrast = gc_stp_ctpred >= threshold
+        low_contrast = np.logical_and(gc_stp_ctpred < threshold, some_contrast)
+    # '' goes "down" for higher contrast
+    else:
+        high_contrast = gc_stp_ctpred <= threshold
+        low_contrast = np.logical_and(gc_stp_ctpred > threshold, some_contrast)
+
+    high_b = gs_b[high_contrast]; low_b = gs_b[low_contrast]
+    high_a = gs_a[high_contrast]; low_a = gs_a[low_contrast]
+    high_s = gs_s[high_contrast]; low_s = gs_s[low_contrast]
+    high_k = gs_k[high_contrast]; low_k = gs_k[low_contrast]
+    y4 = _logistic_sigmoid(x, np.median(high_b), np.median(high_a),
+                           np.median(high_s), np.median(high_k))
+    y5 = _logistic_sigmoid(x, np.median(low_b), np.median(low_a),
+                           np.median(low_s), np.median(low_k))
+    plt.plot(x, y4, color='orange')
+    plt.plot(x, y5, color='blue')
+#    strength = gc_magnitude(gs_base, gs_base_mod, gs_amplitude,
+#                            gs_amplitude_mod, gs_shift, gs_shift_mod, gs_kappa,
+#                            gs_kappa_mod)
+#    if strength > 0:
+#        plt.text(0.95, 0.05, "GC Strength: %.2f" % strength,
+#                 ha='right', va='bottom', transform=ax.transAxes)
+#    else:
+#        plt.text(0.05, 0.95, "GC Strength: %.2f" % strength,
+#                 ha='left', va='top', transform=ax.transAxes)
+    # End nonlinearity plot
+
+    plt.subplot(gs[7, 4])
     plt.plot(t, pred_after_gc_stp, linewidth=1, color='black')
 
-    plt.subplot(gs[6, 4])
+    plt.subplot(gs[8, 4])
     change3 = pred_after_gc_stp - pred_after_LN_only
     plt.plot(t, change3, linewidth=1, color='blue')
 
-    plt.subplot(gs[7, 4])
+    plt.subplot(gs[9, 4])
     plt.plot(t, resp, linewidth=1, color='green')
 
 
     # Normalize y axis across rows where appropriate
     ymin = 0
     ymax = 0
-    pred_befores = [10, 18, 26, 34]
+    pred_befores = [11, 20, 29, 38]
     for i, ax in enumerate(fig1.axes):
         if i in pred_befores:
             ybottom, ytop = ax.get_ylim()
@@ -1629,7 +1883,7 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
 
     ymin = 0
     ymax = 0
-    gc_outputs = [12, 36]
+    gc_outputs = [22, 40]
     for i, ax in enumerate(fig1.axes):
         if i in gc_outputs:
             ybottom, ytop = ax.get_ylim()
@@ -1641,9 +1895,21 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
 
     ymin = 0
     ymax = 0
-    pred_afters = [13, 21, 29, 37]
-    pred_diffs = [14, 22, 30, 38]
-    resp = [15, 23, 31, 39]
+    nonlinearities = [14, 23, 32, 41]
+    for i, ax in enumerate(fig1.axes):
+        if i in nonlinearities:
+            ybottom, ytop = ax.get_ylim()
+            ymin = min(ymin, ybottom)
+            ymax = max(ymax, ytop)
+    for i, ax in enumerate(fig1.axes):
+        if i in nonlinearities:
+            ax.set_ylim(ymin, ymax)
+
+    ymin = 0
+    ymax = 0
+    pred_afters = [15, 24, 33, 42]
+    pred_diffs = [16, 25, 34, 43]
+    resp = [17, 26, 35, 44]
     for i, ax in enumerate(fig1.axes):
         if i in pred_afters + pred_diffs + resp:
             ybottom, ytop = ax.get_ylim()
@@ -1656,10 +1922,10 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     # Only show x_axis on bottom row
     # Only show y_axis on right column
     for i, ax in enumerate(fig1.axes):
-        if i not in [15, 23, 31, 39]:
+        if i not in resp:
             ax.axes.get_xaxis().set_visible(False)
 
-        if not i >= 32:
+        if not i > resp[-2]:
             ax.axes.get_yaxis().set_visible(False)
         else:
             ax.axes.get_yaxis().tick_right()
@@ -1669,6 +1935,7 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     fig1.subplots_adjust(top=0.85)
     # End pred comparison
 
+    return fig1
 
 def test_DRC_with_contrast(ms=200, normalize=True, fs=100, bands=1,
                            percentile=50, n_segments=12):
