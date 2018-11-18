@@ -87,6 +87,8 @@ def pop_selector(recording_uri_list, batch=None, cellid=None,
             d = np.abs(out_perf-this_perf[i])
             w = np.argmin(d)
             alt_cellid.append(out_cellid[w])
+            out_perf[w]=100 # prevent cell from getting picked again
+        print(alt_cellid)
 
         rec['resp'] = rec['resp'].extract_channels(alt_cellid)
         rec.meta['cellid'] = cellid

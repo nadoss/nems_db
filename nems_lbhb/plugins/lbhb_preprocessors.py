@@ -177,7 +177,9 @@ def pca(loadkey):
 
     ops = loadkey.split(".")
     pc_source = "psth"
-
+    overwrite_resp = True
+    pc_count=None
+    pc_idx=None
     for op in ops:
         if op == "psth":
             pc_source = "psth"
@@ -185,14 +187,20 @@ def pca(loadkey):
             pc_source = "full"
         elif op == "noise":
             pc_source = "noise"
+        elif op == "no":
+            overwrite_resp = False
+        elif op.startswith("cc"):
+            pc_count=int(op[2:])
+            pc_idx=list(range(pc_count))
+    if pc_idx is not None:
+        xfspec = [['nems.preprocessing.resp_to_pc',
+                   {'pc_source': pc_source, 'overwrite_resp': overwrite_resp,
+                    'pc_count': pc_count, 'pc_idx': pc_idx}]]
+    else:
+        xfspec = [['nems.preprocessing.resp_to_pc',
+                   {'pc_source': pc_source, 'overwrite_resp': overwrite_resp,
+                    'pc_count': pc_count}]]
 
-    if op == 'r':
-        sig = 'resp'
-    elif op == 'p':
-        sig = 'pred'
-
-    xfspec = [['nems.preprocessing.resp_to_pc',
-               {'pc_source': pc_source}]]
     return xfspec
 
 

@@ -24,8 +24,63 @@ import nems.metrics.api
 import nems.modelspec as ms
 from nems.utils import find_module
 
+from nems import get_setting
+from nems.registry import KeywordRegistry
+from nems.plugins import default_keywords
+from nems.plugins import default_loaders
+from nems.plugins import default_initializers
+from nems.plugins import default_fitters
+
 import logging
 log = logging.getLogger(__name__)
+
+
+def init_pop_pca(rec, modelspec):
+    # preserve input modelspec
+    modelspec = copy.deepcopy(modelspec)
+
+    bank_mod=find_module('filter_bank', modelspec, find_all_matches=True)
+    wc_mod=find_module('weight_channels', modelspec, find_all_matches=True)
+    ifir=bank_mod[0]
+    iwc=wc_mod[0]
+    chan_count=modelspec[bank_mod[0]]['fn_kwargs']['bank_count']
+    chan_per_bank = int(modelspec[wc_mod[0]]['prior']['mean'][1]['mean'].shape[0]/chan_count)
+    rec = rec.copy()
+    tmodelspec = copy.deepcopy(modelspec)
+
+    kw=[m['id'] for m in modelspec[:wc_mod[0]]]
+    wc = modelspec[iwc]['id'].split(".")
+    wcs = wc[1].split("x")
+    wcs[1]=str(chan_per_bank)
+    wc[1]="x".join(wcs)
+    wc=".".join(wc)
+    fir = modelspec[ifir]['id'].split("x")
+    fir="x".join(fir[:-1])
+    kw.append(wc)
+    kw.append(fir)
+    kw.append("lvl.1")
+    keywordstring="-".join(kw)
+    keyword_lib = KeywordRegistry()
+    keyword_lib.register_module(default_keywords)
+    keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
+
+    for pc_idx in range(chan_count):
+        rec['resp'] = rec['pca'].extract_channels([rec['pca'].chans[pc_idx]])
+
+        tmodelspec = init.from_keywords(keyword_string=keywordstring,
+                                       meta=None, registry=keyword_lib, rec=rec)
+        tolerance=10e-4
+        tmodelspec = init.prefit_LN(rec, tmodelspec,
+                    tolerance=tolerance, max_iter=700)
+        if pc_idx==0:
+            for tm,m in zip(tmodelspec[:(ifir+1)],modelspec[:(ifir+1)]):
+                m['phi']=tm['phi'].copy()
+        else:
+            for k,v in tmodelspec[iwc]['phi'].items():
+                modelspec[iwc]['phi'][k]=np.concatenate((modelspec[iwc]['phi'][k],v))
+            for k,v in tmodelspec[ifir]['phi'].items():
+                modelspec[ifir]['phi'][k]=np.concatenate((modelspec[ifir]['phi'][k],v))
+    return modelspec
 
 
 def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
@@ -248,6 +303,8 @@ def fit_population_iteratively(
 
     if tolerances is None:
         tolerances = [1e-6]
+
+    modelspec = init_pop_pca(data, modelspec)
 
     # apply mask to remove invalid portions of signals and allow fit to
     # only evaluate the model on the valid portion of the signals
