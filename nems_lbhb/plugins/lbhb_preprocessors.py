@@ -192,6 +192,9 @@ def pca(loadkey):
         elif op.startswith("cc"):
             pc_count=int(op[2:])
             pc_idx=list(range(pc_count))
+        elif op.startswith("n"):
+            pc_count=int(op[1:])+1
+            pc_idx=[int(op[1:])]
     if pc_idx is not None:
         xfspec = [['nems.preprocessing.resp_to_pc',
                    {'pc_source': pc_source, 'overwrite_resp': overwrite_resp,

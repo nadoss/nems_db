@@ -12,7 +12,8 @@ import nems_db.xform_wrappers as nw
 import nems.plots.api as nplt
 import nems.xforms as xforms
 import nems.epoch as ep
-from nems.utils import find_module
+import nems.modelspec as ms
+from nems.utils import (find_module)
 import pandas as pd
 import scipy.ndimage.filters as sf
 import nems_db.db as nd
@@ -30,14 +31,14 @@ params = {'legend.fontsize': 6,
 plt.rcParams.update(params)
 
 
-def ax_remove_box(ax=None):
-    """
-    remove right and top lines from plot border
-    """
-    if ax is None:
-        ax = plt.gca()
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
+#def ax_remove_box(ax=None):
+#    """
+#    remove right and top lines from plot border
+#    """
+#    if ax is None:
+#        ax = plt.gca()
+#    ax.spines['right'].set_visible(False)
+#    ax.spines['top'].set_visible(False)
 
 
 def get_model_preds(cellid, batch, modelname):
@@ -104,20 +105,20 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
     nplt.strf_timeseries(ms1, ax=ax, clim=None, show_factorized=True,
                          title="{}/{} rtest={:.3f}".format(cellid,modelname1,r_test1),
                          fs=resp.fs)
-    ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     ax = plt.subplot(5, 4, 3)
     nplt.strf_timeseries(ms2, ax=ax, clim=None, show_factorized=True,
                       title="{}/{} rtest={:.3f}".format(cellid,modelname2,r_test2),
                       fs=resp.fs)
-    ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     if find_module('stp', ms1):
         ax = plt.subplot(5, 4, 5)
         nplt.before_and_after_stp(ms1, sig_name='pred', ax=ax, title='',
                                   channels=0, xlabel='Time (s)', ylabel='STP',
                                   fs=resp.fs)
-        ax_remove_box(ax)
+        nplt.ax_remove_box(ax)
 
     nlidx = find_module('double_exponential', ms1, find_all_matches=True)
     if len(nlidx):
@@ -128,7 +129,7 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
                 )
         ax = plt.subplot(5, 4, 6)
         fn1(ax=ax)
-        ax_remove_box(ax)
+        nplt.ax_remove_box(ax)
 
     # model 2 modules
     wcidx = find_module('weight_channels', ms2)
@@ -139,14 +140,14 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
         plt.xlabel('in')
         plt.ylabel('out')
         plt.colorbar()
-        ax_remove_box(ax)
+        nplt.ax_remove_box(ax)
 
     if find_module('stp', ms2):
         ax = plt.subplot(5, 4, 7)
         nplt.before_and_after_stp(ms2, sig_name='pred', ax=ax, title='',
                                   channels=0, xlabel='Time (s)', ylabel='STP',
                                   fs=resp.fs)
-        ax_remove_box(ax)
+        nplt.ax_remove_box(ax)
 
     nlidx = find_module('double_exponential', ms2, find_all_matches=True)
     if len(nlidx):
@@ -157,7 +158,7 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
                 )
         ax = plt.subplot(5, 4, 8)
         fn1(ax=ax)
-        ax_remove_box(ax)
+        nplt.ax_remove_box(ax)
 
 
     for i, stim_i in enumerate(stim_ids):
@@ -176,7 +177,7 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
                     title="{}/{} rfit={:.3f}/{:.3f}".format(
                             cellid, stim_epochs[stim_i], r_test1, r_test2))
         ax.get_xaxis().set_visible(False)
-        ax_remove_box(ax)
+        nplt.ax_remove_box(ax)
 
         ax = plt.subplot(5, 2, 7+i)
         _r = r[stim_i, :, 0, :]
@@ -189,7 +190,7 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
                 [np.nanmean(_r, axis=0), p1[stim_i, 0, 0, :],
                  p2[stim_i, 0, 0, :]],
                 fs=resp.fs, time_offset=PreStimSilence, ax=ax)
-        ax_remove_box(ax)
+        nplt.ax_remove_box(ax)
 
     plt.tight_layout()
     return fh, ctx2
@@ -263,7 +264,7 @@ def quick_pred_comp(cellid, batch, modelname1, modelname2, ax=None):
                 [s[stim_i, 0, 0, :], s[stim_i, 0, 1, :]],
                 fs=fs, time_offset=PreStimSilence, ax=ax0,
                 title="{}".format(stim_epochs[stim_i]))
-        ax_remove_box(ax0)
+        nplt.ax_remove_box(ax0)
 
     lg = ("{:.3f}".format(r_test2), "{:.3f}".format(r_test1), 'act')
 
@@ -281,7 +282,7 @@ def quick_pred_comp(cellid, batch, modelname1, modelname2, ax=None):
             fs=int(fs/ds), time_offset=PreStimSilence, ax=ax)
     yl=ax.get_ylim()
     plt.ylim([yl[0], yl[1]*2])
-    ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     return ax
 
@@ -545,7 +546,7 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
         chans = (np.sort([int(x) for x in electrodes])-1) + abs(max_shift)
 
         chans = np.add(chans,s)
-
+        
         h_mat_full[i,chans] = h[i]
 
     # remove outliers
@@ -901,3 +902,66 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
     plt.bar(np.arange(0.5, nBins, 1), w_rsBinned, width=0.4, yerr=w_rsError,facecolor='Black')
     plt.xticks(np.arange(0, nBins,1), xlabels, rotation=45)
     plt.legend(['fast-spiking', 'regular-spiking'])
+
+
+def LN_plot(ctx, ax1=None, ax2=None, ax3=None, ax4=None):
+    """
+    compact summary plot for model fit to a single dim of a population subspace
+    
+    in 4 panels, show: pc load, timecourse plus STRF + static NL
+    (skip the first two if their respective ax handles are None)
+    
+    """
+    fs = ctx['rec']['resp'].fs
+    pc_idx = ctx['rec'].meta['pc_idx']
+    
+    rec = ctx['val'][0].apply_mask()
+    modelspec = ctx['modelspecs'][0]
+    rec = ms.evaluate(rec, modelspec)
+    cellid = modelspec[0]['meta']['cellid']
+    
+    if (ax1 is not None) and (pc_idx is not None):
+        cellids=ctx['rec'].meta['cellid']
+        h=ctx['rec'].meta['pc_weights'][pc_idx[0],:]
+        max_w=np.max(np.abs(h))*0.75
+        plt.sca(ax1)
+        plot_weights_64D(h,cellids,vmin=-max_w,vmax=max_w)
+        plt.axis('off')
+        
+    if ax2 is not None:
+        r = ctx['rec']['resp'].extract_epoch('REFERENCE')
+    
+        mr=np.mean(r,axis=0)
+        spont=np.mean(mr[:,:100],axis=1,keepdims=True)
+        mr-=spont
+        mr /= np.max(np.abs(mr),axis=1,keepdims=True)
+        tt=np.arange(mr.shape[1])/fs
+        ax2.plot(tt, mr[0,:], 'k')
+        # time bar
+        ax2.plot(np.array([0,1]),np.array([1,1]),'k',
+                 lw=3)
+        nplt.ax_remove_box(ax2)
+        plt.title(cellid)
+        
+    title="r_fit={:.3f} test={:.3f}".format(
+            modelspec[0]['meta']['r_fit'][0],
+            modelspec[0]['meta']['r_test'][0])
+    
+    nplt.strf_heatmap(modelspec, title=title, interpolation=(2,3), 
+                      show_factorized=False, fs=fs, ax=ax3)
+    nplt.ax_remove_box(ax3)
+
+    nl_mod_idx = find_module('nonlinearity', modelspec)
+    nplt.nl_scatter(rec, modelspec, nl_mod_idx, sig_name='pred',
+                    compare='resp', smoothing_bins=50,
+                    xlabel1=None, ylabel1=None, ax=ax4)
+
+    sg_mod_idx = find_module('state', modelspec)
+    if sg_mod_idx is not None:
+        g=["{:.2f}".format(g) for g in list(modelspec[sg_mod_idx]['phi']['g'][0,:])]
+        ts = "SG: " + " ".join(g)
+        plt.title(ts)
+    
+    nplt.ax_remove_box(ax4)
+    
+    plt.tight_layout()
