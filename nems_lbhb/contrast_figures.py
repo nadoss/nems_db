@@ -5,6 +5,9 @@ import pandas as pd
 import scipy.stats as st
 import matplotlib
 import matplotlib.pyplot as plt
+params = {'pdf.fonttype': 42,
+         'ps.fonttype': 42}
+plt.rcParams.update(params)
 import matplotlib.gridspec as gridspec
 import matplotlib.patches as mpatch
 
@@ -18,7 +21,7 @@ from nems_db.params import fitted_params_per_batch
 from nems_lbhb.contrast_helpers import (make_contrast_signal, rec_from_DRC,
                                         gc_magnitude)
 from nems.metrics.stp import stp_magnitude
-from nems.modules.nonlinearity import _logistic_sigmoid
+from nems.modules.nonlinearity import _logistic_sigmoid, _double_exponential
 from nems.plots.heatmap import _get_wc_coefficients, _get_fir_coefficients
 
 
@@ -47,9 +50,9 @@ gc_stp = ("ozgf.fs100.ch18-ld-contrast.ms70.cont.n.b3-sev_"
           "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l_"
           "init.c-basic")
 
-gc_stp_dexp = ("ozgf.fs100.ch18-ld-contrast.ms70.cont.n.b3-sev_"
+gc_stp_dexp = ("ozgf.fs100.ch18-ld-contrast.ms70.cont.n-sev_"
                "dlog.f-wc.18x2.g-stp.2-fir.2x15-lvl.1-"
-               "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.l_"
+               "ctwc.18x1.g-ctfir.1x15-ctlvl.1-dsig.d_"
                "init.c-basic")
 
 gc_cont_merged = ('ozgf.fs100.ch18-ld-contrast.ms100.cont.n-sev_'
@@ -71,6 +74,9 @@ ln_model = ("ozgf.fs100.ch18-ld-sev_"
 ln_dexp = ("ozgf.fs100.ch18-ld-sev_"
            "dlog.f-wc.18x2.g-fir.2x15-lvl.1-dexp.1_"
            "init-basic")
+
+dexp_kwargs = {'model1': gc_cont_dexp, 'model2': stp_dexp, 'model3': ln_dexp,
+               'model4': gc_stp_dexp}
 
 batch = 289
 
@@ -130,7 +136,6 @@ gc_beat_stp = 'TAR009d-28-1'
 #cellid = 'TAR009d-15-1'
 
 
-
 gc_color = '#69657C'
 stp_color = '#394B5E'
 ln_color = '#62838C'
@@ -145,23 +150,35 @@ gc_stp_color = '#215454'
 
 
 def run_all(model1=gc_cont_full, model2=stp_model, model3=ln_model,
-            model4=gc_stp, cellid=gc_beat_stp, se_filter=True, sample_every=5):
-    performance_scatters(model1=model1, model2=model2, model3=model3,
-                         se_filter=se_filter)
-    performance_correlation_scatter(model1=model1, model2=model2, model3=model3,
-                                    se_filter=se_filter)
-    performance_bar(model1=model1, model2=model2, model3=model3, model4=model4,
-                    se_filter=se_filter)
-    significance(model1=model1, model2=model2, model3=model3, model4=model4,
-                 se_filter=se_filter)
+            model4=gc_stp, cellid=gc_beat_stp, se_filter=True, sample_every=5,
+            save=False):
+    save_directory = ("/auto/users/jacob/notes/gc_figures/matplot_figs/"
+                      "dexp_pdfs/")
+    f1 = performance_scatters(model1=model1, model2=model2, model3=model3,
+                              se_filter=se_filter)
+    f2 = performance_correlation_scatter(model1=model1, model2=model2,
+                                         model3=model3, se_filter=se_filter)
+
+    f3 = performance_bar(model1=model1, model2=model2, model3=model3,
+                         model4=model4, se_filter=se_filter)
+    f4 = significance(model1=model1, model2=model2, model3=model3, model4=model4,
+                      se_filter=se_filter)
     #example_pred_overlay()
     #average_r()  # Note: This one is *very* slow right now, hour or more
     #contrast_examples()
-    contrast_breakdown(model1=model1, model2=model2, model3=model3,
-                       cellid=cellid, sample_every=sample_every)
-    contrast_vs_stp_comparison(modelname=model1, model2=model2, model3=model3,
-                               model4=model4, cellid=cellid)
+    f5 = contrast_breakdown(model1=model1, model2=model2, model3=model3,
+                            cellid=cellid, sample_every=sample_every)
+    f6 = contrast_vs_stp_comparison(model1=model1, model2=model2, model3=model3,
+                                    model4=model4, cellid=cellid)
 
+    if save:
+        f1.savefig(save_directory + 'performance_scatters' + '.pdf')
+        f2.savefig(save_directory + 'correlation_scatter' + '.pdf')
+        f3.savefig(save_directory + 'summary_bar' + '.pdf')
+        f4.savefig(save_directory + 'significance' + '.pdf')
+        f5.savefig(save_directory + 'gc_schematic' + '.pdf')
+        f6.savefig(save_directory + 'gc_vs_stp_comparison' + '.pdf')
+        plt.close('all')
 
 def example_cells(model1=gc_cont_full, model2=stp_model, model3=ln_model,
                   model4=gc_stp):
@@ -191,7 +208,7 @@ def performance_scatters(model1=gc_cont_full, model2=stp_model, model3=ln_model,
                          threshold=2.5, manual_cellids=None):
 
     df_r = nd.batch_comp(batch, [model1, model2, model3, model4],
-                         stat='r_test')
+                         stat='r_ceiling')
     df_e = nd.batch_comp(batch, [model1, model2, model3, model4],
                          stat='se_test')
     # Remove any cellids that have NaN for 1 or more models
@@ -327,13 +344,15 @@ def performance_scatters(model1=gc_cont_full, model2=stp_model, model3=ln_model,
 
     plt.tight_layout()
 
+    return fig
+
 
 def performance_correlation_scatter(model1=gc_cont_full, model2=stp_model,
                                     model3=ln_model, se_filter=False,
                                     ratio_filter=False, threshold=2.5,
                                     manual_cellids=None):
 
-    df_r = nd.batch_comp(batch, [model1, model2, model3], stat='r_test')
+    df_r = nd.batch_comp(batch, [model1, model2, model3], stat='r_ceiling')
     df_e = nd.batch_comp(batch, [model1, model2, model3], stat='se_test')
     # Remove any cellids that have NaN for 1 or more models
     df_r.dropna(axis=0, how='any', inplace=True)
@@ -351,14 +370,13 @@ def performance_correlation_scatter(model1=gc_cont_full, model2=stp_model,
 
         # Also remove is performance not significant at all
         good_cells = ((gc_test > gc_se*2) & (stp_test > stp_se*2) &
-                     (ln_test > ln_se*2))
+                      (ln_test > ln_se*2))
 
         # Remove if performance significantly worse than LN
         bad_cells = ((gc_test+gc_se < ln_test-ln_se) |
                      (stp_test+stp_se < ln_test-ln_se))
 
         keep = good_cells & ~bad_cells
-
         cellids = df_r[keep].index.values.tolist()
 
     if ratio_filter:
@@ -409,11 +427,13 @@ def performance_correlation_scatter(model1=gc_cont_full, model2=stp_model,
     plt.xlim(xmin=(-1)*abs_max, xmax=abs_max)
     adjustFigAspect(fig, aspect=1)
 
+    return fig
+
 
 def equivalence_histogram(batch=289, model1=gc_cont_full, model2=stp_model,
                           model3=ln_model, se_filter=False, test_limit=None):
 
-    df_r = nd.batch_comp(batch, [model1, model2, model3], stat='r_test')
+    df_r = nd.batch_comp(batch, [model1, model2, model3], stat='r_ceiling')
     df_e = nd.batch_comp(batch, [model1, model2, model3], stat='se_test')
     # Remove any cellids that have NaN for 1 or more models
     df_r.dropna(axis=0, how='any', inplace=True)
@@ -492,13 +512,15 @@ def equivalence_histogram(batch=289, model1=gc_cont_full, model2=stp_model,
     plt.xlabel('CC, GC-LN vs STP-LN')
     plt.title('Equivalence of Change in Prediction Relative to LN Model')
 
+    return fig
+
 
 def performance_bar(model1=gc_cont_full, model2=stp_model, model3=ln_model,
                     model4=gc_stp,  se_filter=False, ratio_filter=False,
                     threshold=2.5, manual_cellids=None):
 
     df_r = nd.batch_comp(batch, [model1, model2, model3, model4],
-                         stat='r_test')
+                         stat='r_ceiling')
     df_e = nd.batch_comp(batch, [model1, model2, model3, model4],
                          stat='se_test')
     # Remove any cellids that have NaN for 1 or more models
@@ -553,19 +575,19 @@ def performance_bar(model1=gc_cont_full, model2=stp_model, model3=ln_model,
     gc_stp_test = df_r[model4][cellids]
     gc_stp_se = df_e[model4][cellids]
 
-    gc = np.mean(gc_test.values)
-    stp = np.mean(stp_test.values)
-    ln = np.mean(ln_test.values)
-    gc_stp = np.mean(gc_stp_test.values)
+    gc = np.median(gc_test.values)
+    stp = np.median(stp_test.values)
+    ln = np.median(ln_test.values)
+    gc_stp = np.median(gc_stp_test.values)
     largest = max(gc, stp, ln, gc_stp)
 
     # TODO: double check that this is valid, to just take mean of errors
-    gc_sem = np.mean(gc_se.values)
-    stp_sem = np.mean(stp_se.values)
-    ln_sem = np.mean(ln_se.values)
-    gc_stp_sem = np.mean(gc_stp_se.values)
+    gc_sem = np.median(gc_se.values)
+    stp_sem = np.median(stp_se.values)
+    ln_sem = np.median(ln_se.values)
+    gc_stp_sem = np.median(gc_stp_se.values)
 
-    plt.figure()
+    fig = plt.figure()
     plt.bar([1, 2, 3, 4], [gc, stp, ln, gc_stp],
             #color=['purple', 'green', 'gray', 'blue'])
             color=[gc_color, stp_color, ln_color, gc_stp_color])
@@ -578,8 +600,10 @@ def performance_bar(model1=gc_cont_full, model2=stp_model, model3=ln_model,
     plt.text(2, 0.2, "%0.04f" % stp, **common_kwargs)
     plt.text(3, 0.2, "%0.04f" % ln, **common_kwargs)
     plt.text(4, 0.2, "%0.04f" % gc_stp, **common_kwargs)
-    plt.title("Average Performance for GC, STP, LN, and GC + STP models,\n"
+    plt.title("Median Performance for GC, STP, LN, and GC + STP models,\n"
               "n: %d" % n_cells)
+
+    return fig
 
 
 def significance(model1=gc_cont_full, model2=stp_model, model3=ln_model,
@@ -587,7 +611,7 @@ def significance(model1=gc_cont_full, model2=stp_model, model3=ln_model,
                  threshold=2.5, manual_cellids=None):
 
     df_r = nd.batch_comp(batch, [model1, model2, model3, model4],
-                         stat='r_test')
+                         stat='r_ceiling')
     df_e = nd.batch_comp(batch, [model1, model2, model3, model4],
                          stat='se_test')
     # Remove any cellids that have NaN for 1 or more models
@@ -668,7 +692,7 @@ def significance(model1=gc_cont_full, model2=stp_model, model3=ln_model,
     minor_xticks = np.arange(-0.5, len(modelnames), 1)
     minor_yticks = np.arange(-0.5, len(modelnames), 1)
 
-    plt.figure(figsize=(len(modelnames),len(modelnames)))
+    fig = plt.figure(figsize=(len(modelnames),len(modelnames)))
     ax = plt.gca()
 
     # ripped from stackoverflow. adds text labels to the grid
@@ -740,6 +764,8 @@ def significance(model1=gc_cont_full, model2=stp_model, model3=ln_model,
             )
     plt.tight_layout()
 
+    return fig
+
 
 def contrast_breakdown(cellid=gc_beat_stp, model1=gc_cont_full,
                        model2=stp_model, model3=ln_model, sample_every=5):
@@ -784,6 +810,11 @@ def contrast_breakdown(cellid=gc_beat_stp, model1=gc_cont_full,
     pred_before_LN = copy.deepcopy(before2['pred']).as_continuous()[0, :].T
     after2 = ms.evaluate(before2.copy(), mspec2, start=nl_idx, stop=nl_idx+1)
     pred_after_LN_only = after2['pred'].as_continuous()[0, :].T
+
+    if logsig_idx:
+        nonlin_fn = _logistic_sigmoid
+    else:
+        nonlin_fn = _double_exponential
 
     mspec2 = ctx2['modelspecs'][0]
     ln_phi = mspec2[nl_idx]['phi']
@@ -991,7 +1022,7 @@ def contrast_breakdown(cellid=gc_beat_stp, model1=gc_cont_full,
 
     plt.subplot(gs2[0:6, 2])
     x = np.linspace(-1*ln_s, 3*ln_s, 1000)
-    y = _logistic_sigmoid(x, ln_b, ln_a, ln_s, ln_k)
+    y = nonlin_fn(x, ln_b, ln_a, ln_s, ln_k)
     plt.plot(x, y, color='black')
     plt.title('Static Nonlinearity')
 
@@ -1012,8 +1043,8 @@ def contrast_breakdown(cellid=gc_beat_stp, model1=gc_cont_full,
             this_s = s[i*sample_every]
             this_k = k[i*sample_every]
             this_x = np.linspace(-1*this_s, 3*this_s, 1000)
-            this_y1 = _logistic_sigmoid(x, this_b, this_a, this_s, this_k)
-            this_y2 = _logistic_sigmoid(this_x, this_b, this_a, this_s, this_k)
+            this_y1 = nonlin_fn(x, this_b, this_a, this_s, this_k)
+            this_y2 = nonlin_fn(this_x, this_b, this_a, this_s, this_k)
             y_min = min(y_min, this_y1.min(), this_y2.min())
             y_max = max(y_max, this_y2.max(), this_y2.max())
             color = cmap(color_pred[i*sample_every])
@@ -1024,12 +1055,12 @@ def contrast_breakdown(cellid=gc_beat_stp, model1=gc_cont_full,
             # by sample_every
             pass
 
-    y2 = _logistic_sigmoid(x, b[0], a[0], s[0], k[0])
+    y2 = nonlin_fn(x, b[0], a[0], s[0], k[0])
     # no-stim sigmoid for reference
     ax1.plot(x, y2, color='black')
     # highest-contrast sigmoid for reference
     max_idx = np.argmax(np.abs(ctpred - ctpred[0]))
-    y3 = _logistic_sigmoid(x, b[max_idx], a[max_idx], s[max_idx], k[max_idx])
+    y3 = nonlin_fn(x, b[max_idx], a[max_idx], s[max_idx], k[max_idx])
     ax1.plot(x, y3, color='red')
     some_contrast = np.abs(ctpred - ctpred[0])/np.abs(ctpred[0]) > 0.02
     threshold = np.percentile(ctpred[some_contrast], 50)
@@ -1046,10 +1077,10 @@ def contrast_breakdown(cellid=gc_beat_stp, model1=gc_cont_full,
     high_a = a[high_contrast]; low_a = a[low_contrast]
     high_s = s[high_contrast]; low_s = s[low_contrast]
     high_k = k[high_contrast]; low_k = k[low_contrast]
-    y4 = _logistic_sigmoid(x, np.median(high_b), np.median(high_a),
-                           np.median(high_s), np.median(high_k))
-    y5 = _logistic_sigmoid(x, np.median(low_b), np.median(low_a),
-                           np.median(low_s), np.median(low_k))
+    y4 = nonlin_fn(x, np.median(high_b), np.median(high_a),
+                   np.median(high_s), np.median(high_k))
+    y5 = nonlin_fn(x, np.median(low_b), np.median(low_a),
+                   np.median(low_s), np.median(low_k))
     ax1.plot(x, y4, color='orange')
     ax1.plot(x, y5, color='blue')
 #    strength = gc_magnitude(base, base_mod, amplitude, amplitude_mod, shift,
@@ -1084,7 +1115,7 @@ def contrast_breakdown(cellid=gc_beat_stp, model1=gc_cont_full,
     st2.set_y(0.95)
     fig2.subplots_adjust(top=0.85)
 
-    #return fig2
+    return fig2
 
 
 def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
@@ -1129,6 +1160,11 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     pred_before_LN = copy.deepcopy(before2['pred']).as_continuous()[0, :].T
     after2 = ms.evaluate(before2.copy(), mspec2, start=nl_idx, stop=nl_idx+1)
     pred_after_LN_only = after2['pred'].as_continuous()[0, :].T
+
+    if logsig_idx:
+        nonlin_fn = _logistic_sigmoid
+    else:
+        nonlin_fn = _double_exponential
 
     mspec2 = ctx2['modelspecs'][0]
     ln_phi = mspec2[nl_idx]['phi']
@@ -1317,7 +1353,7 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
 
     plt.subplot(gs[5:7, 1])
     x = np.linspace(-1*ln_s, 3*ln_s, 1000)
-    y = _logistic_sigmoid(x, ln_b, ln_a, ln_s, ln_k)
+    y = nonlin_fn(x, ln_b, ln_a, ln_s, ln_k)
     plt.plot(x, y, color='black')
 
     plt.subplot(gs[7, 1])
@@ -1461,7 +1497,7 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
             this_a = a[i*sample_every]
             this_s = s[i*sample_every]
             this_k = k[i*sample_every]
-            this_y1 = _logistic_sigmoid(x, this_b, this_a, this_s, this_k)
+            this_y1 = nonlin_fn(x, this_b, this_a, this_s, this_k)
             y_min = min(y_min, this_y1.min())
             y_max = max(y_max, this_y1.max())
             plt.plot(x, this_y1, color='gray', alpha=alpha)
@@ -1470,12 +1506,12 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
             # by sample_every
             pass
 
-    y2 = _logistic_sigmoid(x, b[0], a[0], s[0], k[0])
+    y2 = nonlin_fn(x, b[0], a[0], s[0], k[0])
     # no-stim sigmoid for reference
     plt.plot(x, y2, color='black')
     # highest-contrast sigmoid for reference
     max_idx = np.argmax(np.abs(ctpred - ctpred[0]))
-    y3 = _logistic_sigmoid(x, b[max_idx], a[max_idx], s[max_idx], k[max_idx])
+    y3 = nonlin_fn(x, b[max_idx], a[max_idx], s[max_idx], k[max_idx])
     plt.plot(x, y3, color='red')
     some_contrast = np.abs(ctpred - ctpred[0])/np.abs(ctpred[0]) > 0.02
     threshold = np.percentile(ctpred[some_contrast], 50)
@@ -1492,10 +1528,10 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     high_a = a[high_contrast]; low_a = a[low_contrast]
     high_s = s[high_contrast]; low_s = s[low_contrast]
     high_k = k[high_contrast]; low_k = k[low_contrast]
-    y4 = _logistic_sigmoid(x, np.median(high_b), np.median(high_a),
-                           np.median(high_s), np.median(high_k))
-    y5 = _logistic_sigmoid(x, np.median(low_b), np.median(low_a),
-                           np.median(low_s), np.median(low_k))
+    y4 = nonlin_fn(x, np.median(high_b), np.median(high_a),
+                   np.median(high_s), np.median(high_k))
+    y5 = nonlin_fn(x, np.median(low_b), np.median(low_a),
+                   np.median(low_s), np.median(low_k))
     plt.plot(x, y4, color='orange')
     plt.plot(x, y5, color='blue')
     # Strength metric is still weird, leave out for now.
@@ -1626,7 +1662,7 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
 
     plt.subplot(gs[5:7, 3])
     x = np.linspace(-1*stp_s, 3*stp_s, 1000)
-    y = _logistic_sigmoid(x, stp_b, stp_a, stp_s, stp_k)
+    y = nonlin_fn(x, stp_b, stp_a, stp_s, stp_k)
     plt.plot(x, y, color='black')
 
     plt.subplot(gs[7, 3])
@@ -1807,7 +1843,7 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
             this_a = gs_a[i*sample_every]
             this_s = gs_s[i*sample_every]
             this_k = gs_k[i*sample_every]
-            this_y1 = _logistic_sigmoid(x, this_b, this_a, this_s, this_k)
+            this_y1 = nonlin_fn(x, this_b, this_a, this_s, this_k)
             y_min = min(y_min, this_y1.min())
             y_max = max(y_max, this_y1.max())
             plt.plot(x, this_y1, color='gray', alpha=alpha)
@@ -1816,13 +1852,13 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
             # by sample_every
             pass
 
-    y2 = _logistic_sigmoid(x, gs_b[0], gs_a[0], gs_s[0], gs_k[0])
+    y2 = nonlin_fn(x, gs_b[0], gs_a[0], gs_s[0], gs_k[0])
     # no-stim sigmoid for reference
     plt.plot(x, y2, color='black')
     # highest-contrast sigmoid for reference
     max_idx = np.argmax(np.abs(gc_stp_ctpred - gc_stp_ctpred[0]))
-    y3 = _logistic_sigmoid(x, gs_b[max_idx], gs_a[max_idx], gs_s[max_idx],
-                           gs_k[max_idx])
+    y3 = nonlin_fn(x, gs_b[max_idx], gs_a[max_idx], gs_s[max_idx],
+                   gs_k[max_idx])
     plt.plot(x, y3, color='red')
     some_contrast = np.abs(gc_stp_ctpred - gc_stp_ctpred[0])\
                            /np.abs(gc_stp_ctpred[0]) > 0.02
@@ -1840,10 +1876,10 @@ def contrast_vs_stp_comparison(cellid=good_cell, model1=gc_cont_full,
     high_a = gs_a[high_contrast]; low_a = gs_a[low_contrast]
     high_s = gs_s[high_contrast]; low_s = gs_s[low_contrast]
     high_k = gs_k[high_contrast]; low_k = gs_k[low_contrast]
-    y4 = _logistic_sigmoid(x, np.median(high_b), np.median(high_a),
-                           np.median(high_s), np.median(high_k))
-    y5 = _logistic_sigmoid(x, np.median(low_b), np.median(low_a),
-                           np.median(low_s), np.median(low_k))
+    y4 = nonlin_fn(x, np.median(high_b), np.median(high_a),
+                   np.median(high_s), np.median(high_k))
+    y5 = nonlin_fn(x, np.median(low_b), np.median(low_a),
+                   np.median(low_s), np.median(low_k))
     plt.plot(x, y4, color='orange')
     plt.plot(x, y5, color='blue')
 #    strength = gc_magnitude(gs_base, gs_base_mod, gs_amplitude,
@@ -1972,7 +2008,7 @@ def test_DRC_with_contrast(ms=200, normalize=True, fs=100, bands=1,
     plt.imshow(c3, aspect='auto')
 
     plt.tight_layout(h_pad=0.15)
-    #return fig
+    return fig
 
 
 def gc_vs_stp_strengths(batch=289, model1=gc_cont_full, model2=stp_model,
