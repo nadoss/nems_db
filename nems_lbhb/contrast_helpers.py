@@ -29,7 +29,80 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     Creates a new signal whose values represent the degree of variability
     in each channel of the source signal. Each value is based on the
     previous values within a range specified by either <ms> or <bins>.
-    Only supports RasterizedSignal.
+
+    Contrast is calculated as the coefficient of variation within a rolling
+    window, using the formula: standard deviation / mean.
+
+    If more than one spectral band is used in the calculation, the contrast for
+    a number of channels equal to floor(bands/2) at the "top" and "bottom" of
+    the array will be calculated separately. For example, if bands=3, then
+    the contrast of the topmost and bottommost channels will be based on
+    the top 2 and bottom 2 channels, respectively, since the 3rd channel in
+    each case would fall outside the array.
+
+    Similarly, for any number of temporal bins based on ms, the "left" and
+    "right" most "columns" of the array will be replaced with zeros. For
+    LBHB's dataset this is a safe assumption since those portions of the array
+    will always be filled with silence anyway, but this might necessitate
+    padding for other datasets.
+
+    Only supports RasterizedSignal contained within a NEMS recording.
+    To operate directly on a 2d Array, use contrast_calculation.
+
+    Parameters
+    ----------
+    rec : NEMS recording
+        Recording containing, at minimum, the signal specified by "source_name."
+    name : str
+        Name of the new signal to be created
+    source_name : str
+        Name of the signal within rec whose data the contrast calculation will
+        be performed on.
+    ms : int
+        Number of milliseconds to use for the temporal axis of the convolution
+        filter. In conjunction with the sampling frequency of the source
+        signal, ms will be translated into a number of bins according to
+        the formula: number of bins = int((ms/1000) x sampling frequency
+    bins : int
+        Serves the same purpose as ms, except the number of bins is
+        specified directly.
+    bands : int
+        Number of bins to use for the spectral axis of the convolution filter.
+    dlog : boolean
+        If true, apply a log transformation to the source signal before
+        calculating contrast.
+    continuous : boolean
+        If true, do not rectify the contrast result.
+        If false, set result equal to 1 where value is above <percentile>,
+        0 otherwise.
+    normalize : boolean
+        If continuous is true, normalizes the result to the range 0 to 1.
+    percentile : int
+        If continuous is false, specifies the percentile cutoff for
+        contrast rectification.
+    ignore_zeros : boolean
+        If true, and continuous is false, "columns" containing zeros for all
+        spectral channels (i.e no stimulus) will be ignored when determining
+        the percentile-based cutoff value for contrast rectification.
+
+    Returns
+    -------
+    rec : NEMS recording
+        A new recording containing all signals in the original recording plus
+        a new signal named <name>.
+
+    Examples
+    --------
+    If ms=100, source_signal.fs=100, and bands=1, convolution filter shape
+    will be: (1, 21). The shape of the second axis includes (100*100/1000 + 1)
+    zeros, to force the behavior of the convolution to be causal rather than
+    anti-causal.
+
+    For ms=100, source_signal.fs=100, and bands=5, convolution filter shape
+    will be: (5, 21), where each "row" contains the same number of zeros as the
+    previous example.
+
+
     '''
 
     rec = rec.copy()
@@ -62,7 +135,7 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     # confined to each frequency channel
     array = source_signal.as_continuous().copy()
     array[np.isnan(array)] = 0
-    contrast = _contrast_calculation(array, history, bands, 'same')
+    contrast = contrast_calculation(array, history, bands, 'same')
 
     # Cropped time binds need to be filled in, otherwise convolution for
     # missing spectral bands will end up with empty 'corners'
@@ -82,15 +155,15 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
         reduced_bands = bands-cropped_khz
 
         # Replace top
-        top_replacement = _contrast_calculation(array[:reduced_bands, :],
-                                                history, reduced_bands,
-                                                'valid')
+        top_replacement = contrast_calculation(array[:reduced_bands, :],
+                                               history, reduced_bands,
+                                               'valid')
         contrast[i][cropped_time:-cropped_time] = top_replacement
 
         # Replace bottom
-        bottom_replacement = _contrast_calculation(array[-reduced_bands:, :],
-                                                   history, reduced_bands,
-                                                   'valid')
+        bottom_replacement = contrast_calculation(array[-reduced_bands:, :],
+                                                  history, reduced_bands,
+                                                  'valid')
         contrast[-(i+1)][cropped_time:-cropped_time] = bottom_replacement
 
         i += 1
@@ -120,7 +193,29 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     return rec
 
 
-def _contrast_calculation(array, history, bands, mode):
+def contrast_calculation(array, history, bands, mode):
+    '''
+    Parameters
+    ----------
+    array : 2d Ndarray
+        The data to perform the contrast calculation on,
+        contrast = standard deviation / mean
+    history : int
+        The number of nonzero bins for the convolution filter.
+        history + 1 zeros will be padded onto the second dimension.
+    bands : int
+        The number of bins in the first dimension of the convolution filter.
+    mode : str
+        See scipy.signal.conolve2d
+        Generally, 'valid' to drop rows/columns that would require padding,
+        'same' to pad those rows/columns with nans.
+
+    Returns
+    -------
+    contrast : 2d Ndarray
+
+
+    '''
     array = copy.deepcopy(array)
     filt = np.concatenate((np.zeros([bands, history+1]),
                            np.ones([bands, history])), axis=1)/(bands*history)
