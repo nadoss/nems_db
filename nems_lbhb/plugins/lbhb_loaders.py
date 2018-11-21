@@ -7,6 +7,16 @@ log = logging.getLogger(__name__)
 # TODO: Delete after finished deprecating.
 # Replaced with: load, splitcount, avgep, st, contrast
 
+def env(loadkey, cellid=None, batch=None):
+    """
+    envelope loader
+       extra parameters handled by loadkey parser in baphy_load_wrapper
+    """
+    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
+              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
+    return xfspec
+
+
 def psth(loadkey, cellid=None, batch=None):
     """
     psth loader (no stim)
@@ -31,6 +41,10 @@ def ns(loadkey, cellid=None, batch=None):
     xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
               {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
     return xfspec
+
+
+def ldSPO(loadkey, cellid=None, batch=None):
+    return [['nems_lbhb.SPO_helpers.load',{}]]
 
 #def ozgf(loadkey, recording_uri):
 #    recordings = [recording_uri]
