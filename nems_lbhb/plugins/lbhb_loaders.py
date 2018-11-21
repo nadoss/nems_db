@@ -54,7 +54,6 @@ def ns(loadkey, cellid=None, batch=None):
     return xfspec
 
 
-<<<<<<< HEAD
 def ldSPO(loadkey, cellid=None, batch=None):
     return [['nems_lbhb.SPO_helpers.load',{}]]
 
@@ -200,7 +199,6 @@ def ldSPO(loadkey, cellid=None, batch=None):
 #              ['nems.xforms.mask_all_but_targets', {}]]
 #
 #    return xfspec
-=======
 def loadpop(loadkey, cellid=None, batch=None):
     ops = loadkey.split('.')[1:]
 
@@ -218,7 +216,6 @@ def loadpop(loadkey, cellid=None, batch=None):
                'rand_match': rand_match, 'cell_count': cell_count}]]
 
     return xfspec
->>>>>>> d9e2dc3fb5453e9de8810a1bf6ee757eab5d8f4b
 
 
 # TODO: delete after finished deprecating, no longer used in this module.
