@@ -36,13 +36,25 @@ def ozgf(loadkey, cellid=None, batch=None):
               {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
     return xfspec
 
-def ns(loadkey, cellid=None, batch=None):
-    
+
+def parm(loadkey, cellid=None, batch=None):
+    """
+    gammatone filter
+       extra parameters handled by loadkey parser in baphy_load_wrapper
+    """
     xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
               {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
     return xfspec
 
 
+def ns(loadkey, cellid=None, batch=None):
+
+    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
+              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
+    return xfspec
+
+
+<<<<<<< HEAD
 def ldSPO(loadkey, cellid=None, batch=None):
     return [['nems_lbhb.SPO_helpers.load',{}]]
 
@@ -188,6 +200,25 @@ def ldSPO(loadkey, cellid=None, batch=None):
 #              ['nems.xforms.mask_all_but_targets', {}]]
 #
 #    return xfspec
+=======
+def loadpop(loadkey, cellid=None, batch=None):
+    ops = loadkey.split('.')[1:]
+
+    rand_match = False
+    cell_count = 20
+
+    for op in ops:
+        if op=='rnd':
+            rand_match = True
+        elif op.startswith('cc'):
+            cell_count = int(op[2:])
+
+    xfspec = [['nems_db.xform_wrappers.pop_selector',
+              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch,
+               'rand_match': rand_match, 'cell_count': cell_count}]]
+
+    return xfspec
+>>>>>>> d9e2dc3fb5453e9de8810a1bf6ee757eab5d8f4b
 
 
 # TODO: delete after finished deprecating, no longer used in this module.

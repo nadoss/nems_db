@@ -1238,7 +1238,7 @@ def baphy_load_recording(**options):
 
     if options['pupil']:
         signals['pupil'] = pupil
-    if (options['pupil_eyespeed']) & ('pupil_eyespeed' in signals.keys()):
+    if (options['pupil_eyespeed']) & ('pupil_eyespeed' in state_dict.keys()):
         signals['pupil_eyespeed'] = pupil_speed
     if options['rem']:
         signals['rem'] = rem

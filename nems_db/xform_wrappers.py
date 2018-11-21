@@ -20,7 +20,7 @@ import nems.analysis.api
 import nems.utils
 import nems_db.baphy as nb
 import nems_db.db as nd
-from nems.recording import Recording
+from nems.recording import Recording, load_recording
 from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
 import nems.xforms as xforms
 import nems.xform_helper as xhelp
@@ -63,6 +63,53 @@ def get_recording_uri(cellid, batch, options={}):
     return url
 
 
+def pop_selector(recording_uri_list, batch=None, cellid=None,
+                 rand_match=False, cell_count=20, **context):
+
+    rec = load_recording(recording_uri_list[0])
+    all_cells = rec.meta['cellid']
+    this_site = cellid
+
+    cellid = [c for c in all_cells if c.split("-")[0]==this_site]
+    site_cellid = cellid.copy()
+    cellid = cellid[:cell_count]
+
+    if rand_match:
+        pmodelname="ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-fir.3x15-lvl.1-dexp.1_init-basic"
+        single_perf=nd.batch_comp(batch=batch, modelnames=[pmodelname],
+                                  cellids=all_cells, stat='r_test')
+        this_perf=np.array([single_perf[single_perf.index==c][pmodelname].values[0] for c in cellid])
+        out_cellid = [c for c in all_cells if c.split("-")[0]!=this_site]
+        out_perf=np.array([single_perf[single_perf.index==c][pmodelname].values[0] for c in out_cellid])
+
+        alt_cellid=[]
+        for i, c in enumerate(cellid):
+            d = np.abs(out_perf-this_perf[i])
+            w = np.argmin(d)
+            alt_cellid.append(out_cellid[w])
+            out_perf[w]=100 # prevent cell from getting picked again
+        print(alt_cellid)
+
+        rec['resp'] = rec['resp'].extract_channels(alt_cellid)
+        rec.meta['cellid'] = cellid
+    else:
+        rec['resp'] = rec['resp'].extract_channels(cellid)
+        rec.meta['cellid'] = cellid
+
+    return {'rec': rec}
+
+
+def pop_file(stimfmt='ozgf', batch=None,
+             rasterfs=50, chancount=18, siteid="NAT1", **options):
+
+    uri_path = '/auto/data/nems_db/recordings/'
+    recname="{}_{}.fs{}.ch{}".format(siteid, stimfmt, rasterfs, chancount)
+
+    recording_uri = '{}{}/{}.tgz'.format(uri_path, batch, recname)
+
+    return recording_uri
+
+
 def generate_recording_uri(cellid=None, batch=None, loadkey=None,
                            siteid=None, **options):
     """
@@ -85,8 +132,9 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
     ops = loader.split(".")
 
-    # some defaults
-    options = {'rasterfs': 100, 'chancount': 0}
+    # updates some some defaults
+    options.update({'rasterfs': 100, 'chancount': 0})
+    load_pop_file = False
 
     for op in ops:
         if op=='ozgf':
@@ -112,6 +160,8 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
         elif 'eysp' in ops:
             options['pupil_eyespeed'] = True
+        elif op.startswith('pop'):
+            load_pop_file = True
 
     if 'stimfmt' not in options.keys():
         raise ValueError('Valid stim format (ozgf, psth, parm, env, evt) not specified in loader='+loader)
@@ -126,23 +176,36 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
     options["batch"] = batch
     options["cellid"] = cellid
+    if load_pop_file:
+        recording_uri = pop_file(**options)
+    else:
+        recording_uri = nb.baphy_load_recording_uri(**options)
 
-    recording_uri = nb.baphy_load_recording_uri(**options)
 
     return recording_uri
 
 
 def baphy_load_wrapper(cellid=None, batch=None, loadkey=None,
-                       siteid=None, normalize=False, **context):
+                       siteid=None, normalize=False, options={}, **context):
+
+    # check for special pop signal code
+    cc=cellid.split("_")
+    pc_idx = None
+    if (len(cc) > 1) and (cc[1][0]=="P"):
+        pc_idx=[int(cc[1][1:])]
+        cellid=cc[0]
 
     recording_uri = generate_recording_uri(cellid=cellid, batch=batch,
-                                           loadkey=loadkey, siteid=None)
+                                           loadkey=loadkey, siteid=None, **options)
+
+    context = {'recording_uri_list': [recording_uri]}
+
+    if pc_idx is not None:
+        context['pc_idx'] = pc_idx
+
     print('cellid: {}, recording_uri: {}'.format(cellid, recording_uri))
 
-    return {'recording_uri_list': [recording_uri]}
-    #return xforms.load_recordings([recording_uri], normalize=normalize,
-    #                              cellid=cellid, **context)
-
+    return context
 
 
 def fit_model_xforms_baphy(cellid, batch, modelname,
@@ -209,7 +272,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     else:
 #        uri_key = nems.utils.escaped_split(loadkey, '-')[0]
 #        recording_uri = generate_recording_uri(cellid, batch, uri_key)
-        log.info("Kludge. Moved recording_uri handling to keywords")
+        log.info("TODO Complete move of recording_uri handling to keywords")
         recording_uri = None
         registry_args = {'cellid': cellid, 'batch': int(batch)}
         xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta,
