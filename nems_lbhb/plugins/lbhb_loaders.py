@@ -54,8 +54,11 @@ def ns(loadkey, cellid=None, batch=None):
     return xfspec
 
 
-def ldSPO(loadkey, cellid=None, batch=None):
-    return [['nems_lbhb.SPO_helpers.load',{}]]
+def SPOld(loadkey, recording_uri=None, cellid=None):
+    import nems.plugins.default_loaders
+    xfspec = nems.plugins.default_loaders.ld(loadkey, recording_uri=recording_uri,cellid=cellid)
+    xfspec.append(['nems_lbhb.SPO_helpers.load',{}])
+    return xfspec
 
 #def ozgf(loadkey, recording_uri):
 #    recordings = [recording_uri]

@@ -18,3 +18,10 @@ def ebc(loadkey):
         ['nems_lbhb.postprocessing.add_summary_statistics_by_condition',{}]
     ]
     return xfspec
+
+def SPOpf(loadkey):
+    xfspec = [['nems.xforms.predict', {}]]
+    xfspec = xfspec + ebc('ebc.rmM')
+    xfspec.append(['nems.xforms.plot_summary', {}])
+    xfspec.append(['nems_lbhb.SPO_helpers.plot_all_vals_',{}])
+    return xfspec
