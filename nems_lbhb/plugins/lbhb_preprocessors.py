@@ -247,6 +247,17 @@ def hrc(load_key):
 
     return xfspec
 
+def subset(load_key):
+    """
+    Create a mask so that model is fit only using a subset of the data.
+    Subset is defined by epoh name. 
+    Used to mask stimuli of different categories (coherent, incoherent, or single)
+    LAS
+    """
+    subsets = load_key.split('.')[1].split('+')
+    xfspec = [['nems_lbhb.preprocessing.mask_subset_by_epoch',
+               {'epoch_list':subsets}, ['rec'], ['rec']]]
+    return xfspec
 
 def psthfr(load_key):
     """
@@ -300,3 +311,7 @@ def rscsw(load_key, cellid, batch):
                     'batch': batch},
                    ['rec'], ['rec']]]
     return xfspec
+
+def stSPO(load_key):
+    #add SPO state signal
+    return [['nems_lbhb.SPO_helpers.add_coherence_as_state',{}]]

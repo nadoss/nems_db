@@ -618,6 +618,22 @@ def _init_double_exponential(rec, modelspec, target_i):
 
 
 def dsig_phi_to_prior(modelspec):
+    '''
+    Sets priors for dynamic_sigmoid equal to the current phi for the
+    same module. Used for random-sample fits - all samples are initialized
+    and pre-fit the same way, and then randomly sampled from the new priors.
+
+    Parameters
+    ----------
+    modelspec : list of dictionaries
+        A NEMS modelspec containing, at minimum, a dynamic_sigmoid module
+
+    Returns
+    -------
+    modelspec : A copy of the input modelspec with priors updated.
+
+    '''
+
     modelspec = copy.deepcopy(modelspec)
     dsig_idx = find_module('dynamic_sigmoid', modelspec)
     dsig = modelspec[dsig_idx]
@@ -640,6 +656,46 @@ def dsig_phi_to_prior(modelspec):
 def init_contrast_model(est, modelspecs, IsReload=False,
                         tolerance=10**-5.5, max_iter=700, copy_strf=False,
                         fitter='scipy_minimize', metric='nmse', **context):
+    '''
+    Sets initial values for weight_channels, fir, levelshift, and their
+    contrast-dependent counterparts, as well as dynamic_sigmoid. Also
+    performs a rough fit for each of these modules.
+
+    Parameters
+    ----------
+    est : NEMS recording
+        The recording to use for prefitting and for determining initial values.
+        Expects the estimation portion of the dataset by default.
+    modelspecs : list of lists of dictionaries
+        List (should be a singleton) of NEMS modelspecs containing the modules
+        to be initialized.
+    IsReload : boolean
+        For use with xforms, specifies whether the model is being fit for
+        the first time or if it is being loaded from a previous fit.
+        If true, this function does nothing.
+    tolerance : float
+        Tolerance value to be passed to the optimizer.
+    max_iter : int
+        Maximum iteration count to be passed to the optimizer.
+    copy_strf : boolean
+        If true, use the pre-fitted phi values from weight_channels,
+        fir, and levelshift as the initial values for their contrast-based
+        counterparts.
+    fitter : str
+        Name of the optimization function to use, e.g. scipy_minimize
+        or coordinate_descent. It will be imported from nems.fitters.api
+    metric : str
+        Name of the metric to optimize, e.g. 'nmse'. It will be imported
+        from nems.metrics.api
+    context : dictionary
+        For use with xforms, contents will be updated by the return value.
+
+    Returns
+    -------
+    {'modelspecs': [modelspec]}
+
+    '''
+
 
     if IsReload:
         return {}
@@ -711,6 +767,10 @@ def init_contrast_model(est, modelspecs, IsReload=False,
 
 def _prefit_contrast_modules(est, modelspec, analysis_function,
                              fitter, metric=None, fit_kwargs={}):
+    '''
+    Perform a rough fit that only allows contrast STRF and dynamic_sigmoid
+    parameters to vary.
+    '''
     # preserve input modelspec
     modelspec = copy.deepcopy(modelspec)
 
@@ -763,6 +823,9 @@ def _prefit_contrast_modules(est, modelspec, analysis_function,
 
 def _prefit_dsig_only(est, modelspec, analysis_function,
                       fitter, metric=None, fit_kwargs={}):
+    '''
+    Perform a rough fit that only allows dynamic_sigmoid parameters to vary.
+    '''
 
     dsig_idx = find_module('dynamic_sigmoid', modelspec)
 
@@ -988,6 +1051,27 @@ def sample_DRC(fs=100, segment_duration=3000, n_segments=120, high_hw=15.0,
 
 def rec_from_DRC(fs=100, n_segments=120, rec_name='DRC Test',
                  sig_names=['stim', 'contrast']):
+    '''
+    Generate a NEMS recording that contains a synthetic RC-DRC stimulus
+    signal and its associated contrast signal.
+
+    Parameters
+    ----------
+    fs : int
+        Sampling rate to mimic when generating the signals.
+    n_segments : int
+        Number of 3 second segments the signal will contain.
+    rec_name : str
+        Name that will be given to the returned recording
+    sig_names : list of strings
+        Names that will be given to the generated signals. First name
+        is for the stimulus, the second is for the contrast.
+
+    Returns
+    -------
+    drc_rec : NEMS recording
+
+    '''
     s, c, f = sample_DRC(fs=fs, n_segments=n_segments)
     freq_names = ['%.1f kHz' % khz for khz in reversed(f)]
     drc_rec = nems.recording.load_recording_from_arrays(
@@ -1010,13 +1094,45 @@ def test_DRC():
 
 
 def gc_magnitude(b, b_m, a, a_m, s, s_m, k, k_m):
+    '''
+    Compute the magnitude of the gain control response for a given set of
+    dynamic_sigmoid parameters as the mean difference between the
+    sigmoid generated for high-contrast conditions vs for low-contrast
+    conditions.
+
+    Parameters
+    ----------
+    (See dynamic_simgoid and nems.modules.nonlinearity._logistic_sigmoid)
+    b : float
+        base
+    b_m : float
+        base_mod
+    a : float
+        amplitude
+    a_m : float
+        amplitude_mod
+    s : float
+        shift
+    s_m : float
+        shift_mod
+    k : float
+        kappa
+    k_m : float
+        kappa_mod
+
+    Returns
+    -------
+    mag : float
+
+    '''
     x_low = np.linspace(s*-1, s*3, 1000)
     x_high = np.linspace(s_m*-1, s_m*3, 1000)
 
     y_low = _logistic_sigmoid(x_low, b, a, s, k)
     y_high = _logistic_sigmoid(x_high, b_m, a_m, s_m, k_m)
 
-    return np.mean(y_high - y_low)
+    mag =  np.mean(y_high - y_low)
+    return mag
 
 
 def gc_magnitude_with_ctpred(ctpred, b, b_m, a, a_m, s, s_m, k, k_m):
