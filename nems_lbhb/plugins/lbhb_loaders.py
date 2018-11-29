@@ -49,16 +49,20 @@ def loadpop(loadkey, cellid=None, batch=None):
 
     rand_match = False
     cell_count = 20
-
+    best_cells = False
     for op in ops:
         if op=='rnd':
             rand_match = True
         elif op.startswith('cc'):
             cell_count = int(op[2:])
+        elif op.startswith('bc'):
+            cell_count = int(op[2:])
+            best_cells=True
 
     xfspec = [['nems_db.xform_wrappers.pop_selector',
               {'loadkey': loadkey, 'cellid': cellid, 'batch': batch,
-               'rand_match': rand_match, 'cell_count': cell_count}]]
+               'rand_match': rand_match, 'cell_count': cell_count,
+               'best_cells': best_cells}]]
 
     return xfspec
 

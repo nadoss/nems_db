@@ -39,23 +39,27 @@ def init_pop_pca(rec, modelspec):
     # preserve input modelspec
     modelspec = copy.deepcopy(modelspec)
 
-    bank_mod=find_module('filter_bank', modelspec, find_all_matches=True)
-    wc_mod=find_module('weight_channels', modelspec, find_all_matches=True)
-    ifir=bank_mod[0]
-    iwc=wc_mod[0]
-    chan_count=modelspec[bank_mod[0]]['fn_kwargs']['bank_count']
-    chan_per_bank = int(modelspec[wc_mod[0]]['prior']['mean'][1]['mean'].shape[0]/chan_count)
+    ifir=find_module('filter_bank', modelspec)
+    iwc=find_module('weight_channels', modelspec)
+
+    chan_count=modelspec[ifir]['fn_kwargs']['bank_count']
+    chan_per_bank = int(modelspec[iwc]['prior']['mean'][1]['mean'].shape[0]/chan_count)
     rec = rec.copy()
     tmodelspec = copy.deepcopy(modelspec)
 
-    kw=[m['id'] for m in modelspec[:wc_mod[0]]]
+    kw=[m['id'] for m in modelspec[:iwc]]
+
     wc = modelspec[iwc]['id'].split(".")
     wcs = wc[1].split("x")
     wcs[1]=str(chan_per_bank)
     wc[1]="x".join(wcs)
     wc=".".join(wc)
-    fir = modelspec[ifir]['id'].split("x")
-    fir="x".join(fir[:-1])
+
+    fir = modelspec[ifir]['id'].split(".")
+    fircore = fir[1].split("x")
+    fir[1]="x".join(fircore[:-1])
+    fir = ".".join(fir)
+
     kw.append(wc)
     kw.append(fir)
     kw.append("lvl.1")
@@ -65,20 +69,30 @@ def init_pop_pca(rec, modelspec):
     keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
     for pc_idx in range(chan_count):
-        rec['resp'] = rec['pca'].extract_channels([rec['pca'].chans[pc_idx]])
-
+        r = rec['pca'].extract_channels([rec['pca'].chans[pc_idx]])
+        m = np.nanmean(r.as_continuous())
+        d = np.nanstd(r.as_continuous())
+        rec['resp'] = r._modified_copy((r._data-m) / d)
         tmodelspec = init.from_keywords(keyword_string=keywordstring,
-                                       meta=None, registry=keyword_lib, rec=rec)
-        tolerance=10e-4
+                                        meta={}, registry=keyword_lib, rec=rec)
+        tolerance=1e-4
         tmodelspec = init.prefit_LN(rec, tmodelspec,
-                    tolerance=tolerance, max_iter=700)
+                                    tolerance=tolerance, max_iter=700)
+
+        # save results back into main modelspec
+        itfir=find_module('fir', tmodelspec)
+        itwc=find_module('weight_channels', tmodelspec)
+
         if pc_idx==0:
-            for tm,m in zip(tmodelspec[:(ifir+1)],modelspec[:(ifir+1)]):
+            for tm, m in zip(tmodelspec[:(iwc+1)], modelspec[:(iwc+1)]):
                 m['phi']=tm['phi'].copy()
+            modelspec[ifir]['phi']=tmodelspec[itfir]['phi'].copy()
         else:
-            for k,v in tmodelspec[iwc]['phi'].items():
+            for k, v in tmodelspec[iwc]['phi'].items():
                 modelspec[iwc]['phi'][k]=np.concatenate((modelspec[iwc]['phi'][k],v))
-            for k,v in tmodelspec[ifir]['phi'].items():
+            for k, v in tmodelspec[itfir]['phi'].items():
+                #if k=='coefficients':
+                #    v/=100 # kludge
                 modelspec[ifir]['phi'][k]=np.concatenate((modelspec[ifir]['phi'][k],v))
     return modelspec
 
@@ -267,20 +281,26 @@ def fit_population_iteratively(
     by this fitter.
     '''
 
-#    if module_sets is None:
-#        module_sets = []
-#        for i, m in enumerate(modelspec):
-#            if 'prior' in m.keys():
-#                if 'levelshift' in m['fn'] and 'fir' in modelspec[i-1]['fn']:
-#                    # group levelshift with preceding fir filter by default
-#                    module_sets[-1].append(i)
-#                else:
-#                    # otherwise just fit each module separately
-#                    module_sets.append([i])
-#        log.info('Fit sets: %s', module_sets)
-
     if IsReload:
         return {}
+
+    """
+    tolerances=[0.001, 0.0001]
+    tol_iter=50
+    fit_iter=5
+    fitter='scipy_minimize'
+    est=ctx['est']
+    modelspecs=ctx['modelspecs']
+    cost_function=basic_cost
+    fitter=coordinate_descent
+    evaluator=ms.evaluate
+    segmentor=nems.segmentors.use_all_data
+    mapper=nems.fitters.mappers.simple_vector
+    metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp')
+    metaname='fit_basic'
+    fit_kwargs={}
+    module_sets=None
+    """
 
     modelspec = copy.deepcopy(modelspecs[0])
     data = est.copy()
@@ -304,8 +324,6 @@ def fit_population_iteratively(
     if tolerances is None:
         tolerances = [1e-6]
 
-    modelspec = init_pop_pca(data, modelspec)
-
     # apply mask to remove invalid portions of signals and allow fit to
     # only evaluate the model on the valid portion of the signals
     # then delete the mask signal so that it's not reapplied on each fit
@@ -317,6 +335,10 @@ def fit_population_iteratively(
 
     start_time = time.time()
     ms.fit_mode_on(modelspec)
+
+    modelspec = init_pop_pca(data, modelspec)
+    print(modelspec)
+
     # Ensure that phi exists for all modules; choose prior mean if not found
     for i, m in enumerate(modelspec):
         if ('phi' not in m.keys()) and ('prior' in m.keys()):
@@ -329,7 +351,14 @@ def fit_population_iteratively(
 
     slice_count = data['resp'].shape[0]
     step_size = 0.1
-    for tol in tolerances:
+    if 'nonlinearity' in modelspec[-1]['fn']:
+        skip_nl_first=True
+        tolerances = [tolerances[0]] + tolerances
+    else:
+        skip_nl_first=False
+
+    for toli,tol in enumerate(tolerances):
+
         log.info("Fitting subsets with tol: %.2E fit_iter %d tol_iter %d",
                  tol, fit_iter, tol_iter)
         print("Fitting subsets with tol: %.2E fit_iter %d tol_iter %d" %
@@ -339,6 +368,13 @@ def fit_population_iteratively(
                            'step_size': step_size})
         sp_kwargs = fit_kwargs.copy()
         sp_kwargs.update({'tolerance': tol, 'max_iter': fit_iter})
+
+        if (toli==0) and skip_nl_first:
+            log.info('skipping nl on first tolerance loop')
+            saved_modelspec = copy.deepcopy(modelspec)
+            saved_fit_set_slice = fit_set_slice
+            modelspec = modelspec[:-1]
+            fit_set_slice = fit_set_slice[:-1]
 
         i = 0
         error_reduction = np.inf
@@ -359,12 +395,14 @@ def fit_population_iteratively(
                         fitter=coordinate_descent,
                         fit_kwargs=cd_kwargs)
 
-                # every 5 units, update the spectral filters
                 cc += 1
                 # if (cc % 8 == 0) or (cc == slice_count):
                 if (cc == slice_count):
                     log.info('Slice %d updating pop-wide parameters', s)
                     print('Slice %d updating pop-wide parameters' % (s))
+                    for m in modelspec:
+                        print(m['fn'] + ": ", m['phi'])
+
                     improved_modelspec = init.prefit_mod_subset(
                             data, improved_modelspec, analysis.fit_basic,
                             metric=metric,
@@ -386,9 +424,38 @@ def fit_population_iteratively(
         log.info("Done with tol %.2E (i=%d, max_error_reduction %.7f)",
                  tol, i, error_reduction)
         print("Done with tol %.2E (i=%d, max_error_reduction %.7f)" %
-                 (tol, i, error_reduction))
+              (tol, i, error_reduction))
 
-        step_size *= 0.25
+        if (toli == 0) and skip_nl_first:
+            log.info('Restoring NL module after first tol loop')
+            modelspec.append(saved_modelspec[-1])
+            fit_set_slice = saved_fit_set_slice
+            modelspec = init.init_dexp(data, modelspec)
+
+            # just fit the NL
+            improved_modelspec = copy.deepcopy(modelspec)
+
+            kwa = cd_kwargs.copy()
+            kwa['max_iter'] *= 2
+            for s in range(slice_count):
+                log.info('Slice %d set %s' % (s, [fit_set_slice[-1]]))
+                improved_modelspec = fit_population_slice(
+                        data, improved_modelspec, slice=s,
+                        fit_set=fit_set_slice,
+                        analysis_function=analysis.fit_basic,
+                        metric=metric,
+                        fitter=coordinate_descent,
+                        fit_kwargs=kwa)
+            data = ms.evaluate(data, modelspec)
+            old_error = metric(data)
+            data = ms.evaluate(data, improved_modelspec)
+            new_error = metric(data)
+            log.info('Init NL fit error change %.5f-%.5f = %.5f',
+                     old_error, new_error, old_error-new_error)
+            modelspec = improved_modelspec
+
+        else:
+            step_size *= 0.25
 
     elapsed_time = (time.time() - start_time)
 

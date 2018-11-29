@@ -1317,8 +1317,8 @@ def baphy_data_path(**options):
     data_file = recording_filename_hash(
             siteid, options, uri_path="/auto/data/nems_db/recordings/")
 
-    log.info(data_file)
-    log.info(options)
+    #log.info(data_file)
+    #log.info(options)
 
     if not os.path.exists(data_file) or recache is True:
         #  rec = baphy_load_recording(
@@ -1380,17 +1380,18 @@ def baphy_load_recording_uri(**options):
 
     data_file = recording_filename_hash(siteid, options,
                                     uri_path='/auto/data/nems_db/recordings/')
-    log.info(data_file)
-    log.info(options)
+    #log.info(data_file)
+    #log.info(options)
 
     if not os.path.exists(data_file) or recache == True:
         log.info("Generating recording")
         # rec.meta is set = options in the following function
         rec = baphy_load_recording(**options)
+        log.info('Caching recording: %s', data_file)
         rec.save(data_file)
 
     else:
-        log.info('Cached recording found')
+        log.info('Cached recording found: %s', data_file)
 
     return data_file
 
