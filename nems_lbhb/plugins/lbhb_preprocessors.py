@@ -311,3 +311,7 @@ def rscsw(load_key, cellid, batch):
                     'batch': batch},
                    ['rec'], ['rec']]]
     return xfspec
+
+def stSPO(load_key):
+    #add SPO state signal
+    return [['nems_lbhb.SPO_helpers.add_coherence_as_state',{}]]

@@ -64,32 +64,45 @@ def get_recording_uri(cellid, batch, options={}):
 
 
 def pop_selector(recording_uri_list, batch=None, cellid=None,
-                 rand_match=False, cell_count=20, **context):
+                 rand_match=False, cell_count=20, best_cells=False, **context):
 
     rec = load_recording(recording_uri_list[0])
     all_cells = rec.meta['cellid']
     this_site = cellid
-
     cellid = [c for c in all_cells if c.split("-")[0]==this_site]
     site_cellid = cellid.copy()
-    cellid = cellid[:cell_count]
+
+    pmodelname="ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-fir.3x15-lvl.1-dexp.1_init-basic"
+    single_perf=nd.batch_comp(batch=batch, modelnames=[pmodelname],
+                              cellids=all_cells, stat='r_test')
+    this_perf=np.array([single_perf[single_perf.index==c][pmodelname].values[0] for c in cellid])
+    sidx = np.argsort(this_perf)
+
+    if best_cells:
+        keepidx=(this_perf >= this_perf[sidx[-cell_count]])
+        cellid=list(np.array(cellid)[keepidx])
+        this_perf = this_perf[keepidx]
+    else:
+        cellid=cellid[:cell_count]
+        this_perf = this_perf[:cell_count]
 
     if rand_match:
-        pmodelname="ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-fir.3x15-lvl.1-dexp.1_init-basic"
-        single_perf=nd.batch_comp(batch=batch, modelnames=[pmodelname],
-                                  cellids=all_cells, stat='r_test')
-        this_perf=np.array([single_perf[single_perf.index==c][pmodelname].values[0] for c in cellid])
         out_cellid = [c for c in all_cells if c.split("-")[0]!=this_site]
         out_perf=np.array([single_perf[single_perf.index==c][pmodelname].values[0] for c in out_cellid])
 
         alt_cellid=[]
+        alt_perf=[]
         for i, c in enumerate(cellid):
             d = np.abs(out_perf-this_perf[i])
             w = np.argmin(d)
             alt_cellid.append(out_cellid[w])
+            alt_perf.append(out_perf[w])
             out_perf[w]=100 # prevent cell from getting picked again
-        print(alt_cellid)
-
+        log.info("Rand matched cellids: %s", alt_cellid)
+        log.info("Mean actual: %.3f", np.mean(this_perf))
+        print(this_perf)
+        log.info("Mean rand: %.3f", np.mean(np.array(alt_perf)))
+        print(np.array(alt_perf))
         rec['resp'] = rec['resp'].extract_channels(alt_cellid)
         rec.meta['cellid'] = cellid
     else:
@@ -203,7 +216,7 @@ def baphy_load_wrapper(cellid=None, batch=None, loadkey=None,
     if pc_idx is not None:
         context['pc_idx'] = pc_idx
 
-    print('cellid: {}, recording_uri: {}'.format(cellid, recording_uri))
+    #log.info('cellid: {}, recording_uri: {}'.format(cellid, recording_uri))
 
     return context
 

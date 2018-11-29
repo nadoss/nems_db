@@ -142,7 +142,7 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     plt.xlabel("{} (m={:.3f})".format(n1, np.mean(beta1[goodcells])))
     plt.ylabel("{} (m={:.3f})".format(n2, np.mean(beta2[goodcells])))
     plt.title(title)
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     if click_fun is not None:
         def display_wrapper(event):
@@ -163,7 +163,7 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
               format(np.mean(beta1[goodcells]),
                      np.mean(np.abs(beta1[goodcells]))))
     plt.xlabel(n1)
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 2, 4)
     plt.hist([beta2[set1], beta2[set2]], bins=hist_bins, range=hist_range,
@@ -173,7 +173,7 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
               format(np.mean(beta2[goodcells]),
                      np.mean(np.abs(beta2[goodcells]))))
     plt.xlabel(n2)
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 2, 2)
 #    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1]),
@@ -192,7 +192,7 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     plt.ylabel('difference')
 
     plt.tight_layout()
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     old_title=fh.canvas.get_window_title()
     fh.canvas.set_window_title(old_title+': '+title)
@@ -295,7 +295,7 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
               format(np.mean(beta1[goodcells]),
                      np.mean(np.abs(beta1[goodcells]))))
     plt.xlabel(n1)
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 2, 4)
     plt.hist([beta2[set1], beta2[set2]], bins=hist_bins, range=hist_range,
@@ -305,7 +305,7 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
               format(np.mean(beta2[goodcells]),
                      np.mean(np.abs(beta2[goodcells]))))
     plt.xlabel(n2)
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 2, 2)
     plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1]),
@@ -323,7 +323,7 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
     plt.ylabel('difference')
 
     plt.tight_layout()
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     old_title=fh.canvas.get_window_title()
     fh.canvas.set_window_title(old_title+': '+title)
@@ -647,7 +647,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
     ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
     ax.set_ylabel("{} r={:.3f}".format(factor0,
                   ctx_p0b0['modelspecs'][0][0]['meta']['r_test'][0]))
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     for i, var in enumerate(factors[1:]):
         if var.startswith('FILE_'):
@@ -676,7 +676,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
         if ax.legend_:
             ax.legend_.remove()
         ax.xaxis.label.set_visible(False)
-        lplt.ax_remove_box(ax)
+        nplt.ax_remove_box(ax)
 
         ax = plt.subplot(4, col_count, col_count*2+i+1)
         nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
@@ -709,7 +709,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
             ax.legend(('act+post', 'pre'))
         elif var.startswith('FILE_'):
             ax.legend(('this', 'others'))
-        lplt.ax_remove_box(ax)
+        nplt.ax_remove_box(ax)
 
     # EXTRA PANELS
     # figure out some basic aspects of tuning/selectivity for target vs.
@@ -781,8 +781,8 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
     ymax=np.max([ax1.get_ylim()[1], ax2.get_ylim()[1]])
     ax1.set_ylim([ymin, ymax])
     ax2.set_ylim([ymin, ymax])
-    lplt.ax_remove_box(ax1)
-    lplt.ax_remove_box(ax2)
+    nplt.ax_remove_box(ax1)
+    nplt.ax_remove_box(ax2)
 
     plt.tight_layout()
 

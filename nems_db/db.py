@@ -106,12 +106,20 @@ def _get_db_uri():
     '''Used by Engine() to establish a connection to the database.'''
     creds = nems_db.util.ensure_env_vars(
             ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASS',
-             'MYSQL_DB', 'MYSQL_PORT']
+             'MYSQL_DB', 'MYSQL_PORT', 'SQL_ENGINE',
+             'NEMS_RECORDINGS_DIR']
             )
-    db_uri = 'mysql+pymysql://{0}:{1}@{2}:{3}/{4}'.format(
-            creds['MYSQL_USER'], creds['MYSQL_PASS'], creds['MYSQL_HOST'],
-            creds['MYSQL_PORT'], creds['MYSQL_DB']
-            )
+
+    if creds['SQL_ENGINE'] == 'mysql':
+        db_uri = 'mysql+pymysql://{0}:{1}@{2}:{3}/{4}'.format(
+                creds['MYSQL_USER'], creds['MYSQL_PASS'], creds['MYSQL_HOST'],
+                creds['MYSQL_PORT'], creds['MYSQL_DB']
+                )
+    elif creds['SQL_ENGINE'] == 'sqlite':
+        dbfilepath = os.path.join(creds['NEMS_RECORDINGS_DIR'],'nems.db')
+
+        db_uri = 'sqlite:///' + dbfilepath
+
     return db_uri
 
 
@@ -227,7 +235,7 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
         sql = 'SELECT * FROM tQueue WHERE note="' + note +'"'
 
         r = conn.execute(sql)
-        if r.rowcount:
+        if r.rowcount>0:
             # existing job, figure out what to do with it
 
             x=r.fetchone()
@@ -1130,23 +1138,23 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
     '''
     if (batch is None) | (cellid is None):
         raise ValueError
-    
+
     # eg, sql="SELECT * from NarfData WHERE batch=301 and cellid="
     engine = Engine()
     params = ()
     sql = "SELECT cellid FROM NarfData WHERE 1"
-    
+
     if type(cellid) is list:
         sql_rawids = "SELECT rawid FROM NarfData WHERE 1"  # for rawids
     else:
         sql_rawids = "SELECT DISTINCT rawid FROM NarfData WHERE 1"  # for rawids
-    
+
 
     if batch is not None:
         sql += " AND batch=%s"
         sql_rawids += " AND batch=%s"
         params = params+(batch,)
-        
+
     if label is not None:
        sql += " AND label = %s"
        sql_rawids += " AND label = %s"
@@ -1169,7 +1177,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
             rawid = [rawid]
         rawid=tuple([str(i) for i in rawid])
         params = params+(rawid,)
-
+        print(params)
         d = pd.read_sql(sql=sql, con=engine, params=params)
 
         cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
@@ -1182,23 +1190,23 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
         else:
             pass
 
-        print('Returning cellids: {0}, stable across rawids: {1}'.format(cellids, rawid))
+        log.debug('Returning cellids: {0}, stable across rawids: {1}'.format(cellids, rawid))
 
         return cellids, list(rawid)
 
     else:
-        rawid = pd.read_sql(sql=sql_rawids, con=engine, params=params)        
+        rawid = pd.read_sql(sql=sql_rawids, con=engine, params=params)
         if type(cellid) is tuple:
             rawid = rawid['rawid'].value_counts()[rawid['rawid'].value_counts()==len(cellid)]
             rawid = rawid.index.tolist()
         else:
             rawid = rawid['rawid'].tolist()
-        
+
         if type(cellid) is tuple:
             siteid = cellid[0].split('-')[0]
         else:
             siteid = cellid.split('-')[0]
-        
+
         cellids, rawid = get_stable_batch_cells(batch, siteid, rawid)
 
         return cellids, rawid

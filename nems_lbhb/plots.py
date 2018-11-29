@@ -7,6 +7,7 @@ Created on Wed Apr 25 17:05:34 2018
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import copy
 
 import nems_db.xform_wrappers as nw
 import nems.plots.api as nplt
@@ -366,7 +367,8 @@ def scatter_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     return fh
 
 
-def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True):
+def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True,
+                     overlap_method='offset'):
 
     '''
     given a weight vector, h, plot the weights on the appropriate electrode channel
@@ -412,8 +414,6 @@ def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True):
     #plt.figure()
     plt.scatter(locations[0,:],locations[1,:],facecolor='none',edgecolor='k',s=50)
 
-
-
     # Now, color appropriately
     electrodes = np.zeros(len(cellids))
 
@@ -423,13 +423,26 @@ def plot_weights_64D(h, cellids, vmin=None, vmax=None, cbar=True):
     # Add locations for cases where two or greater units on an electrode
     electrodes=list(electrodes-1)  # cellids labeled 1-64, python counts 0-63
     dupes = list(set([int(x) for x in electrodes if electrodes.count(x)>1]))
-    print('electrodes with multiple units:')
-    print([d+1 for d in dupes])
+
+    if overlap_method == 'mean':
+        print('averaging weights across electrodes with multiple units:')
+        print([d+1 for d in dupes])
+        uelectrodes=list(set(electrodes))
+        uh=np.zeros(len(uelectrodes))
+        for i,e in enumerate(uelectrodes):
+            uh[i] = np.mean(h[electrodes==e])
+        electrodes = uelectrodes
+        h = uh
+        dupes = list(set([int(x) for x in electrodes if electrodes.count(x)>1]))
+    else:
+        print('electrodes with multiple units:')
+        print([d+1 for d in dupes])
+
 
     num_of_dupes = [electrodes.count(x) for x in electrodes]
     num_of_dupes = list(set([x for x in num_of_dupes if x>1]))
     #max_duplicates = np.max(np.array(num_of_dupes))
-    dup_locations=np.empty((2,np.sum(num_of_dupes)*len(dupes)))
+    dup_locations=np.empty((2,int(np.sum(num_of_dupes))*len(dupes)))
     max_=0
     count = 0
     x_shifts = dict.fromkeys([str(i) for i in dupes])
@@ -546,7 +559,7 @@ def plot_mean_weights_64D(h=None, cellids=None, l4=None, vmin=None, vmax=None, t
         chans = (np.sort([int(x) for x in electrodes])-1) + abs(max_shift)
 
         chans = np.add(chans,s)
-        
+
         h_mat_full[i,chans] = h[i]
 
     # remove outliers
@@ -907,19 +920,18 @@ def depth_analysis_64D(h, cellids, l4=None, depth_list=None, title=None):
 def LN_plot(ctx, ax1=None, ax2=None, ax3=None, ax4=None):
     """
     compact summary plot for model fit to a single dim of a population subspace
-    
-    in 4 panels, show: pc load, timecourse plus STRF + static NL
+
+    in 2-4 panels, show: pc load, timecourse plus STRF + static NL
     (skip the first two if their respective ax handles are None)
-    
+
     """
-    fs = ctx['rec']['resp'].fs
-    pc_idx = ctx['rec'].meta['pc_idx']
-    
     rec = ctx['val'][0].apply_mask()
     modelspec = ctx['modelspecs'][0]
     rec = ms.evaluate(rec, modelspec)
     cellid = modelspec[0]['meta']['cellid']
-    
+    fs = ctx['rec']['resp'].fs
+    pc_idx = ctx['rec'].meta['pc_idx']
+
     if (ax1 is not None) and (pc_idx is not None):
         cellids=ctx['rec'].meta['cellid']
         h=ctx['rec'].meta['pc_weights'][pc_idx[0],:]
@@ -927,41 +939,208 @@ def LN_plot(ctx, ax1=None, ax2=None, ax3=None, ax4=None):
         plt.sca(ax1)
         plot_weights_64D(h,cellids,vmin=-max_w,vmax=max_w)
         plt.axis('off')
-        
+
     if ax2 is not None:
-        r = ctx['rec']['resp'].extract_epoch('REFERENCE')
-    
+        r = ctx['rec']['resp'].extract_epoch('REFERENCE',
+               mask=ctx['rec']['mask'])
+        d = ctx['rec']['resp'].get_epoch_bounds('PreStimSilence')
+        if len(d):
+            PreStimSilence = np.mean(np.diff(d))
+        else:
+            PreStimSilence = 0
+        prestimbins = int(PreStimSilence * fs)
+
         mr=np.mean(r,axis=0)
-        spont=np.mean(mr[:,:100],axis=1,keepdims=True)
+        spont=np.mean(mr[:,:prestimbins],axis=1,keepdims=True)
         mr-=spont
         mr /= np.max(np.abs(mr),axis=1,keepdims=True)
         tt=np.arange(mr.shape[1])/fs
-        ax2.plot(tt, mr[0,:], 'k')
+        ax2.plot(tt-PreStimSilence, mr[0,:], 'k')
         # time bar
-        ax2.plot(np.array([0,1]),np.array([1,1]),'k',
-                 lw=3)
+        ax2.plot(np.array([0,1]),np.array([1.1, 1.1]), 'k', lw=3)
         nplt.ax_remove_box(ax2)
-        plt.title(cellid)
-        
+        ax2.set_title(cellid)
+
     title="r_fit={:.3f} test={:.3f}".format(
             modelspec[0]['meta']['r_fit'][0],
             modelspec[0]['meta']['r_test'][0])
-    
-    nplt.strf_heatmap(modelspec, title=title, interpolation=(2,3), 
+
+    nplt.strf_heatmap(modelspec, title=title, interpolation=(2,3),
                       show_factorized=False, fs=fs, ax=ax3)
     nplt.ax_remove_box(ax3)
 
     nl_mod_idx = find_module('nonlinearity', modelspec)
-    nplt.nl_scatter(rec, modelspec, nl_mod_idx, sig_name='pred',
-                    compare='resp', smoothing_bins=50,
+    nplt.nl_scatter(ctx['est'][0].apply_mask(), modelspec, nl_mod_idx, sig_name='pred',
+                    compare='resp', smoothing_bins=60,
                     xlabel1=None, ylabel1=None, ax=ax4)
 
     sg_mod_idx = find_module('state', modelspec)
     if sg_mod_idx is not None:
+        modelspec2 = copy.deepcopy(modelspec)
+        g=modelspec2[sg_mod_idx]['phi']['g'][0,:]
+        d=modelspec2[sg_mod_idx]['phi']['d'][0,:]
+
+        modelspec2[nl_mod_idx]['phi']['amplitude'] *= 1+g[-1]
+        modelspec2[nl_mod_idx]['phi']['base'] += d[-1]
+        nplt.plot_nl_io(modelspec2[nl_mod_idx], ax4.get_xlim(), ax4)
         g=["{:.2f}".format(g) for g in list(modelspec[sg_mod_idx]['phi']['g'][0,:])]
         ts = "SG: " + " ".join(g)
-        plt.title(ts)
-    
+        ax4.set_title(ts)
+
     nplt.ax_remove_box(ax4)
-    
-    plt.tight_layout()
+
+def LN_pop_plot(ctx):
+    """
+    compact summary plot for model fit to a single dim of a population subspace
+
+    in 2-4 panels, show: pc load, timecourse plus STRF + static NL
+    (skip the first two if their respective ax handles are None)
+
+    """
+    rec = ctx['val'][0]
+    modelspec = ctx['modelspecs'][0]
+    rec = ms.evaluate(rec, modelspec)
+    cellid = modelspec[0]['meta']['cellid']
+
+    resp = rec['resp']
+    stim = rec['stim']
+    pred = rec['pred']
+    fs = resp.fs
+
+    fir_idx = find_module('fir', modelspec)
+    wc_idx = find_module('weight_channels', modelspec, find_all_matches=True)
+
+    chan_count = modelspec[wc_idx[-1]]['phi']['coefficients'].shape[1]
+    cell_count = modelspec[wc_idx[-1]]['phi']['coefficients'].shape[0]
+    filter_count = modelspec[fir_idx]['phi']['coefficients'].shape[0]
+    bank_count = modelspec[fir_idx]['fn_kwargs']['bank_count']
+    chan_per_bank = int(filter_count/bank_count)
+
+    fig = plt.figure()
+    for chanidx in range(chan_count):
+
+        tmodelspec=copy.deepcopy(modelspec[:(fir_idx+1)])
+        tmodelspec[fir_idx]['fn_kwargs']['bank_count']=1
+        rr=slice(chanidx*chan_per_bank, (chanidx+1)*chan_per_bank)
+        tmodelspec[wc_idx[0]]['phi']['mean'] = tmodelspec[wc_idx[0]]['phi']['mean'][rr]
+        tmodelspec[wc_idx[0]]['phi']['sd'] = tmodelspec[wc_idx[0]]['phi']['sd'][rr]
+        tmodelspec[fir_idx]['phi']['coefficients'] = \
+                   tmodelspec[fir_idx]['phi']['coefficients'][rr,:]
+
+        ax = fig.add_subplot(chan_count, 3, chanidx*3+1)
+        nplt.strf_heatmap(tmodelspec, title=None, interpolation=(2,3),
+                          show_factorized=False, fs=fs, ax=ax)
+        nplt.ax_remove_box(ax)
+
+    ax = fig.add_subplot(2, 3, 2)
+    fcc = modelspec[fir_idx]['phi']['coefficients'].copy()
+    fcc = np.reshape(fcc, (chan_per_bank, bank_count, -1))
+    fcc = np.mean(fcc,axis=0)
+    fcc_std = np.std(fcc,axis=1,keepdims=True)
+    wcc = modelspec[wc_idx[-1]]['phi']['coefficients'].copy().T
+    wcc *= fcc_std
+    mm = np.std(wcc)*3
+    im = ax.imshow(wcc, aspect='auto', clim=[-mm, mm], cmap='bwr')
+    plt.colorbar(im)
+    nplt.ax_remove_box(ax)
+
+    epoch_regex = '^STIM_'
+    epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
+    epoch=epochs_to_extract[0]
+
+    # or just plot the PSTH for an example stimulus
+    raster = resp.extract_epoch(epoch)
+    psth = np.mean(raster, axis=0)
+    praster = pred.extract_epoch(epoch)
+    ppsth = np.mean(praster, axis=0)
+    spec = stim.extract_epoch(epoch)[0,:,:]
+    trimbins=50
+    if trimbins > 0:
+        ppsth=ppsth[:,trimbins:]
+        psth=psth[:,trimbins:]
+        spec=spec[:,trimbins:]
+
+    ax = plt.subplot(6, 2, 8)
+    #nplt.plot_spectrogram(spec, fs=resp.fs, ax=ax, title=epoch)
+    extent = [0.5/fs, (spec.shape[1]+0.5)/fs, 0.5, spec.shape[0]+0.5]
+    im=ax.imshow(spec, origin='lower', interpolation='none',
+                 aspect='auto', extent=extent)
+    nplt.ax_remove_box(ax)
+    plt.ylabel('stim')
+    plt.colorbar(im)
+
+    ax = plt.subplot(6, 2, 10)
+    clim=(np.nanmin(psth),np.nanmax(psth)*.6)
+    #nplt.plot_spectrogram(psth, fs=resp.fs, ax=ax, title="resp",
+    #                      cmap='gray_r', clim=clim)
+    #fig.colorbar(im, cax=ax, orientation='vertical')
+    im=ax.imshow(psth, origin='lower', interpolation='none',
+                 aspect='auto', extent=extent,
+                 cmap='gray_r', clim=clim)
+    nplt.ax_remove_box(ax)
+    plt.ylabel('resp')
+    plt.colorbar(im)
+
+    ax = plt.subplot(6, 2, 12)
+    clim=(np.nanmin(psth),np.nanmax(ppsth))
+    im=ax.imshow(ppsth, origin='lower', interpolation='none',
+                 aspect='auto', extent=extent,
+                 cmap='gray_r', clim=clim)
+    nplt.ax_remove_box(ax)
+    plt.ylabel('pred')
+    plt.colorbar(im)
+
+#    if (ax1 is not None) and (pc_idx is not None):
+#        cellids=ctx['rec'].meta['cellid']
+#        h=ctx['rec'].meta['pc_weights'][pc_idx[0],:]
+#        max_w=np.max(np.abs(h))*0.75
+#        plt.sca(ax1)
+#        plot_weights_64D(h,cellids,vmin=-max_w,vmax=max_w)
+#        plt.axis('off')
+#
+#    if ax2 is not None:
+#        r = ctx['rec']['resp'].extract_epoch('REFERENCE',
+#               mask=ctx['rec']['mask'])
+#        d = ctx['rec']['resp'].get_epoch_bounds('PreStimSilence')
+#        if len(d):
+#            PreStimSilence = np.mean(np.diff(d))
+#        else:
+#            PreStimSilence = 0
+#        prestimbins = int(PreStimSilence * fs)
+#
+#        mr=np.mean(r,axis=0)
+#        spont=np.mean(mr[:,:prestimbins],axis=1,keepdims=True)
+#        mr-=spont
+#        mr /= np.max(np.abs(mr),axis=1,keepdims=True)
+#        tt=np.arange(mr.shape[1])/fs
+#        ax2.plot(tt-PreStimSilence, mr[0,:], 'k')
+#        # time bar
+#        ax2.plot(np.array([0,1]),np.array([1.1, 1.1]), 'k', lw=3)
+#        nplt.ax_remove_box(ax2)
+#        ax2.set_title(cellid)
+
+#    title="r_fit={:.3f} test={:.3f}".format(
+#            modelspec[0]['meta']['r_fit'][0],
+#            modelspec[0]['meta']['r_test'][0])
+
+
+#    nl_mod_idx = find_module('nonlinearity', modelspec)
+#    nplt.nl_scatter(rec, modelspec, nl_mod_idx, sig_name='pred',
+#                    compare='resp', smoothing_bins=60,
+#                    xlabel1=None, ylabel1=None, ax=ax4)
+#
+#    sg_mod_idx = find_module('state', modelspec)
+#    if sg_mod_idx is not None:
+#        modelspec2 = copy.deepcopy(modelspec)
+#        g=modelspec2[sg_mod_idx]['phi']['g'][0,:]
+#        d=modelspec2[sg_mod_idx]['phi']['d'][0,:]
+#
+#        modelspec2[nl_mod_idx]['phi']['amplitude'] *= 1+g[-1]
+#        modelspec2[nl_mod_idx]['phi']['base'] += d[-1]
+#        nplt.plot_nl_io(modelspec2[nl_mod_idx], ax4.get_xlim(), ax4)
+#        g=["{:.2f}".format(g) for g in list(modelspec[sg_mod_idx]['phi']['g'][0,:])]
+#        ts = "SG: " + " ".join(g)
+#        ax4.set_title(ts)
+#
+#    nplt.ax_remove_box(ax4)
+    return fig
