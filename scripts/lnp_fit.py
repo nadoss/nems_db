@@ -42,7 +42,7 @@ modelname = (
         # Level shift, usually init to mean response (nems.modules.levelshift)
         "-lvl.1"
         # Nonlinearity (nems.modules.nonlinearity -> double_exponential)
-        #"-dexp.1"
+        "-dexp.1"
         "_"  # modules -> fitters
         # Set initial values and do a rough "pre-fit"
         # Initialize fir coeffs to L2-norm of random values
@@ -147,3 +147,7 @@ new_sims = [simulate_spikes(rate_vector) for i in range(n_sim*10)]
 new_merged = np.vstack((resp, *new_sims))
 plt.imshow(new_merged, aspect='auto', cmap='Greys')
 fig.suptitle('1 resp (1st index) and {} sims'.format(n_sim*10))
+
+# TODO: add rate vector below rasters for comparison
+
+# TODO: add spike simulations to context so they can be viewed in browser
