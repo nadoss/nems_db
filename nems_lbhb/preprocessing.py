@@ -41,6 +41,11 @@ def mask_high_repetion_stims(rec,epoch_regex='^STIM_'):
 
     return full_rec
 
+def mask_subset_by_epoch(rec,epoch_list):
+    full_rec = rec.copy()
+    full_rec = full_rec.or_mask(epoch_list)
+    return full_rec
+
 
 def getPrePostSilence(sig):
     """

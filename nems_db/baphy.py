@@ -161,7 +161,8 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
 
     # number of channels in recording (not all necessarily contain spikes)
     chancount = len(sortinfo)
-
+    while chancount>1 and sortinfo[chancount-1].size == 0:
+        chancount -= 1
     # figure out how long each trial is by the time of the last spike count.
     # this method is a hack!
     # but since recordings are longer than the "official"
@@ -197,14 +198,13 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
               ' to even number of rasterfs bins')
         # print(TrialLen_spikefs)
         TrialLen_spikefs = (
-                np.ceil(TrialLen_spikefs / spikefs*finalfs)
+                np.ceil(TrialLen_spikefs / spikefs*finalfs + 1)
                 / finalfs*spikefs
                 )
         # print(TrialLen_spikefs)
 
     Offset_spikefs = np.cumsum(TrialLen_spikefs)
     Offset_sec = Offset_spikefs / spikefs  # how much to offset each trial
-
     # adjust times in exptevents to approximate time since experiment started
     # rather than time since trial started (native format)
     for Trialidx in range(1, TrialCount+1):
@@ -301,6 +301,7 @@ def baphy_load_data(parmfilepath, **options):
     if parmfilepath[-2:] != ".m":
         parmfilepath += ".m"
     # load parameter file
+    log.info('Loading parameters: %s', parmfilepath)
     globalparams, exptparams, exptevents = baphy_parm_read(parmfilepath)
 
     # TODO: use paths that match LBHB filesystem? new s3 filesystem?
@@ -494,6 +495,8 @@ def baphy_load_dataset(parmfilepath, **options):
         # remove stimulus events after TRIALSTOP or STIM,OFF event
         fftrial_stop = (exptevents['Trial'] == trialidx) & \
             ((exptevents['name'] == "STIM,OFF") |
+             (exptevents['name'] == "OUTCOME,VEARLY") |
+             (exptevents['name'] == "OUTCOME,EARLY") |
              (exptevents['name'] == "TRIALSTOP"))
         if np.sum(fftrial_stop):
             trialstoptime = np.min(exptevents[fftrial_stop]['start'])
@@ -527,7 +530,10 @@ def baphy_load_dataset(parmfilepath, **options):
     # trial (if behavior)
     print('Creating trial outcome events')
     note_map = {'OUTCOME,FALSEALARM': 'FA_TRIAL',
+                'OUTCOME,EARLY': 'FA_TRIAL',
+                'OUTCOME,VEARLY': 'FA_TRIAL',
                 'OUTCOME,MISS': 'MISS_TRIAL',
+                'OUTCOME,MATCH': 'HIT_TRIAL',
                 'BEHAVIOR,PUMPON,Pump': 'HIT_TRIAL'}
     this_event_times = event_times.copy()
     any_behavior = False
@@ -535,7 +541,10 @@ def baphy_load_dataset(parmfilepath, **options):
         # determine behavioral outcome, log event time to add epochs
         # spanning each trial
         ff = (((exptevents['name'] == 'OUTCOME,FALSEALARM')
+              | (exptevents['name'] == 'OUTCOME,EARLY')
+              | (exptevents['name'] == 'OUTCOME,VEARLY')
               | (exptevents['name'] == 'OUTCOME,MISS')
+              | (exptevents['name'] == 'OUTCOME,MATCH')
               | (exptevents['name'] == 'BEHAVIOR,PUMPON,Pump'))
               & (exptevents['Trial'] == trialidx))
 
@@ -615,6 +624,13 @@ def baphy_load_dataset(parmfilepath, **options):
                 ffstart = (exptevents['name'].str.contains(tag_mask_start))
                 ffstop = (exptevents['name'].str.contains(tag_mask_stop))
 
+            # remove start events that don't have a complementary stop
+            tff1, = np.where(ffstart)
+            tff2, = np.where(ffstop)
+            for tff in tff1:
+                if tff+2 not in tff2:
+                    ffstart[tff]=False
+
             # create intial list of stimulus events
             this_event_times = pd.concat(
                     [exptevents.loc[ffstart, ['start']].reset_index(),
@@ -659,10 +675,13 @@ def baphy_load_dataset(parmfilepath, **options):
 
             # create final list of these stimulus events
             this_event_times = this_event_times[keepevents]
-            tff, = np.where(ffstart)
-            ffstart[tff[keepevents == False]] = False
-            tff, = np.where(ffstop)
-            ffstop[tff[keeppostevents == False]] = False
+            tff1, = np.where(ffstart)
+            tff2, = np.where(ffstop)
+            try:
+                ffstart[tff1[keepevents == False]] = False
+                ffstop[tff2[keeppostevents == False]] = False
+            except:
+                import pdb; pdb.set_trace()
 
             event_times = event_times.append(this_event_times,
                                              ignore_index=True)
@@ -1238,7 +1257,7 @@ def baphy_load_recording(**options):
 
     if options['pupil']:
         signals['pupil'] = pupil
-    if (options['pupil_eyespeed']) & ('pupil_eyespeed' in signals.keys()):
+    if (options['pupil_eyespeed']) & ('pupil_eyespeed' in state_dict.keys()):
         signals['pupil_eyespeed'] = pupil_speed
     if options['rem']:
         signals['rem'] = rem
@@ -1317,8 +1336,8 @@ def baphy_data_path(**options):
     data_file = recording_filename_hash(
             siteid, options, uri_path="/auto/data/nems_db/recordings/")
 
-    log.info(data_file)
-    log.info(options)
+    #log.info(data_file)
+    #log.info(options)
 
     if not os.path.exists(data_file) or recache is True:
         #  rec = baphy_load_recording(
@@ -1380,17 +1399,18 @@ def baphy_load_recording_uri(**options):
 
     data_file = recording_filename_hash(siteid, options,
                                     uri_path='/auto/data/nems_db/recordings/')
-    log.info(data_file)
-    log.info(options)
+    #log.info(data_file)
+    #log.info(options)
 
     if not os.path.exists(data_file) or recache == True:
         log.info("Generating recording")
         # rec.meta is set = options in the following function
         rec = baphy_load_recording(**options)
+        log.info('Caching recording: %s', data_file)
         rec.save(data_file)
 
     else:
-        log.info('Cached recording found')
+        log.info('Cached recording found: %s', data_file)
 
     return data_file
 

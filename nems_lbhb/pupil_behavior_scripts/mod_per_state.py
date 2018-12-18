@@ -19,6 +19,8 @@ Here's how to set parameters:
 batch = 307  # A1 SUA and MUA
 batch = 309  # IC SUA and MUA
 batch = 295  # old (Slee) IC data
+batch = 311  # A1 old (SVD) data -- on BF
+batch = 312  # A1 old (SVD) data -- off BF
 
 # fil only
 state_list = ['st.fil0','st.fil']
@@ -27,9 +29,18 @@ loader = "psth.fs20-ld-"
 d = get_model_results_per_state_model(batch=batch, state_list=state_list,
                                       basemodel=basemodel, loader=loader)
 
-
+# example modelnames:
 psth.fs20.pup-ld-st.fil0-ref-psthfr.s_sdexp.S_jk.nf20-basic
 psth.fs20-ld-st.fil-ref-psthfr.s_sdexp.S_jk.nf20-basic
+
+# beh only
+batch = 311  # A1 old (SVD) data -- on BF
+state_list = ['st.beh0','st.beh']
+basemodel = "-ref-psthfr.s_stategain.S"
+loader = "psth.fs20-ld-"
+fitter = "_jk.nf20-basic"
+d = get_model_results_per_state_model(batch=batch, state_list=state_list,
+                                      basemodel=basemodel, loader=loader)
 
 # pup vs. active/passive
 state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
@@ -502,3 +513,40 @@ def aud_vs_state_wrapper():
                                      state_list=state_list)
         ax2.set_ylim([0,.1])
         ax3.set_ylim([0,.1])
+
+
+def beh_only_plot(batch=311):
+
+    # 311 = A1 old (SVD) data -- on BF
+    state_list = ['st.beh0', 'st.beh']
+    basemodel = "-ref-psthfr.s_stategain.S"
+    loader = "psth.fs20-ld-"
+    fitter = "_jk.nf20-basic"
+    df = get_model_results_per_state_model(batch=batch, state_list=state_list,
+                                          basemodel=basemodel, fitter = "_jk.nf20-basic",
+                                          loader=loader)
+    da = df[df['state_chan']=='active']
+
+    dp = da.pivot(index='cellid',columns='state_sig',
+                  values=['r', 'r_se', 'MI', 'g', 'd'])
+
+    dr = dp['r'].copy()
+    dr['sig']=((dp['r'][state_list[1]]-dp['r'][state_list[0]]) > \
+         (dp['r_se'][state_list[1]]+dp['r_se'][state_list[0]]))
+
+    g = dp['g'].copy()
+    d = dp['d'].copy()
+    ggood = np.isfinite(g['st.beh'])
+    stateplots.beta_comp(d.loc[ggood, 'st.beh'], g.loc[ggood, 'st.beh'],
+                         n1='Baseline', n2='Gain',
+                         title="Baseline/gain: batch {}".format(batch),
+                         highlight=dr.loc[ggood, 'sig'], hist_range=[-1, 1])
+
+    MI = dp['MI'].copy()
+    migood = np.isfinite(MI['st.beh'])
+    stateplots.beta_comp(MI.loc[migood, 'st.beh0'], MI.loc[migood, 'st.beh'],
+                         n1='State independent', n2='State-dep',
+                         title="MI: batch {}".format(batch),
+                         highlight=dr.loc[migood, 'sig'], hist_range=[-0.5, 0.5])
+
+    return df

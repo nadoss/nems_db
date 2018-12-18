@@ -20,7 +20,7 @@ import nems.analysis.api
 import nems.utils
 import nems_db.baphy as nb
 import nems_db.db as nd
-from nems.recording import Recording
+from nems.recording import Recording, load_recording
 from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
 import nems.xforms as xforms
 import nems.xform_helper as xhelp
@@ -63,6 +63,66 @@ def get_recording_uri(cellid, batch, options={}):
     return url
 
 
+def pop_selector(recording_uri_list, batch=None, cellid=None,
+                 rand_match=False, cell_count=20, best_cells=False, **context):
+
+    rec = load_recording(recording_uri_list[0])
+    all_cells = rec.meta['cellid']
+    this_site = cellid
+    cellid = [c for c in all_cells if c.split("-")[0]==this_site]
+    site_cellid = cellid.copy()
+
+    pmodelname="ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-fir.3x15-lvl.1-dexp.1_init-basic"
+    single_perf=nd.batch_comp(batch=batch, modelnames=[pmodelname],
+                              cellids=all_cells, stat='r_test')
+    this_perf=np.array([single_perf[single_perf.index==c][pmodelname].values[0] for c in cellid])
+    sidx = np.argsort(this_perf)
+
+    if best_cells:
+        keepidx=(this_perf >= this_perf[sidx[-cell_count]])
+        cellid=list(np.array(cellid)[keepidx])
+        this_perf = this_perf[keepidx]
+    else:
+        cellid=cellid[:cell_count]
+        this_perf = this_perf[:cell_count]
+
+    if rand_match:
+        out_cellid = [c for c in all_cells if c.split("-")[0]!=this_site]
+        out_perf=np.array([single_perf[single_perf.index==c][pmodelname].values[0] for c in out_cellid])
+
+        alt_cellid=[]
+        alt_perf=[]
+        for i, c in enumerate(cellid):
+            d = np.abs(out_perf-this_perf[i])
+            w = np.argmin(d)
+            alt_cellid.append(out_cellid[w])
+            alt_perf.append(out_perf[w])
+            out_perf[w]=100 # prevent cell from getting picked again
+        log.info("Rand matched cellids: %s", alt_cellid)
+        log.info("Mean actual: %.3f", np.mean(this_perf))
+        print(this_perf)
+        log.info("Mean rand: %.3f", np.mean(np.array(alt_perf)))
+        print(np.array(alt_perf))
+        rec['resp'] = rec['resp'].extract_channels(alt_cellid)
+        rec.meta['cellid'] = cellid
+    else:
+        rec['resp'] = rec['resp'].extract_channels(cellid)
+        rec.meta['cellid'] = cellid
+
+    return {'rec': rec}
+
+
+def pop_file(stimfmt='ozgf', batch=None,
+             rasterfs=50, chancount=18, siteid="NAT1", **options):
+
+    uri_path = '/auto/data/nems_db/recordings/'
+    recname="{}_{}.fs{}.ch{}".format(siteid, stimfmt, rasterfs, chancount)
+
+    recording_uri = '{}{}/{}.tgz'.format(uri_path, batch, recname)
+
+    return recording_uri
+
+
 def generate_recording_uri(cellid=None, batch=None, loadkey=None,
                            siteid=None, **options):
     """
@@ -85,8 +145,9 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
     ops = loader.split(".")
 
-    # some defaults
-    options = {'rasterfs': 100, 'chancount': 0}
+    # updates some some defaults
+    options.update({'rasterfs': 100, 'chancount': 0})
+    load_pop_file = False
 
     for op in ops:
         if op=='ozgf':
@@ -112,6 +173,8 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
         elif 'eysp' in ops:
             options['pupil_eyespeed'] = True
+        elif op.startswith('pop'):
+            load_pop_file = True
 
     if 'stimfmt' not in options.keys():
         raise ValueError('Valid stim format (ozgf, psth, parm, env, evt) not specified in loader='+loader)
@@ -126,29 +189,42 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
 
     options["batch"] = batch
     options["cellid"] = cellid
+    if load_pop_file:
+        recording_uri = pop_file(**options)
+    else:
+        recording_uri = nb.baphy_load_recording_uri(**options)
 
-    recording_uri = nb.baphy_load_recording_uri(**options)
 
     return recording_uri
 
 
 def baphy_load_wrapper(cellid=None, batch=None, loadkey=None,
-                       siteid=None, normalize=False, **context):
+                       siteid=None, normalize=False, options={}, **context):
+
+    # check for special pop signal code
+    cc=cellid.split("_")
+    pc_idx = None
+    if (len(cc) > 1) and (cc[1][0]=="P"):
+        pc_idx=[int(cc[1][1:])]
+        cellid=cc[0]
 
     recording_uri = generate_recording_uri(cellid=cellid, batch=batch,
-                                           loadkey=loadkey, siteid=None)
-    print('cellid: {}, recording_uri: {}'.format(cellid, recording_uri))
+                                           loadkey=loadkey, siteid=siteid, **options)
 
-    return {'recording_uri_list': [recording_uri]}
-    #return xforms.load_recordings([recording_uri], normalize=normalize,
-    #                              cellid=cellid, **context)
+    context = {'recording_uri_list': [recording_uri]}
 
+    if pc_idx is not None:
+        context['pc_idx'] = pc_idx
+
+    #log.info('cellid: {}, recording_uri: {}'.format(cellid, recording_uri))
+
+    return context
 
 
 def fit_model_xforms_baphy(cellid, batch, modelname,
                            autoPlot=True, saveInDB=False):
     """
-    Fits a single NEMS model using data from baphy/celldb
+    Fit a single NEMS model using data from baphy/celldb
     eg, 'ozgf100ch18_wc18x1_lvl1_fir15x1_dexp1_fit01'
     generates modelspec with 'wc18x1_lvl1_fir15x1_dexp1'
 
@@ -169,6 +245,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
         # ['nems.xforms.save_recordings', {'recordings': ['est', 'val']}],
         ['nems.xforms.fill_in_default_metadata',    {}],
     ]
+
     """
 
     log.info('Initializing modelspec(s) for cell/batch %s/%d...',
@@ -202,37 +279,36 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
                        {'keywordstring': modelspecname, 'meta': meta}])
         xfspec.extend(oxfh.generate_fitter_xfspec(fitkey))
         xfspec.append(['nems.analysis.api.standard_correlation', {},
-                       ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
+                       ['est', 'val', 'modelspec', 'rec'], ['modelspec']])
         if autoPlot:
             log.info('Generating summary plot ...')
             xfspec.append(['nems.xforms.plot_summary', {}])
     else:
 #        uri_key = nems.utils.escaped_split(loadkey, '-')[0]
 #        recording_uri = generate_recording_uri(cellid, batch, uri_key)
-        log.info("Kludge. Moved recording_uri handling to keywords")
+        log.info("TODO Complete move of recording_uri handling to keywords")
         recording_uri = None
         registry_args = {'cellid': cellid, 'batch': int(batch)}
         xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta,
                                             xforms_kwargs=registry_args)
 
-
     # actually do the fit
     ctx, log_xf = xforms.evaluate(xfspec)
 
     # save some extra metadata
-    modelspecs = ctx['modelspecs']
+    modelspec = ctx['modelspec']
 
     destination = '/auto/data/nems_db/results/{0}/{1}/{2}/'.format(
-            batch, cellid, ms.get_modelspec_longname(modelspecs[0]))
-    modelspecs[0][0]['meta']['modelpath'] = destination
-    modelspecs[0][0]['meta']['figurefile'] = destination+'figure.0000.png'
-    modelspecs[0][0]['meta'].update(meta)
+            batch, cellid, ms.get_modelspec_longname(modelspec))
+    modelspec.meta['modelpath'] = destination
+    modelspec.meta['figurefile'] = destination+'figure.0000.png'
+    modelspec.meta.update(meta)
 
     # save results
     log.info('Saving modelspec(s) to {0} ...'.format(destination))
     save_data = xforms.save_analysis(destination,
                                      recording=ctx['rec'],
-                                     modelspecs=modelspecs,
+                                     modelspec=modelspec,
                                      xfspec=xfspec,
                                      figures=ctx['figures'],
                                      log=log_xf)
@@ -241,7 +317,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     # save in database as well
     if saveInDB:
         # TODO : db results finalized?
-        nd.update_results_table(modelspecs[0])
+        nd.update_results_table(modelspec)
 
     return savepath
 
@@ -284,22 +360,22 @@ def fit_pop_model_xforms_baphy(cellid, batch, modelname, saveInDB=False):
     ctx, log_xf = xforms.evaluate(xfspec)
 
     # save some extra metadata
-    modelspecs = ctx['modelspecs']
+    modelspec = ctx['modelspec']
 
     destination = '/auto/data/nems_db/results/{0}/{1}/{2}/'.format(
-            batch, disp_cellid, ms.get_modelspec_longname(modelspecs[0]))
-    modelspecs[0][0]['meta']['modelpath'] = destination
-    modelspecs[0][0]['meta']['figurefile'] = destination+'figure.0000.png'
-    modelspecs[0][0]['meta'].update(meta)
+            batch, disp_cellid, ms.get_modelspec_longname(modelspec))
+    modelspec.meta['modelpath'] = destination
+    modelspec.meta['figurefile'] = destination+'figure.0000.png'
+    modelspec.meta.update(meta)
 
     # extra thing to save for pop model
-    modelspecs[0][0]['meta']['cellids'] = ctx['val'][0]['resp'].chans
+    modelspec.meta['cellids'] = ctx['val']['resp'].chans
 
     # save results
     log.info('Saving modelspec(s) to {0} ...'.format(destination))
     save_data = xforms.save_analysis(destination,
                                      recording=ctx['rec'],
-                                     modelspecs=modelspecs,
+                                     modelspec=modelspec,
                                      xfspec=xfspec,
                                      figures=ctx['figures'],
                                      log=log_xf)
@@ -307,7 +383,7 @@ def fit_pop_model_xforms_baphy(cellid, batch, modelname, saveInDB=False):
 
     if saveInDB:
         # save in database as well
-        nd.update_results_table(modelspecs[0])
+        nd.update_results_table(modelspec)
 
     return savepath
 
@@ -315,6 +391,28 @@ def fit_pop_model_xforms_baphy(cellid, batch, modelname, saveInDB=False):
 def load_model_baphy_xform(cellid, batch=271,
         modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
         eval_model=True, only=None):
+    '''
+    Load a model that was previously fit via fit_model_xforms_baphy.
+
+    Parameters
+    ----------
+    cellid : str
+        cellid in celldb database
+    batch : int
+        batch number in celldb database
+    modelname : str
+        modelname in celldb database
+    eval_model : boolean
+        If true, the entire xfspec will be re-evaluated after loading.
+    only : int
+        Index of single xfspec step to evaluate if eval_model is False.
+        For example, only=0 will typically just load the recording.
+
+    Returns
+    -------
+    xfspec, ctx : nested list, dictionary
+
+    '''
 
     kws = nems.utils.escaped_split(modelname, '_')
     old = False
@@ -395,7 +493,7 @@ def model_pred_comp(cellid, batch, modelnames, occurrence=None,
         times.append(time_vector[good_bins])
         values.append(p_vector[good_bins] + i)
 
-        r_test.append(ctx['modelspecs'][0][0]['meta']['r_test'][0])
+        r_test.append(ctx['modelspec'].meta['r_test'][0])
 
     times_all = times
     values_all = values
@@ -452,9 +550,9 @@ def quick_inspect(cellid="chn020f-b1", batch=271,
 
     xf, ctx = load_model_baphy_xform(cellid, batch, modelname, eval_model=True)
 
-    modelspecs = ctx['modelspecs']
+    modelspec = ctx['modelspec']
     est = ctx['est']
     val = ctx['val']
     nplt.quickplot(ctx)
 
-    return modelspecs, est, val
+    return modelspec, est, val

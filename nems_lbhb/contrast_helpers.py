@@ -29,7 +29,80 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     Creates a new signal whose values represent the degree of variability
     in each channel of the source signal. Each value is based on the
     previous values within a range specified by either <ms> or <bins>.
-    Only supports RasterizedSignal.
+
+    Contrast is calculated as the coefficient of variation within a rolling
+    window, using the formula: standard deviation / mean.
+
+    If more than one spectral band is used in the calculation, the contrast for
+    a number of channels equal to floor(bands/2) at the "top" and "bottom" of
+    the array will be calculated separately. For example, if bands=3, then
+    the contrast of the topmost and bottommost channels will be based on
+    the top 2 and bottom 2 channels, respectively, since the 3rd channel in
+    each case would fall outside the array.
+
+    Similarly, for any number of temporal bins based on ms, the "left" and
+    "right" most "columns" of the array will be replaced with zeros. For
+    LBHB's dataset this is a safe assumption since those portions of the array
+    will always be filled with silence anyway, but this might necessitate
+    padding for other datasets.
+
+    Only supports RasterizedSignal contained within a NEMS recording.
+    To operate directly on a 2d Array, use contrast_calculation.
+
+    Parameters
+    ----------
+    rec : NEMS recording
+        Recording containing, at minimum, the signal specified by "source_name."
+    name : str
+        Name of the new signal to be created
+    source_name : str
+        Name of the signal within rec whose data the contrast calculation will
+        be performed on.
+    ms : int
+        Number of milliseconds to use for the temporal axis of the convolution
+        filter. In conjunction with the sampling frequency of the source
+        signal, ms will be translated into a number of bins according to
+        the formula: number of bins = int((ms/1000) x sampling frequency
+    bins : int
+        Serves the same purpose as ms, except the number of bins is
+        specified directly.
+    bands : int
+        Number of bins to use for the spectral axis of the convolution filter.
+    dlog : boolean
+        If true, apply a log transformation to the source signal before
+        calculating contrast.
+    continuous : boolean
+        If true, do not rectify the contrast result.
+        If false, set result equal to 1 where value is above <percentile>,
+        0 otherwise.
+    normalize : boolean
+        If continuous is true, normalizes the result to the range 0 to 1.
+    percentile : int
+        If continuous is false, specifies the percentile cutoff for
+        contrast rectification.
+    ignore_zeros : boolean
+        If true, and continuous is false, "columns" containing zeros for all
+        spectral channels (i.e no stimulus) will be ignored when determining
+        the percentile-based cutoff value for contrast rectification.
+
+    Returns
+    -------
+    rec : NEMS recording
+        A new recording containing all signals in the original recording plus
+        a new signal named <name>.
+
+    Examples
+    --------
+    If ms=100, source_signal.fs=100, and bands=1, convolution filter shape
+    will be: (1, 21). The shape of the second axis includes (100*100/1000 + 1)
+    zeros, to force the behavior of the convolution to be causal rather than
+    anti-causal.
+
+    For ms=100, source_signal.fs=100, and bands=5, convolution filter shape
+    will be: (5, 21), where each "row" contains the same number of zeros as the
+    previous example.
+
+
     '''
 
     rec = rec.copy()
@@ -62,7 +135,7 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     # confined to each frequency channel
     array = source_signal.as_continuous().copy()
     array[np.isnan(array)] = 0
-    contrast = _contrast_calculation(array, history, bands, 'same')
+    contrast = contrast_calculation(array, history, bands, 'same')
 
     # Cropped time binds need to be filled in, otherwise convolution for
     # missing spectral bands will end up with empty 'corners'
@@ -82,15 +155,15 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
         reduced_bands = bands-cropped_khz
 
         # Replace top
-        top_replacement = _contrast_calculation(array[:reduced_bands, :],
-                                                history, reduced_bands,
-                                                'valid')
+        top_replacement = contrast_calculation(array[:reduced_bands, :],
+                                               history, reduced_bands,
+                                               'valid')
         contrast[i][cropped_time:-cropped_time] = top_replacement
 
         # Replace bottom
-        bottom_replacement = _contrast_calculation(array[-reduced_bands:, :],
-                                                   history, reduced_bands,
-                                                   'valid')
+        bottom_replacement = contrast_calculation(array[-reduced_bands:, :],
+                                                  history, reduced_bands,
+                                                  'valid')
         contrast[-(i+1)][cropped_time:-cropped_time] = bottom_replacement
 
         i += 1
@@ -120,7 +193,29 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     return rec
 
 
-def _contrast_calculation(array, history, bands, mode):
+def contrast_calculation(array, history, bands, mode):
+    '''
+    Parameters
+    ----------
+    array : 2d Ndarray
+        The data to perform the contrast calculation on,
+        contrast = standard deviation / mean
+    history : int
+        The number of nonzero bins for the convolution filter.
+        history + 1 zeros will be padded onto the second dimension.
+    bands : int
+        The number of bins in the first dimension of the convolution filter.
+    mode : str
+        See scipy.signal.conolve2d
+        Generally, 'valid' to drop rows/columns that would require padding,
+        'same' to pad those rows/columns with nans.
+
+    Returns
+    -------
+    contrast : 2d Ndarray
+
+
+    '''
     array = copy.deepcopy(array)
     filt = np.concatenate((np.zeros([bands, history+1]),
                            np.ones([bands, history])), axis=1)/(bands*history)
@@ -523,6 +618,22 @@ def _init_double_exponential(rec, modelspec, target_i):
 
 
 def dsig_phi_to_prior(modelspec):
+    '''
+    Sets priors for dynamic_sigmoid equal to the current phi for the
+    same module. Used for random-sample fits - all samples are initialized
+    and pre-fit the same way, and then randomly sampled from the new priors.
+
+    Parameters
+    ----------
+    modelspec : list of dictionaries
+        A NEMS modelspec containing, at minimum, a dynamic_sigmoid module
+
+    Returns
+    -------
+    modelspec : A copy of the input modelspec with priors updated.
+
+    '''
+
     modelspec = copy.deepcopy(modelspec)
     dsig_idx = find_module('dynamic_sigmoid', modelspec)
     dsig = modelspec[dsig_idx]
@@ -545,6 +656,46 @@ def dsig_phi_to_prior(modelspec):
 def init_contrast_model(est, modelspecs, IsReload=False,
                         tolerance=10**-5.5, max_iter=700, copy_strf=False,
                         fitter='scipy_minimize', metric='nmse', **context):
+    '''
+    Sets initial values for weight_channels, fir, levelshift, and their
+    contrast-dependent counterparts, as well as dynamic_sigmoid. Also
+    performs a rough fit for each of these modules.
+
+    Parameters
+    ----------
+    est : NEMS recording
+        The recording to use for prefitting and for determining initial values.
+        Expects the estimation portion of the dataset by default.
+    modelspecs : list of lists of dictionaries
+        List (should be a singleton) of NEMS modelspecs containing the modules
+        to be initialized.
+    IsReload : boolean
+        For use with xforms, specifies whether the model is being fit for
+        the first time or if it is being loaded from a previous fit.
+        If true, this function does nothing.
+    tolerance : float
+        Tolerance value to be passed to the optimizer.
+    max_iter : int
+        Maximum iteration count to be passed to the optimizer.
+    copy_strf : boolean
+        If true, use the pre-fitted phi values from weight_channels,
+        fir, and levelshift as the initial values for their contrast-based
+        counterparts.
+    fitter : str
+        Name of the optimization function to use, e.g. scipy_minimize
+        or coordinate_descent. It will be imported from nems.fitters.api
+    metric : str
+        Name of the metric to optimize, e.g. 'nmse'. It will be imported
+        from nems.metrics.api
+    context : dictionary
+        For use with xforms, contents will be updated by the return value.
+
+    Returns
+    -------
+    {'modelspecs': [modelspec]}
+
+    '''
+
 
     if IsReload:
         return {}
@@ -616,6 +767,10 @@ def init_contrast_model(est, modelspecs, IsReload=False,
 
 def _prefit_contrast_modules(est, modelspec, analysis_function,
                              fitter, metric=None, fit_kwargs={}):
+    '''
+    Perform a rough fit that only allows contrast STRF and dynamic_sigmoid
+    parameters to vary.
+    '''
     # preserve input modelspec
     modelspec = copy.deepcopy(modelspec)
 
@@ -668,6 +823,9 @@ def _prefit_contrast_modules(est, modelspec, analysis_function,
 
 def _prefit_dsig_only(est, modelspec, analysis_function,
                       fitter, metric=None, fit_kwargs={}):
+    '''
+    Perform a rough fit that only allows dynamic_sigmoid parameters to vary.
+    '''
 
     dsig_idx = find_module('dynamic_sigmoid', modelspec)
 
@@ -893,6 +1051,27 @@ def sample_DRC(fs=100, segment_duration=3000, n_segments=120, high_hw=15.0,
 
 def rec_from_DRC(fs=100, n_segments=120, rec_name='DRC Test',
                  sig_names=['stim', 'contrast']):
+    '''
+    Generate a NEMS recording that contains a synthetic RC-DRC stimulus
+    signal and its associated contrast signal.
+
+    Parameters
+    ----------
+    fs : int
+        Sampling rate to mimic when generating the signals.
+    n_segments : int
+        Number of 3 second segments the signal will contain.
+    rec_name : str
+        Name that will be given to the returned recording
+    sig_names : list of strings
+        Names that will be given to the generated signals. First name
+        is for the stimulus, the second is for the contrast.
+
+    Returns
+    -------
+    drc_rec : NEMS recording
+
+    '''
     s, c, f = sample_DRC(fs=fs, n_segments=n_segments)
     freq_names = ['%.1f kHz' % khz for khz in reversed(f)]
     drc_rec = nems.recording.load_recording_from_arrays(
@@ -912,6 +1091,77 @@ def test_DRC():
     plt.imshow(x, aspect='auto', cmap=plt.get_cmap('jet'))
 
     return fig
+
+
+def gc_magnitude(b, b_m, a, a_m, s, s_m, k, k_m):
+    '''
+    Compute the magnitude of the gain control response for a given set of
+    dynamic_sigmoid parameters as the mean difference between the
+    sigmoid generated for high-contrast conditions vs for low-contrast
+    conditions.
+
+    Parameters
+    ----------
+    (See dynamic_simgoid and nems.modules.nonlinearity._logistic_sigmoid)
+    b : float
+        base
+    b_m : float
+        base_mod
+    a : float
+        amplitude
+    a_m : float
+        amplitude_mod
+    s : float
+        shift
+    s_m : float
+        shift_mod
+    k : float
+        kappa
+    k_m : float
+        kappa_mod
+
+    Returns
+    -------
+    mag : float
+
+    '''
+    x_low = np.linspace(s*-1, s*3, 1000)
+    x_high = np.linspace(s_m*-1, s_m*3, 1000)
+
+    y_low = _logistic_sigmoid(x_low, b, a, s, k)
+    y_high = _logistic_sigmoid(x_high, b_m, a_m, s_m, k_m)
+
+    mag =  np.mean(y_high - y_low)
+    return mag
+
+
+def gc_magnitude_with_ctpred(ctpred, b, b_m, a, a_m, s, s_m, k, k_m):
+    b = b + (b_m - b)*ctpred
+    a = a + (a_m - a)*ctpred
+    s = s + (s_m - s)*ctpred
+    k = k + (k_m - k)*ctpred
+
+    x_low = np.linspace(s[0]*-1, s[0]*3, 1000)
+
+    # Can just use the first bin since they always start with silence
+    b_low = b[0]
+    a_low = a[0]
+    s_low = s[0]
+    k_low = k[0]
+
+    some_contrast = ctpred[np.abs(ctpred - ctpred[0])/np.abs(ctpred[0]) > 0.02]
+    high_contrast = ctpred > np.percentile(some_contrast, 50)
+    b_high = np.median(b[high_contrast])
+    a_high = np.median(a[high_contrast])
+    s_high = np.median(s[high_contrast])
+    k_high = np.median(k[high_contrast])
+
+    x_high = np.linspace(s_high*-1, s_high*3, 1000)
+
+    y_low = _logistic_sigmoid(x_low, b_low, a_low, s_low, k_low)
+    y_high = _logistic_sigmoid(x_high, b_high, a_high, s_high, k_high)
+
+    return np.mean(y_high - y_low)
 
 
 # Notes:

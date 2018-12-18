@@ -7,6 +7,16 @@ log = logging.getLogger(__name__)
 # TODO: Delete after finished deprecating.
 # Replaced with: load, splitcount, avgep, st, contrast
 
+def env(loadkey, cellid=None, batch=None):
+    """
+    envelope loader
+       extra parameters handled by loadkey parser in baphy_load_wrapper
+    """
+    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
+              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
+    return xfspec
+
+
 def psth(loadkey, cellid=None, batch=None):
     """
     psth loader (no stim)
@@ -26,10 +36,28 @@ def ozgf(loadkey, cellid=None, batch=None):
               {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
     return xfspec
 
-def ns(loadkey, cellid=None, batch=None):
-    
+
+def parm(loadkey, cellid=None, batch=None):
+    """
+    gammatone filter
+       extra parameters handled by loadkey parser in baphy_load_wrapper
+    """
     xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
               {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
+    return xfspec
+
+
+def ns(loadkey, cellid=None, batch=None):
+
+    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
+              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
+    return xfspec
+
+
+def SPOld(loadkey, recording_uri=None, cellid=None):
+    import nems.plugins.default_loaders
+    xfspec = nems.plugins.default_loaders.ld(loadkey, recording_uri=recording_uri,cellid=cellid)
+    xfspec.append(['nems_lbhb.SPO_helpers.load',{}])
     return xfspec
 
 #def ozgf(loadkey, recording_uri):
@@ -174,6 +202,27 @@ def ns(loadkey, cellid=None, batch=None):
 #              ['nems.xforms.mask_all_but_targets', {}]]
 #
 #    return xfspec
+def loadpop(loadkey, cellid=None, batch=None):
+    ops = loadkey.split('.')[1:]
+
+    rand_match = False
+    cell_count = 20
+    best_cells = False
+    for op in ops:
+        if op=='rnd':
+            rand_match = True
+        elif op.startswith('cc'):
+            cell_count = int(op[2:])
+        elif op.startswith('bc'):
+            cell_count = int(op[2:])
+            best_cells=True
+
+    xfspec = [['nems_db.xform_wrappers.pop_selector',
+              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch,
+               'rand_match': rand_match, 'cell_count': cell_count,
+               'best_cells': best_cells}]]
+
+    return xfspec
 
 
 # TODO: delete after finished deprecating, no longer used in this module.

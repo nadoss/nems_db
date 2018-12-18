@@ -170,6 +170,43 @@ def mod(loadkey):
     return xfspec
 
 
+def pca(loadkey):
+    """
+    computer pca (or some other state-space) on response
+    """
+
+    ops = loadkey.split(".")
+    pc_source = "psth"
+    overwrite_resp = True
+    pc_count=None
+    pc_idx=None
+    for op in ops:
+        if op == "psth":
+            pc_source = "psth"
+        elif op == "full":
+            pc_source = "full"
+        elif op == "noise":
+            pc_source = "noise"
+        elif op == "no":
+            overwrite_resp = False
+        elif op.startswith("cc"):
+            pc_count=int(op[2:])
+            pc_idx=list(range(pc_count))
+        elif op.startswith("n"):
+            pc_count=int(op[1:])+1
+            pc_idx=[int(op[1:])]
+    if pc_idx is not None:
+        xfspec = [['nems.preprocessing.resp_to_pc',
+                   {'pc_source': pc_source, 'overwrite_resp': overwrite_resp,
+                    'pc_count': pc_count, 'pc_idx': pc_idx}]]
+    else:
+        xfspec = [['nems.preprocessing.resp_to_pc',
+                   {'pc_source': pc_source, 'overwrite_resp': overwrite_resp,
+                    'pc_count': pc_count}]]
+
+    return xfspec
+
+
 def contrast(loadkey):
     ops = loadkey.split('.')[1:]
     kwargs = {}
@@ -210,6 +247,17 @@ def hrc(load_key):
 
     return xfspec
 
+def subset(load_key):
+    """
+    Create a mask so that model is fit only using a subset of the data.
+    Subset is defined by epoh name. 
+    Used to mask stimuli of different categories (coherent, incoherent, or single)
+    LAS
+    """
+    subsets = load_key.split('.')[1].split('+')
+    xfspec = [['nems_lbhb.preprocessing.mask_subset_by_epoch',
+               {'epoch_list':subsets}, ['rec'], ['rec']]]
+    return xfspec
 
 def psthfr(load_key):
     """
@@ -263,3 +311,7 @@ def rscsw(load_key, cellid, batch):
                     'batch': batch},
                    ['rec'], ['rec']]]
     return xfspec
+
+def stSPO(load_key):
+    #add SPO state signal
+    return [['nems_lbhb.SPO_helpers.add_coherence_as_state',{}]]
