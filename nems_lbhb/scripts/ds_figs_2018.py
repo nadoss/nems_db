@@ -12,34 +12,26 @@ from nems_lbhb.stateplots import model_per_time_wrapper
 #from nems_lbhb.behavior_pupil_scripts.mod_per_state import get_model_results_per_state_model
 exec(open("/auto/users/svd/python/nems_db/nems_lbhb/pupil_behavior_scripts/mod_per_state.py").read())
 
-
+#batch = 309 # IC cells SUA+MUA
+batch = 307 # A1 cells SUA+MUA
 do_single_cell = True  # if False, do pop summary
 
 if do_single_cell:
-    # SINGLE CELL EXAMPLES
 
     # DEFAULTS
     #loader= "psth.fs20.pup-ld-"
     #fitter = "_jk.nf20-basic"
-    basemodel = "-ref-psthfr_stategain.S"
+    #basemodel = "-ref-psthfr_stategain.S"
+    basemodel = "-ref-psthfr_sdexp.S"
 
     # alternative state / file breakdowns
-    state_list = ['st.pup0.hlf0','st.pup0.hlf','st.pup.hlf0','st.pup.hlf']
+    #state_list = ['st.pup0.hlf0','st.pup0.hlf','st.pup.hlf0','st.pup.hlf']
     #state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']
     #state_list = ['st.pup0.far0.hit0.hlf0','st.pup0.far0.hit0.hlf',
     #              'st.pup.far.hit.hlf0','st.pup.far.hit.hlf']
+    state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
     
-    batch=307
     # individual cells - by default
-    # A1 cells
-#    cellid="TAR010c-27-2"  # behavior
-#    cellid="TAR010c-06-1"  # pupil cell
-#    cellid="BRT026c-20-1"
-#    cellid="BRT026c-05-2"
-#    cellid="TAR010c-19-1"  #
-#    cellid="TAR010c-33-1"
-#    cellid="bbl102d-01-1"  # maybe good hybrid cell?
-#    cellid="BRT037b-24-1"  # A1 cell with max MI in all cell analysis -problem
     
     if batch == 309:
         # A1 SU
@@ -83,6 +75,12 @@ if do_single_cell:
         fig = plt.gcf()
         fig.savefig(path+cellid+'.pdf')
         plt.close(fig)
+        
+    state_list_beh = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
+        
+    for cellid in cellids:
+        model_act_pas_DS(cellid, batch, basemodel=basemodel, state_list=state_list_beh)
+        fig = plt.gcf()
 
 else:
     # POPULATION SUMMARY CELL EXAMPLES
@@ -100,10 +98,20 @@ else:
 #              'PASSIVE_1_A','PASSIVE_1_B']
 
     basemodel = "-ref-psthfr.s_sdexp.S"
-    batch = 307
 
     df = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
     dMI, dMI0 = hlf_analysis(df, state_list, states=states)
+    
+    
+    fig = plt.gcf()
+    
+    if batch==309:
+        path='/auto/users/daniela/docs/AC_IC_project/309_per_file/'
+        
+    if batch==307:
+        path='/auto/users/daniela/docs/AC_IC_project/307_per_file/'
+        
+    fig.savefig(path+str(batch)+'_allcells.pdf')
 
 

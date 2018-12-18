@@ -504,7 +504,8 @@ def model_per_time_wrapper(cellid, batch=307,
                            loader= "psth.fs20.pup-ld-",
                            fitter = "_jk.nf20-basic",
                            basemodel = "-ref-psthfr_stategain.S",
-                           state_list=None):
+                           state_list=None,
+                           colors=None):
     """
     batch = 307  # A1 SUA and MUA
     batch = 309  # IC SUA and MUA
@@ -517,7 +518,7 @@ def model_per_time_wrapper(cellid, batch=307,
         state_list = ['st.pup0.far0.hit0.hlf0','st.pup0.far0.hit0.hlf',
                       'st.pup.far.hit.hlf0','st.pup.far.hit.hlf']
         state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']
-
+        
     """
 
     # pup vs. active/passive
@@ -539,6 +540,11 @@ def model_per_time_wrapper(cellid, batch=307,
         contexts.append(ctx)
 
     plt.figure()
+    if ('hlf' in state_list[0]) or ('fil' in state_list[0]):
+        files_only=True
+    else:
+        files_only=False
+        
     for i, ctx in enumerate(contexts):
 
         rec = ctx['val'][0].apply_mask()
@@ -553,13 +559,13 @@ def model_per_time_wrapper(cellid, batch=307,
         ax = plt.subplot(len(contexts)+1, 1, 2+i)
         nplt.state_vars_psth_all(rec, epoch, psth_name='resp',
                             psth_name2='pred', state_sig='state_raw',
-                            colors=None, channel=None, decimate_by=1,
-                            ax=ax, files_only=True, modelspec=modelspec)
+                            colors=colors, channel=None, decimate_by=1,
+                            ax=ax, files_only=files_only, modelspec=modelspec)
         ax.set_ylabel(state_list[i])
         ax.set_xticks([])
 
     #plt.tight_layout()
-
+    
 
 def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
     """
