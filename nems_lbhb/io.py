@@ -11,6 +11,7 @@ import re
 import os
 import os.path
 import scipy.io
+import scipy.io as spio
 import scipy.ndimage.filters
 import scipy.signal
 import numpy as np
@@ -47,7 +48,7 @@ def loadmat(filename):
     '''
     data = spio.loadmat(filename, struct_as_record=False, squeeze_me=True)
     return _check_keys(data)
-​
+
 def _check_keys(dict):
     '''
     checks if entries in dictionary are mat-objects. If yes
@@ -57,7 +58,7 @@ def _check_keys(dict):
         if isinstance(dict[key], spio.matlab.mio5_params.mat_struct):
             dict[key] = _todict(dict[key])
     return dict
-​
+
 def _todict(matobj):
     '''
     A recursive function which constructs from matobjects nested dictionaries
