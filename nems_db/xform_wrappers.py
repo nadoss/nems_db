@@ -224,7 +224,7 @@ def baphy_load_wrapper(cellid=None, batch=None, loadkey=None,
 def fit_model_xforms_baphy(cellid, batch, modelname,
                            autoPlot=True, saveInDB=False):
     """
-    Fits a single NEMS model using data from baphy/celldb
+    Fit a single NEMS model using data from baphy/celldb
     eg, 'ozgf100ch18_wc18x1_lvl1_fir15x1_dexp1_fit01'
     generates modelspec with 'wc18x1_lvl1_fir15x1_dexp1'
 
@@ -245,6 +245,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
         # ['nems.xforms.save_recordings', {'recordings': ['est', 'val']}],
         ['nems.xforms.fill_in_default_metadata',    {}],
     ]
+
     """
 
     log.info('Initializing modelspec(s) for cell/batch %s/%d...',
@@ -390,6 +391,28 @@ def fit_pop_model_xforms_baphy(cellid, batch, modelname, saveInDB=False):
 def load_model_baphy_xform(cellid, batch=271,
         modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
         eval_model=True, only=None):
+    '''
+    Load a model that was previously fit via fit_model_xforms_baphy.
+
+    Parameters
+    ----------
+    cellid : str
+        cellid in celldb database
+    batch : int
+        batch number in celldb database
+    modelname : str
+        modelname in celldb database
+    eval_model : boolean
+        If true, the entire xfspec will be re-evaluated after loading.
+    only : int
+        Index of single xfspec step to evaluate if eval_model is False.
+        For example, only=0 will typically just load the recording.
+
+    Returns
+    -------
+    xfspec, ctx : nested list, dictionary
+
+    '''
 
     kws = nems.utils.escaped_split(modelname, '_')
     old = False

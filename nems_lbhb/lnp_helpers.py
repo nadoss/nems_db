@@ -118,14 +118,12 @@ def _stack_reps(spike_train, ep='^STIM_'):
 #       behaving as expected
 def simulate_spikes(rate_vector):
     integral = integrate.cumtrapz(rate_vector, initial=0)
-    #random = np.random.rand(*integral.shape)
     spikes = np.zeros_like(integral)
     base = 0
     random = np.asscalar(np.random.rand(1))
     for i,r in enumerate(integral):
-        #if (random[i] < 1-np.exp(-r+base))
         if (random < 1-np.exp(-r+base)):
-            spikes[i]=1
+            spikes[i] = 1
             base = r
             random = np.asscalar(np.random.rand(1))
 
