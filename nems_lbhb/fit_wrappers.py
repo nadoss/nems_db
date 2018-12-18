@@ -35,8 +35,11 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def init_pop_pca(rec, modelspec):
-    # preserve input modelspec
+def init_pop_pca(est, modelspec, flip_pcs=False, **context):
+    """ fit up through the fir module of a population model using the pca
+    signal"""
+
+    # preserve input modelspec. necessary?
     modelspec = copy.deepcopy(modelspec)
 
     ifir=find_module('filter_bank', modelspec)
@@ -44,7 +47,7 @@ def init_pop_pca(rec, modelspec):
 
     chan_count=modelspec[ifir]['fn_kwargs']['bank_count']
     chan_per_bank = int(modelspec[iwc]['prior']['mean'][1]['mean'].shape[0]/chan_count)
-    rec = rec.copy()
+    rec = est.copy()
     tmodelspec = copy.deepcopy(modelspec)
 
     kw=[m['id'] for m in modelspec[:iwc]]
@@ -67,8 +70,11 @@ def init_pop_pca(rec, modelspec):
     keyword_lib = KeywordRegistry()
     keyword_lib.register_module(default_keywords)
     keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
-
-    for pc_idx in range(chan_count):
+    if flip_pcs:
+        pc_fit_count = int(np.ceil(chan_count/2))
+    else:
+        pc_fit_count = chan_count
+    for pc_idx in range(pc_fit_count):
         r = rec['pca'].extract_channels([rec['pca'].chans[pc_idx]])
         m = np.nanmean(r.as_continuous())
         d = np.nanstd(r.as_continuous())
@@ -94,7 +100,17 @@ def init_pop_pca(rec, modelspec):
                 #if k=='coefficients':
                 #    v/=100 # kludge
                 modelspec[ifir]['phi'][k]=np.concatenate((modelspec[ifir]['phi'][k],v))
-    return modelspec
+
+        if flip_pcs and (pc_idx*2 < chan_count):
+            # add negative flipped version of fit
+            for k, v in tmodelspec[iwc]['phi'].items():
+                modelspec[iwc]['phi'][k]=np.concatenate((modelspec[iwc]['phi'][k],v))
+            for k, v in tmodelspec[itfir]['phi'].items():
+                #if k=='coefficients':
+                #    v/=100 # kludge
+                modelspec[ifir]['phi'][k]=np.concatenate((-modelspec[ifir]['phi'][k],v))
+
+    return {'modelspec': modelspec}
 
 
 def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
@@ -133,7 +149,7 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
 
     # identify any excluded modules and take them out of temp modelspec
     # that will be fit here
-    tmodelspec = []
+    tmodelspec = ms.ModelSpec()
     sliceinfo = []
     for i, m in enumerate(modelspec):
         m = copy.deepcopy(m)
@@ -168,13 +184,13 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
             sliceinfo.append(s)
 
         tmodelspec.append(m)
-#    print(sliceinfo)
+
     if len(fit_idx) == 0:
         log.info('No modules matching fit_set for slice fit')
         return modelspec
 
     exclude_idx = np.setdiff1d(np.arange(0, len(modelspec)),
-                               np.array(fit_idx))
+                               np.array(fit_idx)).tolist()
     for i in exclude_idx:
         m = tmodelspec[i]
         log.debug('Freezing phi for module %d (%s)', i, m['fn'])
@@ -194,7 +210,7 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
         #print('firstidx {}'.format(first_idx))
         temp_rec = ms.evaluate(temp_rec, tmodelspec, stop=first_idx)
         temp_rec['stim'] = temp_rec['pred'].copy()
-        tmodelspec = tmodelspec[first_idx:]
+        tmodelspec = tmodelspec.copy(lb=first_idx)
         tmodelspec[0]['fn_kwargs']['i'] = 'stim'
         #print(tmodelspec)
     #print(temp_rec.signals.keys())
@@ -208,9 +224,8 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
     # fit the subset of modules
     temp_rec = ms.evaluate(temp_rec, tmodelspec)
     error_before = metric(temp_rec)
-
     tmodelspec = analysis_function(temp_rec, tmodelspec, fitter=fitter,
-                                   metric=metric, fit_kwargs=fit_kwargs)[0]
+                                   metric=metric, fit_kwargs=fit_kwargs)
 
     temp_rec = ms.evaluate(temp_rec, tmodelspec)
     error_after = metric(temp_rec)
@@ -242,7 +257,7 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
 
 
 def fit_population_iteratively(
-        est, modelspecs,
+        est, modelspec,
         cost_function=basic_cost,
         fitter=coordinate_descent, evaluator=ms.evaluate,
         segmentor=nems.segmentors.use_all_data,
@@ -302,7 +317,7 @@ def fit_population_iteratively(
     module_sets=None
     """
 
-    modelspec = copy.deepcopy(modelspecs[0])
+    modelspec = copy.deepcopy(modelspec)
     data = est.copy()
 
     bank_mod=find_module('filter_bank', modelspec, find_all_matches=True)
@@ -336,8 +351,8 @@ def fit_population_iteratively(
     start_time = time.time()
     ms.fit_mode_on(modelspec)
 
-    modelspec = init_pop_pca(data, modelspec)
-    print(modelspec)
+    #modelspec = init_pop_pca(data, modelspec)
+    #print(modelspec)
 
     # Ensure that phi exists for all modules; choose prior mean if not found
     for i, m in enumerate(modelspec):
@@ -400,8 +415,11 @@ def fit_population_iteratively(
                 if (cc == slice_count):
                     log.info('Slice %d updating pop-wide parameters', s)
                     print('Slice %d updating pop-wide parameters' % (s))
-                    for m in modelspec:
-                        print(m['fn'] + ": ", m['phi'])
+                    for i, m in enumerate(modelspec):
+                        if i in fit_set_all:
+                            print(m['fn'] + ": fitting")
+                        else:
+                            print(m['fn'] + ": frozen")
 
                     improved_modelspec = init.prefit_mod_subset(
                             data, improved_modelspec, analysis.fit_basic,
@@ -464,7 +482,6 @@ def fit_population_iteratively(
     ms.fit_mode_off(improved_modelspec)
     ms.set_modelspec_metadata(improved_modelspec, 'fitter', metaname)
     ms.set_modelspec_metadata(improved_modelspec, 'fit_time', elapsed_time)
-    results = [copy.deepcopy(improved_modelspec)]
 
-    return {'modelspecs': results}
+    return {'modelspec': improved_modelspec.copy()}
 

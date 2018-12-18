@@ -209,7 +209,7 @@ def baphy_load_wrapper(cellid=None, batch=None, loadkey=None,
         cellid=cc[0]
 
     recording_uri = generate_recording_uri(cellid=cellid, batch=batch,
-                                           loadkey=loadkey, siteid=None, **options)
+                                           loadkey=loadkey, siteid=siteid, **options)
 
     context = {'recording_uri_list': [recording_uri]}
 
@@ -278,7 +278,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
                        {'keywordstring': modelspecname, 'meta': meta}])
         xfspec.extend(oxfh.generate_fitter_xfspec(fitkey))
         xfspec.append(['nems.analysis.api.standard_correlation', {},
-                       ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
+                       ['est', 'val', 'modelspec', 'rec'], ['modelspec']])
         if autoPlot:
             log.info('Generating summary plot ...')
             xfspec.append(['nems.xforms.plot_summary', {}])
@@ -291,24 +291,23 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
         xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta,
                                             xforms_kwargs=registry_args)
 
-
     # actually do the fit
     ctx, log_xf = xforms.evaluate(xfspec)
 
     # save some extra metadata
-    modelspecs = ctx['modelspecs']
+    modelspec = ctx['modelspec']
 
     destination = '/auto/data/nems_db/results/{0}/{1}/{2}/'.format(
-            batch, cellid, ms.get_modelspec_longname(modelspecs[0]))
-    modelspecs[0][0]['meta']['modelpath'] = destination
-    modelspecs[0][0]['meta']['figurefile'] = destination+'figure.0000.png'
-    modelspecs[0][0]['meta'].update(meta)
+            batch, cellid, ms.get_modelspec_longname(modelspec))
+    modelspec.meta['modelpath'] = destination
+    modelspec.meta['figurefile'] = destination+'figure.0000.png'
+    modelspec.meta.update(meta)
 
     # save results
     log.info('Saving modelspec(s) to {0} ...'.format(destination))
     save_data = xforms.save_analysis(destination,
                                      recording=ctx['rec'],
-                                     modelspecs=modelspecs,
+                                     modelspec=modelspec,
                                      xfspec=xfspec,
                                      figures=ctx['figures'],
                                      log=log_xf)
@@ -317,7 +316,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     # save in database as well
     if saveInDB:
         # TODO : db results finalized?
-        nd.update_results_table(modelspecs[0])
+        nd.update_results_table(modelspec)
 
     return savepath
 
@@ -360,22 +359,22 @@ def fit_pop_model_xforms_baphy(cellid, batch, modelname, saveInDB=False):
     ctx, log_xf = xforms.evaluate(xfspec)
 
     # save some extra metadata
-    modelspecs = ctx['modelspecs']
+    modelspec = ctx['modelspec']
 
     destination = '/auto/data/nems_db/results/{0}/{1}/{2}/'.format(
-            batch, disp_cellid, ms.get_modelspec_longname(modelspecs[0]))
-    modelspecs[0][0]['meta']['modelpath'] = destination
-    modelspecs[0][0]['meta']['figurefile'] = destination+'figure.0000.png'
-    modelspecs[0][0]['meta'].update(meta)
+            batch, disp_cellid, ms.get_modelspec_longname(modelspec))
+    modelspec.meta['modelpath'] = destination
+    modelspec.meta['figurefile'] = destination+'figure.0000.png'
+    modelspec.meta.update(meta)
 
     # extra thing to save for pop model
-    modelspecs[0][0]['meta']['cellids'] = ctx['val'][0]['resp'].chans
+    modelspec.meta['cellids'] = ctx['val']['resp'].chans
 
     # save results
     log.info('Saving modelspec(s) to {0} ...'.format(destination))
     save_data = xforms.save_analysis(destination,
                                      recording=ctx['rec'],
-                                     modelspecs=modelspecs,
+                                     modelspec=modelspec,
                                      xfspec=xfspec,
                                      figures=ctx['figures'],
                                      log=log_xf)
@@ -383,7 +382,7 @@ def fit_pop_model_xforms_baphy(cellid, batch, modelname, saveInDB=False):
 
     if saveInDB:
         # save in database as well
-        nd.update_results_table(modelspecs[0])
+        nd.update_results_table(modelspec)
 
     return savepath
 
@@ -471,7 +470,7 @@ def model_pred_comp(cellid, batch, modelnames, occurrence=None,
         times.append(time_vector[good_bins])
         values.append(p_vector[good_bins] + i)
 
-        r_test.append(ctx['modelspecs'][0][0]['meta']['r_test'][0])
+        r_test.append(ctx['modelspec'].meta['r_test'][0])
 
     times_all = times
     values_all = values
@@ -528,9 +527,9 @@ def quick_inspect(cellid="chn020f-b1", batch=271,
 
     xf, ctx = load_model_baphy_xform(cellid, batch, modelname, eval_model=True)
 
-    modelspecs = ctx['modelspecs']
+    modelspec = ctx['modelspec']
     est = ctx['est']
     val = ctx['val']
     nplt.quickplot(ctx)
 
-    return modelspecs, est, val
+    return modelspec, est, val

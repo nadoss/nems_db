@@ -90,10 +90,11 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
         highlight = highlight[nncells]
 
     if title is None:
-        if highlight is not None:
-            title="n={}/{}".format(np.sum(highlight),len(highlight))
-        else:
-            title="{} v {}".format(n1,n2)
+        title = "{} v {}".format(n1,n2)
+
+    if highlight is not None:
+        title += " (n={}/{})".format(np.sum(highlight),len(highlight))
+
     # exclude cells without prepassive
     outcells = ((beta1 > hist_range[1]) | (beta1 < hist_range[0]) |
                 (beta2 > hist_range[1]) | (beta2 < hist_range[0]))

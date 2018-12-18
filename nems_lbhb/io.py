@@ -38,6 +38,40 @@ stim_cache_dir = '/auto/data/tmp/tstim/'  # location of cached stimuli
 spk_subdir = 'sorted/'   # location of spk.mat files relative to parmfiles
 
 
+def loadmat(filename):
+    '''
+    this function should be called instead of direct spio.loadmat
+    as it cures the problem of not properly recovering python dictionaries
+    from mat files. It calls the function check keys to cure all entries
+    which are still mat-objects
+    '''
+    data = spio.loadmat(filename, struct_as_record=False, squeeze_me=True)
+    return _check_keys(data)
+​
+def _check_keys(dict):
+    '''
+    checks if entries in dictionary are mat-objects. If yes
+    todict is called to change them to nested dictionaries
+    '''
+    for key in dict:
+        if isinstance(dict[key], spio.matlab.mio5_params.mat_struct):
+            dict[key] = _todict(dict[key])
+    return dict
+​
+def _todict(matobj):
+    '''
+    A recursive function which constructs from matobjects nested dictionaries
+    '''
+    dict = {}
+    for strg in matobj._fieldnames:
+        elem = matobj.__dict__[strg]
+        if isinstance(elem, spio.matlab.mio5_params.mat_struct):
+            dict[strg] = _todict(elem)
+        else:
+            dict[strg] = elem
+    return dict
+
+
 def baphy_mat2py(s):
 
     s3 = re.sub(r';', r'', s.rstrip())
@@ -66,7 +100,10 @@ def baphy_mat2py(s):
     s7 = re.sub(r'zeros\(([0-9,]+)\)', r'np.zeros([\g<1>])', s7)
     s7 = re.sub(r'{(.*)}', r'[\g<1>]', s7)
 
-    return s7
+    s8 = re.sub(r" , REF-[0-9]+", r" , Reference", s7)
+    s8 = re.sub(r" , TARG-[0-9]+", r" , Reference", s8)
+
+    return s8
 
 
 def baphy_parm_read(filepath):
@@ -100,9 +137,14 @@ def baphy_parm_read(filepath):
                 except:
                     s3 = sout2.split('[')
                     sout3 = "[".join(s3[:-1]) + ' = {}'
-                    exec(sout3)
+                    try:
+                        exec(sout3)
+                    except:
+                        s4 = sout3.split('[')
+                        sout4 = "[".join(s4[:-1]) + ' = {}'
+                        exec(sout4)
+                        exec(sout3)
                     exec(sout2)
-
                 exec(sout1)
             exec(sout)
         except NameError:
@@ -117,15 +159,19 @@ def baphy_parm_read(filepath):
     d = pd.DataFrame(t)
     if 'ClockStartTime' in d.columns:
         exptevents = d.drop(['Rove', 'ClockStartTime'], axis=1)
-    else:
+    elif 'Rove' in d.columns:
         exptevents = d.drop(['Rove'], axis=1)
-
+    else:
+        exptevents = d
     # rename columns to NEMS standard epoch names
     exptevents.columns = ['name', 'start', 'end', 'Trial']
     for i in range(len(exptevents)):
         if exptevents.loc[i, 'end'] == []:
             exptevents.loc[i, 'end'] = exptevents.loc[i, 'start']
 
+    if 'ReferenceClass' not in exptparams['TrialObject'][1].keys():
+        exptparams['TrialObject'][1]['ReferenceClass'] = \
+           exptparams['TrialObject'][1]['ReferenceHandle'][1]['descriptor']
     # CPP special case, deletes added commas
     if exptparams['TrialObject'][1]['ReferenceClass'] == 'ContextProbe':
         tags = exptparams['TrialObject'][1]['ReferenceHandle'][1]['Names']  # gets the list of tags

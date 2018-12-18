@@ -90,8 +90,12 @@ def popiter(fitkey):
     #       And epoch to go with state.
     options = _extract_options(fitkey)
     tolerances, module_sets, fit_iter, tol_iter, fitter = _parse_iter(options)
-
-    xfspec = [['nems_lbhb.fit_wrappers.fit_population_iteratively',
+    if 'pcf' in options:
+        flip_pcs = True
+    else:
+        flip_pcs = False
+    xfspec = [['nems_lbhb.fit_wrappers.init_pop_pca', {'flip_pcs': flip_pcs}],
+              ['nems_lbhb.fit_wrappers.fit_population_iteratively',
                {'module_sets': module_sets, 'fitter': fitter,
                 'tolerances': tolerances, 'tol_iter': tol_iter,
                 'fit_iter': fit_iter}]]

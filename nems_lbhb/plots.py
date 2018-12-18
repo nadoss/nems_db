@@ -51,7 +51,8 @@ def get_model_preds(cellid, batch, modelname):
     return xf, ctx
 
 
-def compare_model_preds(cellid, batch, modelname1, modelname2):
+def compare_model_preds(cellid, batch, modelname1, modelname2,
+                        max_pre=0.25, max_dur=1.0):
     """
     compare prediction accuracy of two models on validation stimuli
 
@@ -62,13 +63,14 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
     xf2, ctx2 = get_model_preds(cellid, batch, modelname2)
 
     rec = ctx1['rec']
-    val1 = ctx1['val'][0]
-    val2 = ctx2['val'][0]
+    val1 = ctx1['val']
+    val2 = ctx2['val']
 
     stim = rec['stim'].rasterize()
     resp = rec['resp'].rasterize()
     pred1 = val1['pred']
     pred2 = val2['pred']
+    fs = resp.fs
 
     d = resp.get_epoch_bounds('PreStimSilence')
     PreStimSilence = np.mean(np.diff(d))
@@ -94,10 +96,10 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
     p1 = pred1.as_matrix(stim_epochs)
     p2 = pred2.as_matrix(stim_epochs)
 
-    ms1 = ctx1['modelspecs'][0]
-    ms2 = ctx2['modelspecs'][0]
-    r_test1 = ms1[0]['meta']['r_test'][0]
-    r_test2 = ms2[0]['meta']['r_test'][0]
+    ms1 = ctx1['modelspec']
+    ms2 = ctx2['modelspec']
+    r_test1 = ms1.meta['r_test'][0]
+    r_test2 = ms2.meta['r_test'][0]
 
     fh = plt.figure(figsize=(16, 6))
 
@@ -161,19 +163,26 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
         fn1(ax=ax)
         nplt.ax_remove_box(ax)
 
+    max_bins = int((PreStimSilence+max_dur)*fs)
+    pre_cut_bins = int((PreStimSilence-max_pre)*fs)
+    if pre_cut_bins < 0:
+        pre_cut_bins = 0
+    else:
+        PreStimSilence = max_pre
 
     for i, stim_i in enumerate(stim_ids):
 
         ax = plt.subplot(5, 2, 5+i)
         if s.shape[2] <= 2:
             nplt.timeseries_from_vectors(
-                    [s[stim_i, 0, 0, :], s[max_rep_id[-1], 0, 1, :]],
+                    [s[stim_i, 0, 0, pre_cut_bins:max_bins],
+                     s[max_rep_id[-1], 0, 1, pre_cut_bins:max_bins]],
                     fs=stim.fs, time_offset=PreStimSilence, ax=ax,
                     title="{}/{} rfit={:.3f}/{:.3f}".format(cellid,
                            stim_epochs[stim_i], r_test1, r_test2))
         else:
             nplt.plot_spectrogram(
-                    s[stim_i, 0, :, :],
+                    s[stim_i, 0, :, pre_cut_bins:max_bins],
                     fs=stim.fs, time_offset=PreStimSilence, ax=ax,
                     title="{}/{} rfit={:.3f}/{:.3f}".format(
                             cellid, stim_epochs[stim_i], r_test1, r_test2))
@@ -181,23 +190,25 @@ def compare_model_preds(cellid, batch, modelname1, modelname2):
         nplt.ax_remove_box(ax)
 
         ax = plt.subplot(5, 2, 7+i)
-        _r = r[stim_i, :, 0, :]
+        _r = r[stim_i, :, 0, pre_cut_bins:max_bins]
         t = np.arange(_r.shape[-1]) / resp.fs - PreStimSilence - 0.5/resp.fs
         nplt.raster(t, _r)
         ax.get_xaxis().set_visible(False)
 
         ax = plt.subplot(5, 2, 9+i)
         nplt.timeseries_from_vectors(
-                [np.nanmean(_r, axis=0), p1[stim_i, 0, 0, :],
-                 p2[stim_i, 0, 0, :]],
+                [np.nanmean(_r, axis=0), p1[stim_i, 0, 0, pre_cut_bins:max_bins],
+                 p2[stim_i, 0, 0, pre_cut_bins:max_bins]],
                 fs=resp.fs, time_offset=PreStimSilence, ax=ax)
         nplt.ax_remove_box(ax)
 
     plt.tight_layout()
-    return fh, ctx2
+    return fh, ctx1, ctx2
 
 
-def quick_pred_comp(cellid, batch, modelname1, modelname2, ax=None):
+def quick_pred_comp(cellid, batch, modelname1, modelname2,
+                    ax=None, max_pre=0.25, max_dur=1.0, color1='orange',
+                    color2='purple'):
     """
     compare prediction accuracy of two models on validation stimuli
 
@@ -205,7 +216,6 @@ def quick_pred_comp(cellid, batch, modelname1, modelname2, ax=None):
 
     """
     ax0 = None
-
     if ax is None:
         ax = plt.gca()
     elif type(ax) is tuple:
@@ -215,12 +225,17 @@ def quick_pred_comp(cellid, batch, modelname1, modelname2, ax=None):
     xf1, ctx1 = get_model_preds(cellid, batch, modelname1)
     xf2, ctx2 = get_model_preds(cellid, batch, modelname2)
 
-    rec = ctx1['rec']
-    val1 = ctx1['val'][0]
-    val2 = ctx2['val'][0]
+    ms1 = ctx1['modelspec']
+    ms2 = ctx2['modelspec']
+    r_test1 = ms1.meta['r_test'][0]
+    r_test2 = ms2.meta['r_test'][0]
 
-    stim = rec['stim'].rasterize()
-    resp = rec['resp'].rasterize()
+    rec = ctx1['rec']
+    val1 = ctx1['val']
+    val2 = ctx2['val']
+
+    stim = val1['stim'].rasterize()
+    resp = val1['resp'].rasterize()
     pred1 = val1['pred']
     pred2 = val2['pred']
 
@@ -234,6 +249,10 @@ def quick_pred_comp(cellid, batch, modelname1, modelname2, ax=None):
 
     r = resp.as_matrix(stim_epochs)
     s = stim.as_matrix(stim_epochs)
+    p1 = pred1.as_matrix(stim_epochs)
+    p2 = pred2.as_matrix(stim_epochs)
+    fs = resp.fs
+
     repcount = np.sum(np.isfinite(r[:, :, 0, 0]), axis=1)
     max_rep_id, = np.where(repcount == np.max(repcount))
 
@@ -242,47 +261,62 @@ def quick_pred_comp(cellid, batch, modelname1, modelname2, ax=None):
     # stim_count = len(stim_ids)
     # print(max_rep_id)
 
-    # stim_i=max_rep_id[-1]
+    #stim_i=max_rep_id[-1]
+    stim_i = stim_ids[0]
     # print("Max rep stim={} ({})".format(stim_i, stim_epochs[stim_i]))
 
-    p1 = pred1.as_matrix(stim_epochs)
-    p2 = pred2.as_matrix(stim_epochs)
-
-    ms1 = ctx1['modelspecs'][0]
-    ms2 = ctx2['modelspecs'][0]
-    r_test1 = ms1[0]['meta']['r_test'][0]
-    r_test2 = ms2[0]['meta']['r_test'][0]
-
-    stim_i = stim_ids[0]
-    _r = r[stim_i, :, 0, :]
-    # t = np.arange(_r.shape[-1]) / resp.fs - PreStimSilence - 0.5/resp.fs
-    fs = resp.fs
-
     ds = 2
+    max_bins = int((PreStimSilence+max_dur)*fs)
+    pre_cut_bins = int((PreStimSilence-max_pre)*fs)
+    if pre_cut_bins < 0:
+        pre_cut_bins = 0
+    else:
+        PreStimSilence = max_pre
 
     if ax0 is not None:
-        nplt.timeseries_from_vectors(
-                [s[stim_i, 0, 0, :], s[stim_i, 0, 1, :]],
-                fs=fs, time_offset=PreStimSilence, ax=ax0,
-                title="{}".format(stim_epochs[stim_i]))
+        s1 = s[stim_i, 0, 0, pre_cut_bins:max_bins]
+        s2 = s[stim_i, 0, 1, pre_cut_bins:max_bins]
+        t = np.arange(len(s1))/fs - PreStimSilence
+        ax0.plot(t, s1, color=(248/255, 153/255, 29/255))
+        ax0.plot(t, s2, color=(65/255, 207/255, 221/255))
+
+        #nplt.timeseries_from_vectors(
+        #        [s[stim_i, 0, 0, :max_bins], s[stim_i, 0, 1, :max_bins]],
+        #        fs=fs, time_offset=PreStimSilence, ax=ax0,
+        #        title="{}".format(stim_epochs[stim_i]))
         nplt.ax_remove_box(ax0)
 
     lg = ("{:.3f}".format(r_test2), "{:.3f}".format(r_test1), 'act')
 
-    mr = np.nanmean(_r, axis=0) * fs
-    pred1 = p1[stim_i, 0, 0, :] * fs
-    pred2 = p2[stim_i, 0, 0, :] * fs
-    if ds > 1:
-        mr = np.mean(np.reshape(mr, [-1, 2]), axis=1)
-        pred1 = np.mean(np.reshape(pred1, [-1, 2]), axis=1)
-        pred2 = np.mean(np.reshape(pred2, [-1, 2]), axis=1)
+    _r = r[stim_i, :, 0, :]
+    mr = np.nanmean(_r[:,pre_cut_bins:max_bins], axis=0) * fs
+    pred1 = p1[stim_i, 0, 0, pre_cut_bins:max_bins] * fs
+    pred2 = p2[stim_i, 0, 0, pre_cut_bins:max_bins] * fs
 
-    nplt.timeseries_from_vectors(
-            [mr, pred1, pred2] ,
-            ylabel=cellid, legend=lg,
-            fs=int(fs/ds), time_offset=PreStimSilence, ax=ax)
-    yl=ax.get_ylim()
-    plt.ylim([yl[0], yl[1]*2])
+    if ds > 1:
+        keepbins=int(np.floor(len(mr)/ds)*ds)
+        mr = np.mean(np.reshape(mr[:keepbins], [-1, 2]), axis=1)
+        pred1 = np.mean(np.reshape(pred1[:keepbins], [-1, 2]), axis=1)
+        pred2 = np.mean(np.reshape(pred2[:keepbins], [-1, 2]), axis=1)
+        fs = int(fs/ds)
+
+    t = np.arange(len(mr))/fs - PreStimSilence
+
+    ax.fill_between(t, np.zeros(t.shape), mr, facecolor='lightgray')
+    ax.plot(t, pred1, color=color1)
+    ax.plot(t, pred2, color=color2)
+
+    ym = ax.get_ylim()
+    ax.set_ylim(ym)
+    ptext = "{}\n{:.3f}\n{:.3f}".format(cellid, r_test1, r_test2)
+    ax.text(t[0], ym[1], cellid, fontsize=8, va='top')
+    ax.text(t[0], ym[1]*.85, "{:.3f}".format(r_test1),
+            fontsize=8, va='top', color=color1)
+    ax.text(t[0], ym[1]*.7, "{:.3f}".format(r_test2),
+            fontsize=8, va='top', color=color2)
+
+    #yl=ax.get_ylim()
+    #plt.ylim([yl[0], yl[1]*2])
     nplt.ax_remove_box(ax)
 
     return ax
@@ -997,8 +1031,8 @@ def LN_pop_plot(ctx):
     (skip the first two if their respective ax handles are None)
 
     """
-    rec = ctx['val'][0]
-    modelspec = ctx['modelspecs'][0]
+    rec = ctx['val']
+    modelspec = ctx['modelspec']
     rec = ms.evaluate(rec, modelspec)
     cellid = modelspec[0]['meta']['cellid']
 
@@ -1031,6 +1065,11 @@ def LN_pop_plot(ctx):
         nplt.strf_heatmap(tmodelspec, title=None, interpolation=(2,3),
                           show_factorized=False, fs=fs, ax=ax)
         nplt.ax_remove_box(ax)
+        if chanidx < chan_count-1:
+            plt.xticks([])
+            plt.yticks([])
+            plt.xlabel('')
+            plt.ylabel('')
 
     ax = fig.add_subplot(2, 3, 2)
     fcc = modelspec[fir_idx]['phi']['coefficients'].copy()
@@ -1041,8 +1080,16 @@ def LN_pop_plot(ctx):
     wcc *= fcc_std
     mm = np.std(wcc)*3
     im = ax.imshow(wcc, aspect='auto', clim=[-mm, mm], cmap='bwr')
-    plt.colorbar(im)
+    #plt.colorbar(im)
+    plt.title(modelspec.meta['cellid'])
     nplt.ax_remove_box(ax)
+
+    ax = fig.add_subplot(2, 3, 3)
+    plt.plot(modelspec.meta['r_test'])
+    plt.xlabel('cell')
+    plt.ylabel('r test')
+    nplt.ax_remove_box(ax)
+
 
     epoch_regex = '^STIM_'
     epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
@@ -1067,6 +1114,7 @@ def LN_pop_plot(ctx):
                  aspect='auto', extent=extent)
     nplt.ax_remove_box(ax)
     plt.ylabel('stim')
+    plt.xticks([])
     plt.colorbar(im)
 
     ax = plt.subplot(6, 2, 10)
@@ -1079,6 +1127,7 @@ def LN_pop_plot(ctx):
                  cmap='gray_r', clim=clim)
     nplt.ax_remove_box(ax)
     plt.ylabel('resp')
+    plt.xticks([])
     plt.colorbar(im)
 
     ax = plt.subplot(6, 2, 12)
