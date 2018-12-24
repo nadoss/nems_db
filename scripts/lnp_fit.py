@@ -1,13 +1,12 @@
 import os
 import logging
+import copy
 
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import convolve2d
 
 import nems.xforms as xforms
 import nems.xform_helper as xhelp
-import nems.modelspec as ms
 from nems.utils import escaped_split
 from nems_db.xform_wrappers import generate_recording_uri
 from nems_lbhb.lnp_helpers import simulate_spikes
@@ -42,7 +41,7 @@ modelname = (
         # Level shift, usually init to mean response (nems.modules.levelshift)
         "-lvl.1"
         # Nonlinearity (nems.modules.nonlinearity -> double_exponential)
-        "-dexp.1"
+        "-dexp.1"  # TODO: try relu instead of dexp? (rectification)
         "_"  # modules -> fitters
         # Set initial values and do a rough "pre-fit"
         # Initialize fir coeffs to L2-norm of random values
@@ -81,73 +80,63 @@ ctx = {}
 for i, xfa in enumerate(xfspec):
     ctx = xforms.evaluate_step(xfa, ctx)
 
-# save some extra metadata
-modelspecs = ctx['modelspecs']
 
-destination = '/auto/data/nems_db/results/{0}/{1}/{2}/'.format(
-        batch, cellid, ms.get_modelspec_longname(modelspecs[0]))
-modelspecs[0][0]['meta']['modelpath'] = destination
-modelspecs[0][0]['meta']['figurefile'] = destination+'figure.0000.png'
-modelspecs[0][0]['meta'].update(meta)
-
-m = modelspecs[0]
-e = ctx['est'][0]
-v = ctx['val'][0]
+m = ctx['modelspec']
+e = ctx['est']
+v = ctx['val']
 r = ctx['rec']
 
-p = [mod['phi'] for mod in m]
+p = m.phi()
 
 
 # Plot spikes vs sim to check model behavior
-rate_vector = v.apply_mask()['pred'].as_continuous().flatten()
-resp = v.apply_mask()['resp'].as_continuous().flatten()
-ff = np.isfinite(rate_vector) & np.isfinite(resp)
+rate_vector = v['pred'].as_continuous().flatten()
+resp = v['resp'].as_continuous().flatten()
+ff = v['mask'].as_continuous().flatten() & np.isfinite(rate_vector) \
+        & np.isfinite(resp)
 rate_vector = rate_vector[ff]
 resp = (resp[ff] > 0).astype('int')  # ignore multiple spikes per bin
 n_sim = 9
 sims = [simulate_spikes(rate_vector) for i in range(n_sim)]
 merged = np.vstack((resp, *sims))
 
-
-fig, axes = plt.subplots(4, 2)
+fig, axes = plt.subplots(8, 2)
 cutoff = int(resp.size/8)
-last = min(resp.size, cutoff*8)
 i = 0
-for row in axes:
+j = 0
+for k, row in enumerate(axes):
     for ax in row:
         plt.sca(ax)
-        plt.imshow(merged[:, i*cutoff:(i+1)*cutoff], aspect='auto',
-                   cmap='Greys')
-
-        i += 1
-
-
-# Not working yet
-#fig, axes = plt.subplots(4, 2)
-#cutoff = int(resp.size/8)
-#last = min(resp.size, cutoff*8)
-#filt_width = 50
-#avg_spikes = convolve2d(merged[1:, :],
-#                        np.ones((n_sim, filt_width))/filt_width*n_sim,
-#                        mode='valid')
-#i = 0
-#for row in axes:
-#    for ax in row:
-#        plt.sca(ax)
-#        plt.plot(resp[i*cutoff:(i+1)*cutoff], color='black')
-#        plt.plot(avg_spikes[i*cutoff:(i+1)*cutoff], color='green')
-#        i += 1
+        if k % 2 == 0:
+            plt.plot(rate_vector[i*cutoff:(i+1)*cutoff])
+            i += 1
+        else:
+            plt.imshow(merged[:, j*cutoff:(j+1)*cutoff], aspect='auto',
+                       cmap='Greys')
+            j += 1
 
 
 fig.suptitle('1 resp (1st index) and {} sims for data split into 8 segments'
              .format(n_sim))
 
-fig = plt.figure()
-new_sims = [simulate_spikes(rate_vector) for i in range(n_sim*10)]
-new_merged = np.vstack((resp, *new_sims))
-plt.imshow(new_merged, aspect='auto', cmap='Greys')
-fig.suptitle('1 resp (1st index) and {} sims'.format(n_sim*10))
 
-# TODO: add rate vector below rasters for comparison
+# Add the simulations as signals in val so that they can be
+# viewed in recording browser.
+for i, s in enumerate(sims):
+    resp_array = copy.deepcopy(v['resp']).as_continuous()
+    resp_array[:, ff] = s
+    spikes_sig = copy.deepcopy(v['resp'])._modified_copy(resp_array)
+    ctx['val']['spikes%d'%i] = spikes_sig
+
+# Separate plot with lots more simulations and not split by time
+#fig = plt.figure()
+#new_sims = [simulate_spikes(rate_vector) for i in range(n_sim*10)]
+#new_merged = np.vstack((resp, *new_sims))
+#plt.imshow(new_merged, aspect='auto', cmap='Greys')
+#fig.suptitle('1 resp (1st index) and {} sims'.format(n_sim*10))
+
 
 # TODO: add spike simulations to context so they can be viewed in browser
+
+# TODO: re-examine initial conditions for dexp - they assume data is averaged
+#       so probably getting initialized to some weird stuff for this model

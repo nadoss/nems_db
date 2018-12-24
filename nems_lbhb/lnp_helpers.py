@@ -67,27 +67,15 @@ def _lnp_metric(data, pred_name='pred', resp_name='resp'):
     rate_at_spikes = rate_vector[spikes]
     rate_at_spikes[rate_at_spikes < epsilon] = epsilon
     log_mu_dts = np.log(rate_at_spikes)
-    # Inner eq 9.12 , outer *-1 since we're minimizing instead of maximizing.
-    # TODO: see if numpy/scipy has pre-composed log functions for other types
-    #       of nonlinearities?
+    # multiplying by 1/bins to get per-bin error
     error = (1/rate_vector.size)*(-1*integral + np.sum(log_mu_dts))*-1
 
     # SVD previous implementation:
     #error = np.mean(spike_train*np.log(rate_vector) - rate_vector)
 
-
     # sanity check: after fitting a model, sample from it and simulate
     # synthetic data, then try to fit that data and see if you can
     # recovery the model. (SVD was talking about this for GC model as well).
-
-    # extra: generate spikes from the fitted models & do stuff with those:
-
-    # ex algorithm from AD:
-    # choose to gen 10 spikes
-    # pick 10 random numbers from 0 to 1
-    # do cum. sum, find times for which random numbers equal integral of mu
-    # integrate for long time?
-    # supposed to recover spikes of response
 
     return error
 
