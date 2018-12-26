@@ -54,6 +54,7 @@ def _lnp_metric(data, pred_name='pred', resp_name='resp'):
     # For stephen's lab: rate_name usually 'pred'
     rate_vector = data[rate_name].as_continuous().flatten()
     spike_train = data[spikes_name].as_continuous().flatten()
+    spike_train = (spike_train > 0).astype('int')
 
     spikes = np.argwhere(spike_train)
 
@@ -66,27 +67,15 @@ def _lnp_metric(data, pred_name='pred', resp_name='resp'):
     rate_at_spikes = rate_vector[spikes]
     rate_at_spikes[rate_at_spikes < epsilon] = epsilon
     log_mu_dts = np.log(rate_at_spikes)
-    # Inner eq 9.12 , outer *-1 since we're minimizing instead of maximizing.
-    # TODO: see if numpy/scipy has pre-composed log functions for other types
-    #       of nonlinearities?
-    error = (-1*integral + np.sum(log_mu_dts))*-1
+    # multiplying by 1/bins to get per-bin error
+    error = (1/rate_vector.size)*(-1*integral + np.sum(log_mu_dts))*-1
 
     # SVD previous implementation:
-    #error = np.mean(spikes*np.log(rate_vector) - rate_vector)
-
+    #error = np.mean(spike_train*np.log(rate_vector) - rate_vector)
 
     # sanity check: after fitting a model, sample from it and simulate
     # synthetic data, then try to fit that data and see if you can
     # recovery the model. (SVD was talking about this for GC model as well).
-
-    # extra: generate spikes from the fitted models & do stuff with those:
-
-    # ex algorithm from AD:
-    # choose to gen 10 spikes
-    # pick 10 random numbers from 0 to 1
-    # do cum. sum, find times for which random numbers equal integral of mu
-    # integrate for long time?
-    # supposed to recover spikes of response
 
     return error
 
@@ -113,11 +102,17 @@ def _stack_reps(spike_train, ep='^STIM_'):
     return stim_dict
 
 
-# TODO: Also turn into a psth afterward for comparison to resp?
+# TODO: Need to come up with some way to verify that this is
+#       behaving as expected
 def simulate_spikes(rate_vector):
-    # TODO: needs testing
     integral = integrate.cumtrapz(rate_vector, initial=0)
-    random = np.random.rand(integral.shape)
-    spikes = integral[random < integral].astype('int')
+    spikes = np.zeros_like(integral)
+    base = 0
+    random = np.asscalar(np.random.rand(1))
+    for i,r in enumerate(integral):
+        if (random < 1-np.exp(-r+base)):
+            spikes[i] = 1
+            base = r
+            random = np.asscalar(np.random.rand(1))
 
     return spikes

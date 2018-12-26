@@ -128,7 +128,7 @@ def _get_modelspecs(cellids, batch, modelname, multi='mean'):
         else:
             this_mspec = m[0]
 
-        modelspecs.append(this_mspec)
+        modelspecs.append(ms.ModelSpec([this_mspec]))
 
     return modelspecs
 

@@ -90,10 +90,11 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
         highlight = highlight[nncells]
 
     if title is None:
-        if highlight is not None:
-            title="n={}/{}".format(np.sum(highlight),len(highlight))
-        else:
-            title="{} v {}".format(n1,n2)
+        title = "{} v {}".format(n1,n2)
+
+    if highlight is not None:
+        title += " (n={}/{})".format(np.sum(highlight),len(highlight))
+
     # exclude cells without prepassive
     outcells = ((beta1 > hist_range[1]) | (beta1 < hist_range[0]) |
                 (beta2 > hist_range[1]) | (beta2 < hist_range[0]))
@@ -145,7 +146,7 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     plt.xlabel("{} (m={:.3f})".format(n1, np.mean(beta1[goodcells])))
     plt.ylabel("{} (m={:.3f})".format(n2, np.mean(beta2[goodcells])))
     plt.title(title)
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     if click_fun is not None:
         def display_wrapper(event):
@@ -166,7 +167,7 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
               format(np.mean(beta1[goodcells]),
                      np.mean(np.abs(beta1[goodcells]))))
     plt.xlabel(n1)
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 2, 4)
     plt.hist([beta2[set1], beta2[set2]], bins=hist_bins, range=hist_range,
@@ -176,7 +177,7 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
               format(np.mean(beta2[goodcells]),
                      np.mean(np.abs(beta2[goodcells]))))
     plt.xlabel(n2)
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 2, 2)
 #    plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1]),
@@ -195,7 +196,7 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     plt.ylabel('difference')
 
     plt.tight_layout()
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     old_title=fh.canvas.get_window_title()
     fh.canvas.set_window_title(old_title+': '+title)
@@ -298,7 +299,7 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
               format(np.mean(beta1[goodcells]),
                      np.mean(np.abs(beta1[goodcells]))))
     plt.xlabel(n1)
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 2, 4)
     plt.hist([beta2[set1], beta2[set2]], bins=hist_bins, range=hist_range,
@@ -308,7 +309,7 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
               format(np.mean(beta2[goodcells]),
                      np.mean(np.abs(beta2[goodcells]))))
     plt.xlabel(n2)
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     ax = plt.subplot(2, 2, 2)
     plt.hist([(beta2[set1]-beta1[set1]) * np.sign(beta2[set1]),
@@ -326,7 +327,7 @@ def beta_comp_from_folder(beta1='r_pup', beta2='r_beh',
     plt.ylabel('difference')
 
     plt.tight_layout()
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     old_title=fh.canvas.get_window_title()
     fh.canvas.set_window_title(old_title+': '+title)
@@ -506,7 +507,8 @@ def model_per_time_wrapper(cellid, batch=307,
                            loader= "psth.fs20.pup-ld-",
                            fitter = "_jk.nf20-basic",
                            basemodel = "-ref-psthfr_stategain.S",
-                           state_list=None):
+                           state_list=None,
+                           colors=None):
     """
     batch = 307  # A1 SUA and MUA
     batch = 309  # IC SUA and MUA
@@ -519,7 +521,7 @@ def model_per_time_wrapper(cellid, batch=307,
         state_list = ['st.pup0.far0.hit0.hlf0','st.pup0.far0.hit0.hlf',
                       'st.pup.far.hit.hlf0','st.pup.far.hit.hlf']
         state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']
-
+        
     """
 
     # pup vs. active/passive
@@ -541,6 +543,11 @@ def model_per_time_wrapper(cellid, batch=307,
         contexts.append(ctx)
 
     plt.figure()
+    if ('hlf' in state_list[0]) or ('fil' in state_list[0]):
+        files_only=True
+    else:
+        files_only=False
+        
     for i, ctx in enumerate(contexts):
 
         rec = ctx['val'][0].apply_mask()
@@ -555,13 +562,13 @@ def model_per_time_wrapper(cellid, batch=307,
         ax = plt.subplot(len(contexts)+1, 1, 2+i)
         nplt.state_vars_psth_all(rec, epoch, psth_name='resp',
                             psth_name2='pred', state_sig='state_raw',
-                            colors=None, channel=None, decimate_by=1,
-                            ax=ax, files_only=True, modelspec=modelspec)
+                            colors=colors, channel=None, decimate_by=1,
+                            ax=ax, files_only=files_only, modelspec=modelspec)
         ax.set_ylabel(state_list[i])
         ax.set_xticks([])
 
     #plt.tight_layout()
-
+    
 
 def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
     """
@@ -650,7 +657,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
     ax.set_title("{}/{} - {}".format(cellid, batch, modelname_pb))
     ax.set_ylabel("{} r={:.3f}".format(factor0,
                   ctx_p0b0['modelspecs'][0][0]['meta']['r_test'][0]))
-    lplt.ax_remove_box(ax)
+    nplt.ax_remove_box(ax)
 
     for i, var in enumerate(factors[1:]):
         if var.startswith('FILE_'):
@@ -679,7 +686,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
         if ax.legend_:
             ax.legend_.remove()
         ax.xaxis.label.set_visible(False)
-        lplt.ax_remove_box(ax)
+        nplt.ax_remove_box(ax)
 
         ax = plt.subplot(4, col_count, col_count*2+i+1)
         nplt.state_var_psth_from_epoch(val, epoch="REFERENCE",
@@ -712,7 +719,7 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
             ax.legend(('act+post', 'pre'))
         elif var.startswith('FILE_'):
             ax.legend(('this', 'others'))
-        lplt.ax_remove_box(ax)
+        nplt.ax_remove_box(ax)
 
     # EXTRA PANELS
     # figure out some basic aspects of tuning/selectivity for target vs.
@@ -784,8 +791,8 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
     ymax=np.max([ax1.get_ylim()[1], ax2.get_ylim()[1]])
     ax1.set_ylim([ymin, ymax])
     ax2.set_ylim([ymin, ymax])
-    lplt.ax_remove_box(ax1)
-    lplt.ax_remove_box(ax2)
+    nplt.ax_remove_box(ax1)
+    nplt.ax_remove_box(ax2)
 
     plt.tight_layout()
 
