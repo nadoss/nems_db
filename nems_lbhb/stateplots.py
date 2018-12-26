@@ -132,9 +132,12 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     ax.plot(zz, hist_range, 'k--',linewidth=0.5)
     ax.plot(hist_range,hist_range, 'k--',linewidth=0.5)
 
-    ax.plot(beta1[outcells], beta2[outcells], '.', color='red')
-    ax.plot(beta1[set2], beta2[set2], '.', color='lightgray')
-    ax.plot(beta1[set1], beta2[set1], 'k.', picker=5, markersize=10)
+    ax.plot(beta1[outcells], beta2[outcells], '.', color='red', markeredgecolor='white',
+            markeredgewidth=0.5)
+    ax.plot(beta1[set2], beta2[set2], '.', color='lightgray', markersize=6, 
+            markeredgecolor='white', markeredgewidth=0.5)
+    ax.plot(beta1[set1], beta2[set1], 'k.', picker=5, markersize=8, 
+            markeredgecolor='white', markeredgewidth=0.5)
     ax.set_aspect('equal', 'box')
     #plt.ylim(hist_range)
     #plt.xlim(hist_range)
