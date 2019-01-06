@@ -286,11 +286,16 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     else:
 #        uri_key = nems.utils.escaped_split(loadkey, '-')[0]
 #        recording_uri = generate_recording_uri(cellid, batch, uri_key)
-        log.info("TODO Complete move of recording_uri handling to keywords")
+        log.info("DONE? Moved handling of registry_args to xforms_init_context")
         recording_uri = None
-        registry_args = {'cellid': cellid, 'batch': int(batch)}
+
+        # registry_args = {'cellid': cellid, 'batch': int(batch)}
+        registry_args = {}
+        xforms_init_context = {'cellid': cellid, 'batch': int(batch)}
+
         xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta,
-                                            xforms_kwargs=registry_args)
+                                            xforms_kwargs=registry_args,
+                                            xforms_init_context=xforms_init_context)
 
     # actually do the fit
     ctx, log_xf = xforms.evaluate(xfspec)
