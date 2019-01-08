@@ -924,9 +924,9 @@ def baphy_load_dataset_RDT(parmfilepath, options, sample_offset,
     TODO : merge back into general loading function ? Or keep separate?
     """
 
-    options['pupil'] = options.get('pupil', False)
-    options['stim'] = options.get('stim', True)
-    options['runclass'] = options.get('runclass', None)
+    #options['pupil'] = options.get('pupil', False)
+    #options['stim'] = options.get('stim', True)
+    #options['runclass'] = options.get('runclass', None)
 
     # get the relatively un-pre-processed data
     exptevents, stim, spike_dict, state_dict, tags, stimparam, exptparams = \
@@ -1029,17 +1029,17 @@ def baphy_load_recording_RDT(cellid, batch, options):
     """
 
     # print(options)
-    options['rasterfs'] = int(options.get('rasterfs', 100))
-    options['stimfmt'] = options.get('stimfmt', 'ozgf')
-    options['chancount'] = int(options.get('chancount', 18))
-    options['pertrial'] = int(options.get('pertrial', False))
-    options['includeprestim'] = options.get('includeprestim', 1)
+    #options['rasterfs'] = int(options.get('rasterfs', 100))
+    #options['stimfmt'] = options.get('stimfmt', 'ozgf')
+    #options['chancount'] = int(options.get('chancount', 18))
+    #options['pertrial'] = int(options.get('pertrial', False))
+    #options['includeprestim'] = options.get('includeprestim', 1)
 
-    options['stim'] = int(options.get('stim', True))
-    options['runclass'] = options.get('runclass', None)
-    options['cellid'] = options.get('cellid', cellid)
-    options['batch'] = int(batch)
-    options['rawid'] = options.get('rawid', None)
+    #options['stim'] = int(options.get('stim', True))
+    #options['runclass'] = options.get('runclass', None)
+    #options['cellid'] = options.get('cellid', cellid)
+    #options['batch'] = int(batch)
+    #options['rawid'] = options.get('rawid', None)
 
     d = db.get_batch_cell_data(batch=batch,
                                cellid=cellid,
@@ -1110,7 +1110,6 @@ def baphy_load_recording_RDT(cellid, batch, options):
                 print("i={0} concatenating".format(i))
                 stim = stim.concatenate_time([stim, t_stim])
 
-        if options['stim']:
             t_stim1 = dict_to_signal(
                     stim1_dict, fs=options['rasterfs'],
                     event_times=event_times, signal_name='fg',
@@ -1244,7 +1243,8 @@ def fill_default_options(options):
         cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=cellid,
                                                      rawid=rawid)
         if options.get('runclass')=="RDT":
-            options['cellid'] = cell_list[0]
+            log.info(cell_list)
+            #options['cellid'] = cell_list[0]
         else:
             options['cellid'] = cell_list
         options['rawid'] = rawid
