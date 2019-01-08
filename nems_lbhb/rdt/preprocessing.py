@@ -70,10 +70,11 @@ def get_est_val_times(rec, balance_phase=False):
 
 def split_est_val(rec, balance_phase=False, **context):
     est_times, val_times = get_est_val_times(rec, balance_phase)
+    dual_only=False
     return {
-        'rand': select_times(rec, est_times, random_only=True, dual_only=True),
-        'est': select_times(rec, est_times, random_only=False, dual_only=True),
-        'val': select_times(rec, val_times, random_only=False, dual_only=True),
+        'rand': select_times(rec, est_times, random_only=True, dual_only=dual_only),
+        'est': select_times(rec, est_times, random_only=False, dual_only=dual_only),
+        'val': select_times(rec, val_times, random_only=False, dual_only=dual_only),
     }
 
 

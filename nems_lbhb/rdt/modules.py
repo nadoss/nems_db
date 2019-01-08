@@ -35,10 +35,9 @@ def _get_relative_gain_sf(rec, fg_gain, bg_gain, single_gain):
 
     fg_gain_mapped = fg_gain[t_map]
     bg_gain_mapped = bg_gain[t_map]
-    single_gain_mapped = single_gain[t_map]
+    single_gain_mapped = single_gain[t_map] + single_gain[0]
     fg_gain = np.zeros(t_map.shape, dtype=np.double)
     bg_gain = np.zeros(t_map.shape, dtype=np.double)
-    single_gain_mapped = np.zeros(t_map.shape, dtype=np.double) + single_gain[0]
 
     # Set gains for repeating portions of ss and ds
     fg_gain[is_repeating & dual_stream] = fg_gain_mapped[is_repeating & dual_stream]

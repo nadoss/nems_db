@@ -227,7 +227,7 @@ def reformat_RDT_recording(rec):
 
 
 @memory.cache
-def load_recording(batch=None, cellid=None, reformat=True, by_sequence=True, **context):
+def load_recording(batch=None, cellid=None, reformat=True, by_sequence=True, recording_uri=None, **context):
 
     options = {
         'cellid': cellid,
@@ -243,8 +243,10 @@ def load_recording(batch=None, cellid=None, reformat=True, by_sequence=True, **c
         'recache': False,
     }
 
-    path = baphy_data_path(**options)
-    rec = nems.recording.load_recording(path)
+    if recording_uri is None:
+        recording_uri = baphy_data_path(**options)
+
+    rec = nems.recording.load_recording(recording_uri)
 
     if reformat:
         rec = reformat_RDT_recording(rec)
