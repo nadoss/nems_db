@@ -15,7 +15,8 @@ from nems.gui.recording_browser import browse_recording, browse_context
 batch, cellid = 269, 'btn144a-a1'
 #modelspec = 'RDTwcg18x2-RDTfir2x15_RDTstreamgain_lvl1_dexp1'
 #keywordstring = 'dlog-wc.18x1.g-fir.1x15-lvl.1'
-keywordstring = 'rdtwc.18x1.g-rdtfir.1x15-rdtgain.relative.NTARGETS-lvl.1'
+#keywordstring = 'rdtwc.18x1.g-rdtfir.1x15-rdtgain.relative.NTARGETS-lvl.1'
+keywordstring = 'rdtgain.gen.NTARGETS-rdtmerge.stim-wc.18x1.g-fir.1x15-lvl.1'
 
 modelname = 'rdtld-rdtshf.rep.str-rdtsev-rdtfmt_' + keywordstring + '_init-basic'
 
@@ -24,8 +25,9 @@ modelname = 'rdtld-rdtshf.rep.str-rdtsev-rdtfmt_' + keywordstring + '_init-basic
 
 # database-free version
 recording_uri = '/Users/svd/python/nems/recordings/chn019a_e3a6a2e25b582125a7a6ee98d8f8461557ae0cf7.tgz'
-shuff_streams=True
-shuff_rep=True
+#recording_uri = '/Users/svd/python/nems/recordings/chn019a_16e888cad7fef05b2f51c58874bd07040ae80903.tgz'
+shuff_streams=False
+shuff_rep=False
 xfspec = [
     ('nems.xforms.init_context', {'batch': batch, 'cellid': cellid, 'keywordstring': keywordstring,
                                   'recording_uri': recording_uri}),
@@ -46,3 +48,4 @@ for step in xfspec:
     ctx = xforms.evaluate_step(step, ctx)
 
 # browse_context(ctx, 'val', signals=['stim', 'resp', 'fg', 'bg', 'state'])
+# browse_context(ctx, 'val', signals=['stim', 'resp', 'fg_sf', 'bg_sf', 'state'])

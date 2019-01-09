@@ -59,3 +59,57 @@ def relative_gain(rec, fg_gain, bg_gain, single_gain):
     pred = bg * bg_sf + fg * fg_sf
     pred_signal = rec['bg_pred']._modified_copy(pred, name='pred')
     return [pred_signal]
+
+
+def rdt_gain(rec, fg_gain, bg_gain, single_gain):
+    fg_sf, bg_sf = _get_relative_gain_sf(rec, fg_gain, bg_gain, single_gain)
+    fg_sf = fg_sf[np.newaxis, :]
+    bg_sf = bg_sf[np.newaxis, :]
+    g_fg = rec['resp']._modified_copy(fg_sf, name='fg_sf')
+    g_bg = rec['resp']._modified_copy(bg_sf, name='bg_sf')
+
+    return [g_fg, g_bg]
+
+
+def apply_gain(rec, i='fg+bg', o='pred', offset=0):
+    """
+    compress fg and bg streams based on dlog(.. offset) (from nems.modules.nonlinearity)
+    then apply stream-specific gain and then sum. offset specifies compression
+    :param rec: recording object
+    :param i: string identifying of input stream signals (fg+bg or fg_pred+bg_pred)
+    :param o: string name of output signal
+    :param offset: compression parameter
+    :return: list containing a single signal, named 'o'
+    """
+    # soften effects of more extreme offsets
+    inflect = 2
+    if isinstance(offset, int):
+        offset = np.array([[offset]])
+
+    adjoffset=offset.copy()
+    adjoffset[offset > inflect] = inflect + (offset[offset > inflect]-inflect) / 50
+    adjoffset[offset < -inflect] = -inflect + (offset[offset < -inflect]+inflect) / 50
+
+    d = 10.0**adjoffset
+
+    fg_sf = rec['fg_sf'].as_continuous()
+    bg_sf = rec['bg_sf'].as_continuous()
+
+    if i == 'fg+bg':
+        bg = rec['bg'].as_continuous()
+        fg = rec['fg'].as_continuous()
+
+        bg = np.log((bg + d)/d)
+        fg = np.log((fg + d)/d)
+
+        pred = bg * bg_sf + fg * fg_sf
+        pred_signal = rec['bg']._modified_copy(pred, name='pred')
+
+    elif i == 'fg_pred+bg_pred':
+        bg = rec['bg_pred'].as_continuous()
+        fg = rec['fg_pred'].as_continuous()
+
+        pred = bg * bg_sf + fg * fg_sf
+        pred_signal = rec['bg_pred']._modified_copy(pred, name='pred')
+
+    return [pred_signal]
