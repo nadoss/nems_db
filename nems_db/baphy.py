@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import resample
 import nems.signal
 import nems.recording
-import nems_db.db as db
+import nems.db as db
 from nems.recording import Recording
 from nems.recording import load_recording
 from nems.utils import recording_filename_hash

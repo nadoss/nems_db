@@ -19,7 +19,7 @@ import nems.metrics.api
 import nems.analysis.api
 import nems.utils
 import nems_db.baphy as nb
-import nems_db.db as nd
+import nems.db as nd
 from nems.recording import Recording, load_recording
 from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
 import nems.xforms as xforms
@@ -296,13 +296,15 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
         xfspec = xhelp.generate_xforms_spec(recording_uri, modelname, meta,
                                             xforms_kwargs=registry_args,
                                             xforms_init_context=xforms_init_context)
+        log.info(xfspec)
 
-    # actually do the fit
+    # actually do the loading, preprocessing, fit
     ctx, log_xf = xforms.evaluate(xfspec)
 
     # save some extra metadata
     modelspec = ctx['modelspec']
 
+    # this code may not be necessary any more.
     destination = '/auto/data/nems_db/results/{0}/{1}/{2}/'.format(
             batch, cellid, ms.get_modelspec_longname(modelspec))
     modelspec.meta['modelpath'] = destination

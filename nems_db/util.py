@@ -18,3 +18,4 @@ def ensure_env_vars(req_vars):
         raise ValueError('Required environment variables not all provided: ' +
                          str(req_vars))
     return creds
+

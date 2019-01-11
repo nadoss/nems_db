@@ -3,22 +3,25 @@ import pickle
 import pandas as pd
 import numpy as np
 import os.path
+import logging
 
 import nems.recording
 from nems.recording import Recording, load_recording
 from nems.epoch import merge_epoch, group_epochs_by_parent, add_epoch
 from nems.preprocessing import average_away_epoch_occurrences
-
 from nems_db.baphy import baphy_data_path
 
+log = logging.getLogger(__name__)
+
+"""
 from joblib import Memory
 
-tmpdir = '/tmp/nems'
+tmpdir = '/auto/data/tmp/nems'
 #tmpdir = '/auto/data/tmp'
 if not os.path.exists(tmpdir):
     os.makedirs(tmpdir, exist_ok=True)
 memory = Memory(cachedir=tmpdir)
-
+"""
 
 def mark_first_reference(epochs, prestim_silence=0.5):
     def _mark_first_reference(row, stim_starts):
@@ -183,7 +186,7 @@ def reformat_epochs(epochs, target_id):
     return epochs
 
 
-@memory.cache
+#@memory.cache
 def reformat_RDT_recording(rec):
     epochs = rec['stim'].epochs
     state = rec['state']
@@ -226,7 +229,7 @@ def reformat_RDT_recording(rec):
     return rec
 
 
-@memory.cache
+#@memory.cache
 def load_recording(batch=None, cellid=None, reformat=True, by_sequence=True, recording_uri=None, **context):
 
     options = {
@@ -246,6 +249,7 @@ def load_recording(batch=None, cellid=None, reformat=True, by_sequence=True, rec
     if recording_uri is None:
         recording_uri = baphy_data_path(**options)
 
+    log.info('Loading recording from %s', recording_uri)
     rec = nems.recording.load_recording(recording_uri)
 
     if reformat:

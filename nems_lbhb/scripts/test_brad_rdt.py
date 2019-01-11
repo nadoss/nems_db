@@ -18,11 +18,14 @@ batch, cellid = 269, 'btn144a-a1'
 #keywordstring = 'rdtwc.18x1.g-rdtfir.1x15-rdtgain.relative.NTARGETS-lvl.1'
 keywordstring = 'rdtgain.gen.NTARGETS-rdtmerge.stim-wc.18x1.g-fir.1x15-lvl.1'
 
-modelname = 'rdtld-rdtshf.rep.str-rdtsev-rdtfmt_' + keywordstring + '_init-basic'
+modelname = 'rdtld-rdtshf.rep-rdtsev-rdtfmt_' + keywordstring + '_init-basic'
 
-#savefile = nw.fit_model_xforms_baphy(cellid, batch, modelname, saveInDB=False)
-# xf,ctx = nw.load_model_baphy_xform(cellid,batch,modelname)
+savefile = nw.fit_model_xforms_baphy(cellid, batch, modelname, saveInDB=False)
+#xf,ctx = nw.load_model_baphy_xform(cellid,batch,modelname)
+xf,ctx = xforms.load_analysis(savefile)
+# browse_context(ctx, 'val', signals=['stim', 'resp', 'fg_sf', 'bg_sf', 'state'])
 
+"""
 # database-free version
 recording_uri = '/Users/svd/python/nems/recordings/chn019a_e3a6a2e25b582125a7a6ee98d8f8461557ae0cf7.tgz'
 #recording_uri = '/Users/svd/python/nems/recordings/chn019a_16e888cad7fef05b2f51c58874bd07040ae80903.tgz'
@@ -46,6 +49,6 @@ xfspec = [
 ctx = {}
 for step in xfspec:
     ctx = xforms.evaluate_step(step, ctx)
-
+"""
 # browse_context(ctx, 'val', signals=['stim', 'resp', 'fg', 'bg', 'state'])
 # browse_context(ctx, 'val', signals=['stim', 'resp', 'fg_sf', 'bg_sf', 'state'])

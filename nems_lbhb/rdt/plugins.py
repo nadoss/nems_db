@@ -20,8 +20,9 @@ def _relative_gain_spec(n_targets):
     template = {
         'fn': 'nems_lbhb.rdt.modules.relative_gain',
         'fn_kwargs': {},
-        'plot_fns': ['nems.plots.api.spectrogram_from_epoch',
-                     'nems.plots.api.pred_resp'],
+        'plot_fns': ['nems.plots.api.pred_resp',
+                     'nems.plots.api.spectrogram'
+                    ],
         'plot_fn_idx': 0,
         'prior': {
             'fg_gain': ('Normal', {'mean': gain_mean, 'sd': gain_sd}),
@@ -38,8 +39,9 @@ def _relative_gain_spec_generic(n_targets):
     template = {
         'fn': 'nems_lbhb.rdt.modules.rdt_gain',
         'fn_kwargs': {},
-        'plot_fns': ['nems.plots.api.pred_resp'],
-        'plot_fn_idx': 0,
+        'plot_fns': ['nems.plots.api.pred_resp',
+                     'nems.plots.api.spectrogram'],
+        'plot_fn_idx': 1,
         'prior': {
             'fg_gain': ('Normal', {'mean': gain_mean, 'sd': gain_sd}),
             'bg_gain': ('Normal', {'mean': gain_mean, 'sd': gain_sd}),
@@ -76,7 +78,7 @@ def rdtmerge(kw):
         'fn': 'nems_lbhb.rdt.modules.apply_gain',
         'fn_kwargs': {'i': i, 'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
-                     'nems.plots.api.pred_spectrogram'],
+                     'nems.plots.api.spectrogram_output'],
         'plot_fn_idx': 1,
         'prior': {'offset': ('Normal', {
                 'mean': np.zeros((chans, 1)),

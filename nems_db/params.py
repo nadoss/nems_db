@@ -8,10 +8,10 @@ import scipy.stats as st
 import matplotlib.pyplot as plt
 
 from nems_db.xform_wrappers import load_batch_modelpaths
-import nems_db.db as nd
+import nems.db as nd
 import nems.modelspec as ms
 from nems.uri import load_resource
-from nems_web.utilities.pruffix import find_common
+from nems.utils import find_common
 
 log = logging.getLogger(__name__)
 
@@ -88,6 +88,14 @@ def fitted_params_per_cell(cellids, batch, modelname, mod_key='id',
                 data[s].append(stats[k][s])
 
     return pd.DataFrame(data=data, index=index, columns=columns)
+
+
+def get_batch_modelspecs(batch, modelname, mod_key='id', limit=None, multi='mean'):
+    celldata = nd.get_batch_cells(batch=batch)
+    cellids = celldata['cellid'].tolist()
+    if limit is not None:
+        cellids = cellids[:limit]
+    return _get_modelspecs(cellids, batch, modelname, multi=multi)
 
 
 def _get_modelspecs(cellids, batch, modelname, multi='mean'):
