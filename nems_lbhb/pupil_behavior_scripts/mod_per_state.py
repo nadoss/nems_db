@@ -22,12 +22,19 @@ batch = 295  # old (Slee) IC data
 batch = 311  # A1 old (SVD) data -- on BF
 batch = 312  # A1 old (SVD) data -- off BF
 
+# pup vs. active/passive
+state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
+basemodel = "-ref-psthfr.s_sdexp.S"
+d = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
+d.to_csv('d_fil_307.csv')
+
 # fil only
 state_list = ['st.fil0','st.fil']
-basemodel = "-ref-psthfr.s_sdexp.S"
+basemodel = "-ref-psthfr.s_stategain.S"
 loader = "psth.fs20-ld-"
 d = get_model_results_per_state_model(batch=batch, state_list=state_list,
                                       basemodel=basemodel, loader=loader)
+d.to_csv('d_307_pb.csv')
 
 # example modelnames:
 psth.fs20.pup-ld-st.fil0-ref-psthfr.s_sdexp.S_jk.nf20-basic
@@ -41,11 +48,6 @@ loader = "psth.fs20-ld-"
 fitter = "_jk.nf20-basic"
 d = get_model_results_per_state_model(batch=batch, state_list=state_list,
                                       basemodel=basemodel, loader=loader)
-
-# pup vs. active/passive
-state_list = ['st.pup0.beh0','st.pup0.beh','st.pup.beh0','st.pup.beh']
-basemodel = "-ref-psthfr.s_sdexp.S"
-d = get_model_results_per_state_model(batch=batch, state_list=state_list, basemodel=basemodel)
 
 # pup vs. per file
 state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']

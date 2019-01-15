@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import resample
 import nems.signal
 import nems.recording
-import nems_db.db as db
+import nems.db as db
 from nems.recording import Recording
 from nems.recording import load_recording
 from nems.utils import recording_filename_hash
@@ -779,7 +779,7 @@ def baphy_load_dataset(parmfilepath, **options):
     return event_times, spike_dict, stim_dict, state_dict
 
 
-def baphy_load_dataset_RDT(parmfilepath, **options):
+def baphy_load_dataset_RDT_old(parmfilepath, **options):
     """
     this can be used to generate a recording object for an RDT experiment
         based largely on baphy_load_recording but with several additional
@@ -895,6 +895,262 @@ def baphy_load_dataset_RDT(parmfilepath, **options):
     return (event_times, spike_dict, stim_dict, state_dict,
             stim1_dict, stim2_dict)
 
+def baphy_load_dataset_RDT(parmfilepath, options, sample_offset,
+                           sequence_offset):
+    """
+    this can be used to generate a recording object for an RDT experiment
+        based largely on baphy_load_recording but with several additional
+        specialized outputs
+
+    input:
+        parmfilepath: baphy parameter file
+        options: dictionary of loading options
+
+    current outputs:
+        event_times: pandas dataframe with one row per event. times in sec
+              since experiment began
+        spike_dict: dictionary of lists. spike_dict[cellid] is the set of
+              spike times (secs since expt started) for that unit
+        stim_dict: stim_dict[name] is [channel X time] stimulus
+              (spectrogram) matrix, the times that the stimuli were played
+              are rows in the event_times dataframe
+        stim1_dict: same thing but for foreground stream only
+        stim2_dict: background stream
+        state_dict: dictionary of continuous Tx1 signals indicating
+           state_dict['repeating_phase']=when in repeating phase
+           state_dict['single_stream']=when trial is single stream
+           state_dict['targetid']=target id on the current trial
+
+    TODO : merge back into general loading function ? Or keep separate?
+    """
+
+    #options['pupil'] = options.get('pupil', False)
+    #options['stim'] = options.get('stim', True)
+    #options['runclass'] = options.get('runclass', None)
+
+    # get the relatively un-pre-processed data
+    exptevents, stim, spike_dict, state_dict, tags, stimparam, exptparams = \
+        baphy_load_data(parmfilepath, **options)
+
+    # extract each trial
+    tag_mask_start = "TRIALSTART"
+    tag_mask_stop = "TRIALSTOP"
+    ffstart = (exptevents['name'] == tag_mask_start)
+    ffstop = (exptevents['name'] == tag_mask_stop)
+    TrialCount = np.max(exptevents.loc[ffstart, 'Trial'])
+    event_times = pd.concat(
+            [exptevents.loc[ffstart, ['start']].reset_index(),
+             exptevents.loc[ffstop, ['end']].reset_index()],
+            axis=1
+            )
+    event_times['name'] = "TRIAL"
+    event_times = event_times.drop(columns=['index'])
+
+    stim_dict = {}
+    stim1_dict = {}
+    stim2_dict = {}
+    state_dict = {}
+
+    # make stimulus events unique to each trial
+    this_event_times = event_times.copy()
+    rasterfs = options['rasterfs']
+    BigStimMatrix = stimparam[-1]
+
+    prebins = int(exptparams['TrialObject'][1]['PreTrialSilence']*rasterfs)
+    samplebins = int(
+            exptparams['TrialObject'][1]['ReferenceHandle'][1]['Duration']
+            * rasterfs
+            )
+
+    bsm = np.rollaxis(BigStimMatrix, -1)
+    sequences = np.unique(bsm, axis=0)
+    sequence_info = {'name': [], 'start': [], 'end': []}
+
+    for trialidx in range(0, TrialCount):
+        event_name = "TRIAL{0}".format(trialidx)
+        this_event_times.loc[trialidx, 'name'] = event_name
+        stim1_dict[event_name] = stim[:, :, trialidx, 0]
+        stim2_dict[event_name] = stim[:, :, trialidx, 1]
+        stim_dict[event_name] = stim[:, :, trialidx, 2]
+
+        s = np.zeros([3, stim_dict[event_name].shape[1]])
+
+        # 1 if repeating, 0 if not
+        rslot = np.argmax(np.diff(BigStimMatrix[:, 0, trialidx]) == 0) + 1
+        rbin = prebins + rslot*samplebins
+        s[0, rbin:] = 1
+
+        # 1 if dual stream, 0 if not
+        dual_stream_trial = int(BigStimMatrix[0, 1, trialidx] != -1)
+        s[1, :] = dual_stream_trial
+
+        # Target ID
+        tarslot = np.argmin(BigStimMatrix[:, 0, trialidx] > 0) - 1
+        s[2, :] = BigStimMatrix[tarslot, 0, trialidx] + sample_offset
+        state_dict[event_name] = s
+
+        bsm_trial = bsm[trialidx]
+        sequence_mask = np.all(sequences == bsm_trial, axis=(1, 2))
+        sequence_id = np.flatnonzero(sequence_mask)[0] + sequence_offset + 1
+
+        sequence_name = "SEQUENCE{}".format(sequence_id)
+        start, end = this_event_times.loc[trialidx, ['start', 'end']].values
+        sequence_info['name'].append(sequence_name)
+        sequence_info['start'].append(start)
+        sequence_info['end'].append(end)
+
+    sequence_times = pd.DataFrame(sequence_info)
+    event_times = pd.concat([event_times, this_event_times, sequence_times])
+
+    def callback(match, o=sample_offset):
+        i = int(match.group()) + o
+        return '{:02d}'.format(i)
+
+    # add stim events
+    stim_mask = "Stim ,"
+    ffstim = (exptevents['name'].str.contains(stim_mask))
+    stim_event_times = exptevents.loc[ffstim, ['name', 'start', 'end']]
+    stim_event_times['name'] = stim_event_times['name'] \
+        .apply(lambda x: re.sub('\d+', callback, x))
+    event_times = pd.concat([event_times, stim_event_times])
+
+    # sort by when the event occured in experiment time
+    event_times = event_times.sort_values(by=['start', 'end'])
+    cols = ['name', 'start', 'end']
+    event_times = event_times[cols]
+
+    return (event_times, spike_dict, stim_dict, state_dict,
+            stim1_dict, stim2_dict)
+
+
+def baphy_load_recording_RDT(cellid, batch, options):
+    """
+    query NarfData to find baphy files for specified cell/batch and then load
+    """
+
+    # print(options)
+    #options['rasterfs'] = int(options.get('rasterfs', 100))
+    #options['stimfmt'] = options.get('stimfmt', 'ozgf')
+    #options['chancount'] = int(options.get('chancount', 18))
+    #options['pertrial'] = int(options.get('pertrial', False))
+    #options['includeprestim'] = options.get('includeprestim', 1)
+
+    #options['stim'] = int(options.get('stim', True))
+    #options['runclass'] = options.get('runclass', None)
+    #options['cellid'] = options.get('cellid', cellid)
+    #options['batch'] = int(batch)
+    #options['rawid'] = options.get('rawid', None)
+
+    d = db.get_batch_cell_data(batch=batch,
+                               cellid=cellid,
+                               rawid=options['rawid'],
+                               label='parm')
+
+    if len(d)==0:
+        raise ValueError('cellid/batch entry not found in NarfData')
+
+    files = list(d['parm'])
+
+    sample_offset = 0
+    sequence_offset = 0
+
+    for i, parmfilepath in enumerate(files):
+        event_times, spike_dict, stim_dict, \
+            state_dict, stim1_dict, stim2_dict = \
+            baphy_load_dataset_RDT(parmfilepath, options, sample_offset,
+                                   sequence_offset)
+
+        epoch_name = 'FILE{}'.format(i)
+        epoch_start = event_times['start'].min()
+        epoch_end = event_times['end'].max()
+        event_times = event_times.append({
+            'name': epoch_name,
+            'start': epoch_start,
+            'end': epoch_end
+            }, ignore_index=True)
+
+        # Find maximum sample ID and increment offset
+        m = event_times['name'].str.startswith('Stim')
+        s = ','.join(event_times.loc[m].name)
+        s_id = [int(i) for i in re.findall('\d+', s)]
+        s_offset = max(s_id)
+        sample_offset += s_offset
+
+        # Find maximum sequence ID and increment offset
+        m = event_times['name'].str.startswith('SEQUENCE')
+        s = ','.join(event_times.loc[m].name)
+        s_id = [int(i) for i in re.findall('\d+', s)]
+        s_offset = max(s_id)
+        sequence_offset += s_offset
+
+        # generate spike raster
+        raster_all, cellids = spike_time_to_raster(
+                spike_dict, fs=options['rasterfs'], event_times=event_times
+                )
+
+        # generate response signal
+        t_resp = nems.signal.RasterizedSignal(
+                fs=options['rasterfs'], data=raster_all, name='resp',
+                recording=cellid, chans=cellids, epochs=event_times
+                )
+        if i == 0:
+            resp = t_resp
+        else:
+            resp = resp.concatenate_time([resp, t_resp])
+
+        if options['stim']:
+            t_stim = dict_to_signal(stim_dict, fs=options['rasterfs'],
+                                    event_times=event_times)
+            t_stim.recording = cellid
+
+            if i == 0:
+                print("i={0} starting".format(i))
+                stim = t_stim
+            else:
+                print("i={0} concatenating".format(i))
+                stim = stim.concatenate_time([stim, t_stim])
+
+            t_stim1 = dict_to_signal(
+                    stim1_dict, fs=options['rasterfs'],
+                    event_times=event_times, signal_name='fg',
+                    recording_name=cellid
+                    )
+            t_stim2 = dict_to_signal(
+                    stim2_dict, fs=options['rasterfs'],
+                    event_times=event_times, signal_name='bg',
+                    recording_name=cellid
+                    )
+            t_state = dict_to_signal(
+                    state_dict, fs=options['rasterfs'],
+                    event_times=event_times, signal_name='state',
+                    recording_name=cellid
+                    )
+            t_state.chans = ['repeating', 'dual_stream', 'target_id']
+            x = t_state.loc['target_id'].as_continuous()
+            tars = np.unique(x[~np.isnan(x)])
+
+            if i == 0:
+                stim1 = t_stim1
+                stim2 = t_stim2
+                state = t_state
+            else:
+                stim1 = stim1.concatenate_time([stim1, t_stim1])
+                stim2 = stim2.concatenate_time([stim2, t_stim2])
+                state = state.concatenate_time([state, t_state])
+
+    resp.meta = options
+
+    signals = {'resp': resp}
+
+    if options['stim']:
+        signals['stim'] = stim
+        signals['fg'] = stim1
+        signals['bg'] = stim2
+
+    signals['state'] = state
+    rec = nems.recording.Recording(signals=signals)
+    return rec
+
 
 def spike_time_to_raster(spike_dict, fs=100, event_times=None):
     """
@@ -986,8 +1242,11 @@ def fill_default_options(options):
         # the correct cache
         cell_list, rawid = db.get_stable_batch_cells(batch=batch, cellid=cellid,
                                                      rawid=rawid)
-
-        options['cellid'] = cell_list
+        if options.get('runclass')=="RDT":
+            log.info(cell_list)
+            #options['cellid'] = cell_list[0]
+        else:
+            options['cellid'] = cell_list
         options['rawid'] = rawid
 
     # set default options if missing
@@ -1103,6 +1362,7 @@ def baphy_load_recording(**options):
     for i, parmfilepath in enumerate(files):
         # load the file and do a bunch of preprocessing:
         if options["runclass"] == "RDT":
+            log.info("loading RDT data")
             event_times, spike_dict, stim_dict, \
                 state_dict, stim1_dict, stim2_dict = \
                 baphy_load_dataset_RDT(parmfilepath, **options)
@@ -1231,6 +1491,40 @@ def baphy_load_recording(**options):
                 rem = rem.concatenate_time([rem, t_rem])
             print(np.nansum(rem.as_continuous()))
 
+        if options['stim'] and options["runclass"] == "RDT":
+            log.info("concatenating RDT stim")
+
+            t_stim1 = nems.signal.TiledSignal(
+                fs=options['rasterfs'], data=stim1_dict,
+                name='fg', epochs=event_times,
+                recording=rec_name
+            )
+            t_stim2 = nems.signal.TiledSignal(
+                fs=options['rasterfs'], data=stim2_dict,
+                name='bg', epochs=event_times,
+                recording=rec_name
+            )
+            BigStimMatrix = state_dict['BigStimMatrix'].copy()
+            del state_dict['BigStimMatrix']
+            t_state = nems.signal.TiledSignal(
+                fs=options['rasterfs'], data=state_dict,
+                name='state', epochs=event_times,
+                recording=rec_name
+                )
+            t_state.chans = ['repeating', 'dual_stream', 'target_id']
+            t_state = t_state.rasterize()
+            x = t_state.loc['target_id'].as_continuous()
+            tars = np.unique(x[~np.isnan(x)])
+
+            if i == 0:
+                stim1 = t_stim1
+                stim2 = t_stim2
+                state = t_state
+            else:
+                stim1 = stim1.append_time(t_stim1)
+                stim2 = stim2.append_time(t_stim2)
+                state = state.append_time(t_state)
+
         if options['stim']:
             # accumulate dictionaries
             # CRH replaced cellid w/ site (for when cellid is list)
@@ -1249,11 +1543,11 @@ def baphy_load_recording(**options):
                 # a la : new_dict={**stim._data,**t_stim.data}
                 stim = stim.append_time(t_stim)
 
-        if options['stim'] and options["runclass"] == "RDT":
-            raise ValueError("RDT not supported yet")
-
     resp.meta = options
     signals = {'resp': resp}
+
+    if options['stim']:
+        signals['stim'] = stim
 
     if options['pupil']:
         signals['pupil'] = pupil
@@ -1261,29 +1555,24 @@ def baphy_load_recording(**options):
         signals['pupil_eyespeed'] = pupil_speed
     if options['rem']:
         signals['rem'] = rem
-    if options['stim']:
-        signals['stim'] = stim
 
-    # TODO: stim1 and state no longer defined?
-    #       just don't support RDT right now?
     if options['stim'] and options["runclass"] == "RDT":
-        signals['stim1'] = stim1
-        signals['stim2'] = stim2
+        signals['fg'] = stim1
+        signals['bg'] = stim2
     if options["runclass"] == "RDT":
         signals['state'] = state
-        # signals['stim'].meta={'BigStimMatrix': BigStimMatrix}
-
+        #signals['stim'].meta={'BigStimMatrix': BigStimMatrix}
     rec = nems.recording.Recording(signals=signals, meta=meta, name=siteid)
 
     if goodtrials.size > np.sum(goodtrials):
-        print(goodtrials)
+        log.info(goodtrials)
         # mask out trials outside of goodtrials range, specified in celldb
         # usually during meska save
         trial_epochs = rec['resp'].get_epoch_indices('TRIAL')
         good_epochs = trial_epochs[goodtrials]
         good_epochs[:, 1] += 1
         rec = rec.create_mask(good_epochs)
-        print('masking and resetting epochs for good trials')
+        log.info('masking and resetting epochs for good trials')
         rec = rec.apply_mask(reset_epochs=True)
 
     return rec
@@ -1303,7 +1592,6 @@ def baphy_data_path(**options):
         stimfmt
         chancount
     """
-
     if (options.get('cellid') is None) or \
        (options.get('batch') is None) or \
        (options.get('rasterfs') is None) or \
@@ -1316,6 +1604,7 @@ def baphy_data_path(**options):
         del options['recache']
 
     options = fill_default_options(options)
+    log.info(options)
 
     # three ways to select cells
     cellid = options.get('cellid', None)
@@ -1343,8 +1632,14 @@ def baphy_data_path(**options):
         #  rec = baphy_load_recording(
         #          options['cellid'], options['batch'], options
         #          )
-        rec = baphy_load_recording(**options)
-        print(rec.name)
+        if options['runclass'] == 'RDT':
+            log.info('cellid: %s', options['cellid'])
+            log.info('batch: %s', options['batch'])
+            rec = baphy_load_recording_RDT(options['cellid'], options['batch'], options)
+        else:
+            rec = baphy_load_recording(**options)
+        log.info(rec.name)
+        log.info(rec.signals.keys())
         rec.save(data_file)
 
     return data_file

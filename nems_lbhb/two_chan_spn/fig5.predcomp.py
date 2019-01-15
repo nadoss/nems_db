@@ -30,14 +30,22 @@ if save_fig:
 
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
 
-if 0:
+if 1:
     batch = 259
+    # this was used in the original submission
     modelnames=["env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic",
                 "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-stp.1-dexp.1_init-basic",
                 "env.fs100-ld-sev_dlog.f-stp.2-fir.2x15-lvl.1-dexp.1_init-basic",
                 "env.fs100-ld-sev_dlog.f-wc.2x2.c-stp.2-fir.2x15-lvl.1-dexp.1_init-basic",
                 "env.fs100-ld-sev_dlog.f-wc.2x3.c-stp.3-fir.3x15-lvl.1-dexp.1_init-basic",
                 "env.fs100-ld-sev_dlog.f-wc.2x4.c-stp.4-fir.4x15-lvl.1-dexp.1_init-basic"]
+    # cleaner STP effects, predictions slightly worse
+#    modelnames=["env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic",
+#                "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-stp.1-dexp.1_init-basic",
+#                "env.fs100-ld-sev_dlog.f-stp.2-fir.2x15-lvl.1-dexp.1_init-basic",
+#                "env.fs100-ld-sev_dlog.f-wc.2x2.c.n-stp.2-fir.2x15-lvl.1-dexp.1_init-basic",
+#                "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-basic",
+#                "env.fs100-ld-sev_dlog.f-wc.2x4.c.n-stp.4-fir.4x15-lvl.1-dexp.1_init-basic"]
 #    modelnames=["env.fs100-ld-sev_dlog-fir.2x15-lvl.1-dexp.1_init-basic",
 #                "env.fs100-ld-sev_dlog-fir.2x15-lvl.1-stp.1-dexp.1_init-basic",
 #                "env.fs100-ld-sev_dlog-stp.2-fir.2x15-lvl.1-dexp.1_init-basic",
@@ -99,7 +107,7 @@ plt.title("batch {}, n={}/{} good cells".format(
         batch, np.sum(goodcells), len(goodcells)))
 plt.ylabel('median pred corr')
 plt.xlabel('model architecture')
-lplt.ax_remove_box()
+nplt.ax_remove_box()
 
 for i in range(len(modelnames)-1):
 

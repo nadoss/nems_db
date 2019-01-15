@@ -51,9 +51,9 @@ if __name__ == '__main__':
     batch=sys.argv[2]
     modelname=sys.argv[3]
 
-    log.info("Running fit_single_model({0},{1},{2})".format(cellid,batch,modelname))
+    log.info("Running fit_single_model({0},{1},{2})".format(cellid, batch, modelname))
     #savefile = nw.fit_model_baphy(cellid,batch,modelname,saveInDB=True)
-    savefile = nw.fit_model_xforms_baphy(cellid,batch,modelname,saveInDB=True)
+    savefile = nw.fit_model_xforms_baphy(cellid, batch, modelname, saveInDB=True)
 
     log.info("Done with fit.")
 

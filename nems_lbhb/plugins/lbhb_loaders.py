@@ -7,13 +7,22 @@ log = logging.getLogger(__name__)
 # TODO: Delete after finished deprecating.
 # Replaced with: load, splitcount, avgep, st, contrast
 
+def _load_dict(loadkey, cellid=None, batch=None):
+    d = {'loadkey': loadkey}
+    if cellid is not None:
+        d['cellid'] = cellid
+    if batch is not None:
+        d['batch'] = batch
+    return d
+
 def env(loadkey, cellid=None, batch=None):
     """
     envelope loader
        extra parameters handled by loadkey parser in baphy_load_wrapper
     """
-    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
-              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
+
+    d = _load_dict(loadkey, cellid, batch)
+    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper', d]]
     return xfspec
 
 
@@ -22,8 +31,8 @@ def psth(loadkey, cellid=None, batch=None):
     psth loader (no stim)
        extra parameters handled by loadkey parser in baphy_load_wrapper
     """
-    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
-              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
+    d = _load_dict(loadkey, cellid, batch)
+    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper', d]]
     return xfspec
 
 
@@ -32,25 +41,25 @@ def ozgf(loadkey, cellid=None, batch=None):
     gammatone filter
        extra parameters handled by loadkey parser in baphy_load_wrapper
     """
-    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
-              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
+    d = _load_dict(loadkey, cellid, batch)
+    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper', d]]
     return xfspec
 
 
 def parm(loadkey, cellid=None, batch=None):
     """
-    gammatone filter
+    parm spectrogram
        extra parameters handled by loadkey parser in baphy_load_wrapper
     """
-    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
-              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
+    d = _load_dict(loadkey, cellid, batch)
+    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper', d]]
     return xfspec
 
 
 def ns(loadkey, cellid=None, batch=None):
 
-    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper',
-              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch}]]
+    d = _load_dict(loadkey, cellid, batch)
+    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper', d]]
     return xfspec
 
 

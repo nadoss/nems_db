@@ -129,13 +129,23 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
     #plt.plot(np.array(hist_range), np.array(hist_range), 'k--', linewidth=0.5)
     hist_range = np.array(hist_range)
     zz = np.zeros(2)
+
+    outi = np.where(outcells)
+    set2i = np.where(set2)
+    set1i = np.where(set1)
+    evs = set1i[0]
+
     ax.plot(hist_range, zz, 'k--',linewidth=0.5)
     ax.plot(zz, hist_range, 'k--',linewidth=0.5)
     ax.plot(hist_range,hist_range, 'k--',linewidth=0.5)
 
-    ax.plot(beta1[outcells], beta2[outcells], '.', color='red')
-    ax.plot(beta1[set2], beta2[set2], '.', color='lightgray')
-    ax.plot(beta1[set1], beta2[set1], 'k.', picker=5, markersize=10)
+    ax.plot(beta1[set2], beta2[set2], '.', color='lightgray', markersize=6,
+            markeredgecolor='white', markeredgewidth=0.5)
+    ax.plot(beta1[set1], beta2[set1], 'k.', picker=5, markersize=10,
+            markeredgecolor='white', markeredgewidth=0.5)
+    ax.plot(beta1[outcells], beta2[outcells], '.', color='red', markeredgecolor='white',
+            markeredgewidth=0.5, markersize=10)
+
     ax.set_aspect('equal', 'box')
     #plt.ylim(hist_range)
     #plt.xlim(hist_range)
@@ -147,7 +157,7 @@ def beta_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,
 
     if click_fun is not None:
         def display_wrapper(event):
-            i = int(event.ind[0])
+            i = evs[int(event.ind[0])]
             click_fun(i)
 
         fh.canvas.mpl_connect('pick_event', display_wrapper)
