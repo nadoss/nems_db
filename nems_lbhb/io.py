@@ -10,6 +10,7 @@ import logging
 import re
 import os
 import os.path
+import pickle
 import scipy.io
 import scipy.io as spio
 import scipy.ndimage.filters
@@ -462,6 +463,7 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     pupil_eyespeed = options["pupil_eyespeed"]
     verbose = options["verbose"]
     options['pupil'] = options.get('pupil', True)
+    analysis_method = options.get('pupil_method', None)
     #rasterfs = options.get('rasterfs', 100)
     #pupil_offset = options.get('pupil_offset', 0.75)
     #pupil_deblink = options.get('pupil_deblink', True)
@@ -495,30 +497,61 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
                 exptevents, sortinfo, spikefs, rasterfs
                 )
 
-    matdata = scipy.io.loadmat(pupilfilepath)
 
-    p = matdata['pupil_data']
-    params = p['params']
-    if 'pupil_variable_name' not in options:
-        options['pupil_variable_name'] = params[0][0]['default_var'][0][0][0]
+    # setting up check to see if CNN pupil exists
+    basename = os.path.basename(pupilfilepath).split('.')[0]
+    abs_path = os.path.dirname(pupilfilepath)
+    pupildata_path = os.path.join(abs_path, "sorted", basename + '.pickle')
+
+    if (~os.path.isfile(pupildata_path)) & (analysis_method=='cnn'):
+        log.info("WARNING: CNN pupil requested but file doesn't exist, will try loading pup.mat file...")
+        analysis_method = None
+
+    if analysis_method == 'cnn':
+
+        with open(pupildata_path, 'rb') as fp:
+            pupildata = pickle.load(fp)
+
+        # hard code to use minor axis for now
+        options['pupil_variable_name'] = 'minor_axis'
         log.info("Using default pupil_variable_name: " +
-              options['pupil_variable_name'])
-    if 'pupil_algorithm' not in options:
-        options['pupil_algorithm'] = params[0][0]['default'][0][0][0]
-        log.info("Using default pupil_algorithm: " + options['pupil_algorithm'])
+                  options['pupil_variable_name'])
+        log.info("Using CNN results for pupiltrace")
 
-    results = p['results'][0][0][-1][options['pupil_algorithm']]
-    pupil_diameter = np.array(results[0][options['pupil_variable_name']][0][0])
-    if pupil_diameter.shape[0] == 1:
-        pupil_diameter = pupil_diameter.T
-    log.info("pupil_diameter.shape: " + str(pupil_diameter.shape))
+        pupil_diameter = pupildata['cnn']['a'] * 2
 
-    if pupil_eyespeed:
-        try:
-            eye_speed = np.array(results[0]['eye_speed'][0][0])
-        except:
-            pupil_eyespeed = False
-            log.info("eye_speed requested but file does not exist!")
+        pupil_diameter = pupil_diameter[:-1, np.newaxis]
+
+        log.info("pupil_diameter.shape: " + str(pupil_diameter.shape))
+
+        if pupil_eyespeed:
+            log.info("eye speed does not yet exist using this pupil method")
+
+    elif analysis_method is None:
+        matdata = scipy.io.loadmat(pupilfilepath)
+
+        p = matdata['pupil_data']
+        params = p['params']
+        if 'pupil_variable_name' not in options:
+            options['pupil_variable_name'] = params[0][0]['default_var'][0][0][0]
+            log.info("Using default pupil_variable_name: " +
+                  options['pupil_variable_name'])
+        if 'pupil_algorithm' not in options:
+            options['pupil_algorithm'] = params[0][0]['default'][0][0][0]
+            log.info("Using default pupil_algorithm: " + options['pupil_algorithm'])
+
+        results = p['results'][0][0][-1][options['pupil_algorithm']]
+        pupil_diameter = np.array(results[0][options['pupil_variable_name']][0][0])
+        if pupil_diameter.shape[0] == 1:
+            pupil_diameter = pupil_diameter.T
+        log.info("pupil_diameter.shape: " + str(pupil_diameter.shape))
+
+        if pupil_eyespeed:
+            try:
+                eye_speed = np.array(results[0]['eye_speed'][0][0])
+            except:
+                pupil_eyespeed = False
+                log.info("eye_speed requested but file does not exist!")
 
     fs_approximate = 30  # approx video framerate
     if pupil_deblink:
