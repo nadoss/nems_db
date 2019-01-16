@@ -139,7 +139,7 @@ def compare_model_preds(cellid, batch, modelname1, modelname2,
     if wcidx:
         ax = plt.subplot(5, 4, 4)
         coefs = ms2[wcidx]['phi']['coefficients']
-        plt.imshow(coefs, clim=np.array([-1,1])*np.max(np.abs(coefs)))
+        plt.imshow(coefs, clim=np.array([-1,1])*np.max(np.abs(coefs)), cmap='bwr')
         plt.xlabel('in')
         plt.ylabel('out')
         plt.colorbar()
@@ -319,7 +319,7 @@ def quick_pred_comp(cellid, batch, modelname1, modelname2,
     #plt.ylim([yl[0], yl[1]*2])
     nplt.ax_remove_box(ax)
 
-    return ax
+    return ax, ctx1, ctx2
 
 
 def scatter_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,

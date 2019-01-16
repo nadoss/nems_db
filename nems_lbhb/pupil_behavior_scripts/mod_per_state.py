@@ -280,9 +280,10 @@ def hlf_analysis(df, state_list, title=None, norm_sign=True, states=None):
     dr['null']=dr[state_list[0]]**2 * np.sign(dr[state_list[0]])
     dr['full']=dr[state_list[3]]**2 * np.sign(dr[state_list[3]])
 
-    dr['sig']=((dp['r'][state_list[1]]-dp['r'][state_list[0]]) > \
-         (dp['r_se'][state_list[1]]+dp['r_se'][state_list[0]]))
-
+    #dr['sig']=((dp['r'][state_list[1]]-dp['r'][state_list[0]]) >
+    #     (dp['r_se'][state_list[1]]+dp['r_se'][state_list[0]]))
+    dr['sig']=((dp['r'][state_list[3]]-dp['r'][state_list[2]]) >
+         (dp['r_se'][state_list[3]]+dp['r_se'][state_list[2]]))
 
     dfull = df[df['state_sig']==state_list[3]]
     dpup = df[df['state_sig']==state_list[2]]
@@ -314,7 +315,8 @@ def hlf_analysis(df, state_list, title=None, norm_sign=True, states=None):
         MI[np.isnan(MI)] = 0
         MIu[np.isnan(MIu)] = 0
         MI0[np.isnan(MI0)] = 0
-        sg = np.sign(MI[:,1:2]/2 + MI[:,3:4]/2 - MI[:,2:3]/2)
+        a = [1, 3]
+        #sg = np.sign(MI[:,1:2]/2 + MI[:,3:4]/2 - MI[:,2:3]/2)
         #sg = np.sign(MI[:,1:2] - MI[:,2:3]/2)
     else:
         ff = np.isfinite(MI[:,-1]) & sig
@@ -325,23 +327,25 @@ def hlf_analysis(df, state_list, title=None, norm_sign=True, states=None):
         #MI[:,0]=0
         #MIu[:,0]=0
         #MI0[:,0]=0
-        if len(states) >= 10:
-            sg = np.sign(np.mean(MI[:,2:4], axis=1, keepdims=True)*3+
-                         np.mean(MI[:,6:8], axis=1, keepdims=True)*3-
-                         np.mean(MI[:,0:2], axis=1, keepdims=True)*2-
-                         np.mean(MI[:,4:6], axis=1, keepdims=True)*2-
-                         np.mean(MI[:,8:10], axis=1, keepdims=True)*2)
-        elif len(states) >= 8:
-            sg = np.sign(np.mean(MI[:,2:4], axis=1, keepdims=True)+
-                         np.mean(MI[:,6:8], axis=1, keepdims=True)-
-                         np.mean(MI[:,0:2], axis=1, keepdims=True)-
-                         np.mean(MI[:,4:6], axis=1, keepdims=True))
+
+        if len(states) >= 8:
+            a = [2, 3, 6, 7]
         else:
-            sg = np.sign(2*np.nanmean(MI[:,2:4], axis=1, keepdims=True)-
-                         np.nanmean(MI[:,0:2], axis=1, keepdims=True)-
-                         np.nanmean(MI[:,4:6], axis=1, keepdims=True))
-        #sg = np.sign(np.mean(MI[:,2:4], axis=1, keepdims=True))
+            a = [2, 3]
+
+    p = np.zeros(MI.shape[1], dtype=bool)
+    p[a] = True
+    n = ~p
+    #n[0] = False
+    print('p: ', p)
+    print('n: ', n)
     if norm_sign:
+        b = np.mean(MI[:, n], axis=1, keepdims=True)
+        MI -= b
+        MIu -= b
+        MI0 -= b
+        sg = np.sign(np.mean(MI[:, p], axis=1, keepdims=True) -
+                     np.mean(MI[:, n], axis=1, keepdims=True))
         MI *= sg
         MIu *= sg
         MI0 *= sg
@@ -389,28 +393,32 @@ def hlf_analysis(df, state_list, title=None, norm_sign=True, states=None):
     return dMI, dMI0
 
 
-def hlf_wrapper():
+def hlf_wrapper(use_hlf=True):
     """
     batch = 307  # A1 SUA and MUA
     batch = 309  # IC SUA and MUA
     """
 
     # pup vs. active/passive
-    state_list = ['st.pup0.hlf0','st.pup0.hlf','st.pup.hlf0','st.pup.hlf']
-    state_list = ['st.pup0.far0.hit0.hlf0','st.pup0.far0.hit0.hlf',
-                  'st.pup.far.hit.hlf0','st.pup.far.hit.hlf']
-    #states = ['PASSIVE_0_A','PASSIVE_0_B', 'ACTIVE_1_A','ACTIVE_1_B',
-    #          'PASSIVE_1_A','PASSIVE_1_B', 'ACTIVE_2_A','ACTIVE_2_B',
-    #          'PASSIVE_2_A','PASSIVE_2_B']
-    states = ['PASSIVE_0_A','PASSIVE_0_B', 'ACTIVE_1_A','ACTIVE_1_B',
-              'PASSIVE_1_A','PASSIVE_1_B']
-    #state_list = ['st.pup0.fil0','st.pup0.fil','st.pup.fil0','st.pup.fil']
-    #states = ['PASSIVE_0',  'ACTIVE_1', 'PASSIVE_1',
-    #          'ACTIVE_2', 'PASSIVE_2']
-    #basemodels = ["-ref-psthfr.s_sdexp.S"]
+    if use_hlf:
+        state_list = ['st.pup0.hlf0', 'st.pup0.hlf', 'st.pup.hlf0', 'st.pup.hlf']
+        #state_list = ['st.pup0.far0.hit0.hlf0','st.pup0.far0.hit0.hlf',
+        #              'st.pup.far.hit.hlf0','st.pup.far.hit.hlf']
+        states = ['PASSIVE_0_A','PASSIVE_0_B', 'ACTIVE_1_A','ACTIVE_1_B',
+                  'PASSIVE_1_A','PASSIVE_1_B', 'ACTIVE_2_A','ACTIVE_2_B',
+                  'PASSIVE_2_A','PASSIVE_2_B']
+        #states = ['PASSIVE_0_A','PASSIVE_0_B', 'ACTIVE_1_A','ACTIVE_1_B',
+        #          'PASSIVE_1_A','PASSIVE_1_B']
+    else:
+        state_list = ['st.pup0.fil0', 'st.pup0.fil', 'st.pup.fil0', 'st.pup.fil']
+        states = ['PASSIVE_0',  'ACTIVE_1', 'PASSIVE_1',
+                  'ACTIVE_2', 'PASSIVE_2']
+    basemodels = ["-ref-psthfr.s_sdexp.S"]
     #basemodels = ["-ref-psthfr.s_sdexp.S","-ref-psthfr.s_sdexp.S"]
-    basemodels = ["-ref.a-psthfr.s_sdexp.S"]
-    batches = [307]
+    #basemodels = ["-ref.a-psthfr.s_sdexp.S"]
+    batches = [307, 309]
+    basemodel = basemodels[0]
+    batch = batches[0]
 
     plt.close('all')
     for batch in batches:
@@ -418,7 +426,7 @@ def hlf_wrapper():
             df = get_model_results_per_state_model(
                     batch=batch, state_list=state_list, basemodel=basemodel)
             title = "{} {} batch {} keep sgn".format(basemodel,state_list[-1],batch)
-            hlf_analysis(df, state_list, title=title, norm_sign=True, states=states)
+            hlf_analysis(df, state_list, title=title, norm_sign=True, states=states);
 
 
 def aud_vs_state(df, nb=5, title=None, state_list=None):
@@ -437,7 +445,7 @@ def aud_vs_state(df, nb=5, title=None, state_list=None):
     dr['b_unique'] = dr[state_list[3]]**2 - dr[state_list[2]]**2
     dr['p_unique'] = dr[state_list[3]]**2 - dr[state_list[1]]**2
     dr['bp_common'] = dr[state_list[3]]**2 - dr[state_list[0]]**2 - dr['b_unique'] - dr['p_unique']
-    dr['bp_full'] = dr['b_unique']+dr['p_unique']+dr['bp_common']
+    dr['bp_full'] = dr['b_unique'] + dr['p_unique'] + dr['bp_common']
     dr['null']=dr[state_list[0]]**2 * np.sign(dr[state_list[0]])
     dr['full']=dr[state_list[3]]**2 * np.sign(dr[state_list[3]])
 
@@ -450,7 +458,7 @@ def aud_vs_state(df, nb=5, title=None, state_list=None):
     mfull=dm[['null','full','bp_common','p_unique','b_unique','sig']].values
 
     if nb > 0:
-        stepsize=mfull.shape[0]/nb
+        stepsize = mfull.shape[0]/nb
         mm=np.zeros((nb,mfull.shape[1]))
         for i in range(nb):
             #x0=int(np.floor(i*stepsize))

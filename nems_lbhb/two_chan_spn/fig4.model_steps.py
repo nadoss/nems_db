@@ -45,13 +45,14 @@ outpath = "/auto/users/svd/docs/current/two_band_spn/eps_rev/"
 plt.close('all')
 
 #cellid="por077a-c1"
-cellid = "por074b-d2"
-cellid = "por074b-c2"
-cellid = "por020a-c1"
 #cellid = "chn003c-a1"
 cellid = "eno009d-a1"
 cellid = "eno027d-c1"
 cellid = "eno029d-c1"
+cellid = "por074b-d2"
+cellid = "por074b-c2"
+cellid = "por020a-c1"
+
 fh1, ctx1, ctx2 = lplt.compare_model_preds(cellid, batch, modelname1, modelname2)
 
 # xf2, ctx2 = lplt.get_model_preds(cellid, batch, modelname2)

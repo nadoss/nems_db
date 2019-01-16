@@ -17,16 +17,16 @@ import nems.recording as recording
 import nems.epoch as ep
 import nems.xforms as xforms
 import nems_db.xform_wrappers as nw
-import nems_db.db as nd
+import nems.db as nd
 import nems.plots.api as nplt
 from nems.utils import find_module
 
 params = {'legend.fontsize': 6,
           'figure.figsize': (8, 6),
-          'axes.labelsize': 8,
-          'axes.titlesize': 8,
-          'xtick.labelsize': 8,
-          'ytick.labelsize': 8,
+          'axes.labelsize': 6,
+          'axes.titlesize': 6,
+          'xtick.labelsize': 6,
+          'ytick.labelsize': 6,
           'pdf.fonttype': 42,
           'ps.fonttype': 42}
 plt.rcParams.update(params)
@@ -51,9 +51,9 @@ for index, c in df[m].iterrows():
             index, c[modelname2], c[modelname1], c['diff']))
 
 plt.close('all')
-outpath = "/auto/users/svd/docs/current/two_band_spn/eps/"
+outpath = "/auto/users/svd/docs/current/two_band_spn/eps_rev/"
 
-if 1:
+if 0:
     #cellid="por077a-c1"
     cellid = "por074b-d2"
     cellid = "por020a-c1"
@@ -71,30 +71,68 @@ elif 0:
         #fh.savefig(outpath + "fig1_model_preds_" + cellid + ".pdf")
 
 else:
-    fh = plt.figure(figsize=(8,10))
     cellcount = np.sum(m)
-    colcount = 2
-    rowcount = np.ceil((cellcount+1)/colcount)
+    colcount = 3
+    rowcount = cellcount+1
+    #rowcount = np.ceil((cellcount+1)/colcount)
 
-    i=0
+    i = 0
+    fh = plt.figure(figsize=(10,(cellcount+1)*0.8))
+
     for cellid, c in df[m].iterrows():
         i += 1
         if i==1:
-            ax0 = plt.subplot(rowcount,colcount,i)
-            i += 1
-            ax = plt.subplot(rowcount,colcount,i)
+            ax0 = plt.subplot(rowcount,colcount,1)
+            ax = plt.subplot(rowcount,colcount,i*colcount+1)
 
-            lplt.quick_pred_comp(cellid,batch,modelname1,modelname2,
-                                 ax=(ax0,ax))
+            _, ctx1, ctx2 = lplt.quick_pred_comp(cellid,batch,modelname1,modelname2,
+                                                 ax=(ax0,ax))
             ax0.get_xaxis().set_visible(False)
         else:
-            ax = plt.subplot(rowcount,colcount,i)
+            ax = plt.subplot(rowcount,colcount,i*colcount+1)
 
-            lplt.quick_pred_comp(cellid,batch,modelname1,modelname2,
-                                 ax=ax);
+            _, ctx1, ctx2 = lplt.quick_pred_comp(cellid,batch,modelname1,modelname2,
+                                                 ax=ax);
 
         if i<cellcount+1:
             ax.get_xaxis().set_visible(False)
+
+        ctx1['modelspec'][1]['plot_fns'] = ['nems.plots.api.strf_timeseries']
+        ctx2['modelspec'][1]['plot_fns'] = ['nems.plots.api.weight_channels_heatmap']
+        ctx2['modelspec'][2]['plot_fns'] = ['nems.plots.api.before_and_after_stp']
+        ctx2['modelspec'][3]['plot_fns'] = ['nems.plots.api.strf_timeseries']
+        ax = plt.subplot(rowcount,colcount*2,i*colcount*2+3)
+        ctx1['modelspec'].plot(mod_index=1, ax=ax, rec=ctx1['val'])
+        ax.set_xlabel("")
+        ax.set_ylabel("")
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        ax = plt.subplot(rowcount,colcount*2,i*colcount*2+4)
+        ctx2['modelspec'].plot(mod_index=1, ax=ax, rec=ctx2['val'])
+        ax.set_xlabel("")
+        ax.set_ylabel("")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_aspect('equal')
+        ax = plt.subplot(rowcount,colcount*2,i*colcount*2+5)
+
+        ctx2['modelspec'].plot(mod_index=2, ax=ax, rec=ctx2['val'])
+        ax.get_legend().remove()
+        ax.set_xlabel("")
+        ax.set_ylabel("")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        if i==1:
+            ax.legend(('1','2','3','in'))
+        ax = plt.subplot(rowcount,colcount*2,i*colcount*2+6)
+        ctx2['modelspec'].plot(mod_index=3, ax=ax, rec=ctx2['val'])
+        ax.set_xlabel("")
+        ax.set_ylabel("")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        if i==1:
+            ax.legend(('1','2','3'))
 
     fh.savefig(outpath + "fig2_example_psth_preds.pdf")
 
