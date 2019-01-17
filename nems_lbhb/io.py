@@ -29,7 +29,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import nems.signal
 import nems.recording
-import nems_db.db as db
+import nems.db as db
 from nems.recording import Recording
 from nems.recording import load_recording
 
