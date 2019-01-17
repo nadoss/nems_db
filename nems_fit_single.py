@@ -2,13 +2,28 @@
 
 # This script runs nems_main.fit_single_model from the command line
 
-import nems_db.xform_wrappers as nw
-import nems.utils
-import sys
-import os
 
+
+import os
+import sys
 import logging
 log = logging.getLogger(__name__)
+
+force_SDB=False
+try:
+    if sys.argv[3][:4] == 'SDB-':
+        force_SDB=True
+except:
+    pass
+if force_SDB:
+    os.environ['OPENBLAS_VERBOSE'] = '2'
+    os.environ['OPENBLAS_CORETYPE'] = 'sandybridge'
+
+import nems_db.xform_wrappers as nw
+import nems.utils
+
+if force_SDB:
+    log.info('Setting OPENBLAS_CORETYPE to sandybridge')
 
 try:
     import nems_db.db as nd
