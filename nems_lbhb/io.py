@@ -484,7 +484,12 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     if options["pupil_derivative"]:
         raise ValueError('pupil_derivative not implemented.')
 
+    # we want to use exptevents TRIALSTART events as the ground truth for the time when each trial starts.
+    # these times are set based on openephys data, since baphy doesn't log exact trial start times
     if exptevents is None:
+        # if exptevents hasn't been loaded and corrected for spike data yet, do that so that we have accurate trial
+        # start times.
+        # key exptevents are exptevents['name'].str.startswith('TRIALSTART')
         parmfilepath = pupilfilepath.replace(".pup.mat",".m")
         globalparams, exptparams, exptevents = baphy_parm_read(parmfilepath)
         pp, bb = os.path.split(parmfilepath)
@@ -654,9 +659,14 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     stop_e = list(stop_events['StopBin'])
 
     # calculate frame count and duration of each trial
-    duration = np.diff(timestamp) * 24*60*60
-    frame_count = np.diff(firstframe)
+    #svd/CRH fix: use start_e to determine trial duration
+    duration = np.diff(np.append(start_e, stop_e[-1]) / rasterfs)
 
+    # old method: use timestamps in pupil recording, which don't take into account correction for sampling bin size
+    # that may be coarser than the video sampling rate
+    #duration = np.diff(timestamp) * 24*60*60
+
+    frame_count = np.diff(firstframe)
 
     if pupil_eyespeed & options['pupil']:
         l = ['pupil', 'pupil_eyespeed']
@@ -679,6 +689,7 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
         all_fs = np.empty([ntrials])
 
         for ii in range(0, ntrials):
+
             if signal == 'pupil_eyespeed':
                 d = eye_speed[
                         int(firstframe[ii]):int(firstframe[ii]+frame_count[ii]), 0
@@ -703,6 +714,7 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
                 big_rs = big_rs[:start_e[ii+1]]
             elif ii == ntrials-1:
                 big_rs = big_rs[:stop_e[ii]]
+
             strialidx[ii+1] = len(big_rs)
 
         if pupil_median:

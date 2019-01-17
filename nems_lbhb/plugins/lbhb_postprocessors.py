@@ -24,4 +24,5 @@ def SPOpf(loadkey):
     xfspec = xfspec + ebc('ebc.rmM')
     xfspec.append(['nems.xforms.plot_summary', {}])
     xfspec.append(['nems_lbhb.SPO_helpers.plot_all_vals_',{}])
+    xfspec.append(['nems_lbhb.SPO_helpers.plot_linear_and_weighted_psths_model', {}])
     return xfspec
