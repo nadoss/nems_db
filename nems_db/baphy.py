@@ -175,9 +175,9 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
             (np.zeros([1, 1]), TrialLen_sec[:, np.newaxis]*spikefs), axis=0
             )
 
-    for c in range(0, chancount):
-        if len(sortinfo[c]) and sortinfo[c][0].size:
-            s = sortinfo[c][0][0]['unitSpikes']
+    for ch in range(0, chancount):
+        if len(sortinfo[ch]) and sortinfo[ch][0].size:
+            s = sortinfo[ch][0][0]['unitSpikes']
             s = np.reshape(s, (-1, 1))
             unitcount = s.shape[0]
             for u in range(0, unitcount):
@@ -198,9 +198,11 @@ def baphy_align_time(exptevents, sortinfo, spikefs, finalfs=0):
               ' to even number of rasterfs bins')
         # print(TrialLen_spikefs)
         TrialLen_spikefs = (
-                np.ceil(TrialLen_spikefs / spikefs*finalfs + 1)
-                / finalfs*spikefs
+                np.ceil(TrialLen_spikefs / spikefs*finalfs) / finalfs*spikefs
                 )
+        #TrialLen_spikefs = (
+        #        np.ceil(TrialLen_spikefs / spikefs*finalfs + 1) / finalfs*spikefs
+        #        )
         # print(TrialLen_spikefs)
 
     Offset_spikefs = np.cumsum(TrialLen_spikefs)
@@ -477,6 +479,10 @@ def baphy_load_dataset(parmfilepath, **options):
     # end at the end of last trial
     final_trial = np.argwhere((exptevents['name'] == tag_mask_stop)==True)[-1][0]
     ffstop.iloc[final_trial] = True
+    # "start" of last TRIALSTOP event
+    final_trial_end = exptevents.iloc[final_trial]['end']
+    final_trial_end = np.floor(final_trial_end*options['rasterfs']) / options['rasterfs']
+    exptevents.loc[final_trial, 'end'] = final_trial_end
 
     # set first True to False (the start of the first trial)
     first_true = np.argwhere(ffstop==True)[0][0]
