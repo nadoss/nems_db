@@ -11,9 +11,9 @@ plt.rcParams.update(params)
 import matplotlib.gridspec as gridspec
 import matplotlib.patches as mpatch
 
-import nems_db.db as nd
-from nems_db.xform_wrappers import load_model_baphy_xform
-from nems_db.db import get_batch_cells, Tables, Session
+import nems.db as nd
+from nems_lbhb.xform_wrappers import load_model_baphy_xform
+from nems.db import get_batch_cells, Tables, Session
 import nems.xforms as xf
 from nems.utils import find_module
 import nems.modelspec as ms

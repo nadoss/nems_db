@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 
-import nems_db.xform_wrappers as nw
+import nems_lbhb.xform_wrappers as nw
 import nems.plots.api as nplt
 import nems.xforms as xforms
 import nems.epoch as ep

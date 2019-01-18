@@ -9,7 +9,7 @@ import nems.recording
 from nems.recording import Recording, load_recording
 from nems.epoch import merge_epoch, group_epochs_by_parent, add_epoch
 from nems.preprocessing import average_away_epoch_occurrences
-from nems_db.baphy import baphy_data_path
+from nems_lbhb.baphy import baphy_data_path
 
 log = logging.getLogger(__name__)
 

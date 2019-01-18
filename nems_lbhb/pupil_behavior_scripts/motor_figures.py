@@ -5,7 +5,7 @@ Created on Wed Aug 22 17:59:33 2018
 
 @author: daniela
 """
-import nems_db.xform_wrappers as nw
+import nems_lbhb.xform_wrappers as nw
 
 cellid="BRT036b-06-1"
 modelname="psth.fs20.pup-ld-st.pup.beh-evs.tar.lic0_fir.Nx40-lvl.1-stategain.3_jk.nf10-init.st-basic"

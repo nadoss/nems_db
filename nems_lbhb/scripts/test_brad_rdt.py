@@ -2,7 +2,7 @@
 import os
 import matplotlib.pyplot as plt
 from nems import xforms
-import nems_db.xform_wrappers as nw
+import nems_lbhb.xform_wrappers as nw
 from nems.gui.recording_browser import browse_recording, browse_context
 
 #from nems_lbhb.rdt import plugins

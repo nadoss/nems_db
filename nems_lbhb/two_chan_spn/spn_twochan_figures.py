@@ -11,7 +11,7 @@ import sys
 import matplotlib.pyplot as plt
 
 #sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
-import nems_db.db as nd
+import nems.db as nd
 import nems_db.params
 import numpy as np
 
@@ -19,7 +19,7 @@ import nems_lbhb.stateplots as stateplots
 import nems.recording as recording
 import nems.epoch as ep
 import nems.xforms as xforms
-import nems_db.xform_wrappers as nw
+import nems_lbhb.xform_wrappers as nw
 
 cellid="chn002h-a1"
 batch=259

@@ -13,7 +13,7 @@ import nems.analysis.api
 import nems.utils
 import nems.uri
 import nems.xforms as xforms
-import nems_db.xform_wrappers as xfw
+import nems_lbhb.xform_wrappers as xfw
 import nems.xform_helper as xhelp
 from nems.plugins import (default_keywords, default_loaders, default_fitters,
                           default_initializers)

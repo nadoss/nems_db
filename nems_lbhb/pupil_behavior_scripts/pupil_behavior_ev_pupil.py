@@ -12,8 +12,8 @@ import nems.db as nd
 import nems.recording as recording
 import nems.epoch as ep
 
-#import nems_db.baphy as nb
-import nems_db.xform_wrappers as nw
+#import nems.baphy as nb
+import nems_lbhb.xform_wrappers as nw
 import nems_lbhb.stateplots as sp
 
 #params = {'legend.fontsize': 8,

@@ -17,7 +17,7 @@ import nems_lbhb.plots as lplt
 import nems.recording as recording
 import nems.epoch as ep
 import nems.xforms as xforms
-import nems_db.xform_wrappers as nw
+import nems_lbhb.xform_wrappers as nw
 import nems.plots.api as nplt
 from nems.utils import find_module
 import nems.metrics.api as nmet

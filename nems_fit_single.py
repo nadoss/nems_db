@@ -17,7 +17,7 @@ if force_SDB:
     os.environ['OPENBLAS_VERBOSE'] = '2'
     os.environ['OPENBLAS_CORETYPE'] = 'sandybridge'
 
-#import nems_db.xform_wrappers as nw
+#import nems_lbhb.xform_wrappers as nw
 import nems.xform_helper as xhelp
 import nems.utils
 
