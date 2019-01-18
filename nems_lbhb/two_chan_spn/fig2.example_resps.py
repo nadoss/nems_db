@@ -7,7 +7,6 @@ log = logging.getLogger(__name__)
 log.disabled = True
 
 #sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
-import nems_db.db as nd
 import nems_db.params
 import numpy as np
 
@@ -101,8 +100,29 @@ else:
         ctx2['modelspec'][1]['plot_fns'] = ['nems.plots.api.weight_channels_heatmap']
         ctx2['modelspec'][2]['plot_fns'] = ['nems.plots.api.before_and_after_stp']
         ctx2['modelspec'][3]['plot_fns'] = ['nems.plots.api.strf_timeseries']
+
+        #t_fir = ctx1['modelspec'].phi[1]['coefficients']
+        #x = np.mean(t_fir, axis=1)
+        #ix = np.argsort(-x)
+        #ctx1['modelspec'].phi[1]['coefficients'] = t_fir[ix]
+
+        t_wc = ctx2['modelspec'].phi[1]['coefficients']
+        t_tau = ctx2['modelspec'].phi[2]['tau']
+        t_u = ctx2['modelspec'].phi[2]['u']
+        t_fir = ctx2['modelspec'].phi[3]['coefficients']
+        x = np.mean(t_fir, axis=1)
+        ix = np.argsort(-x)
+        ctx2['modelspec'].phi[1]['coefficients'] = t_wc[ix]
+        ctx2['modelspec'].phi[2]['tau'] = t_tau[ix]
+        ctx2['modelspec'].phi[2]['u'] = t_u[ix]
+        ctx2['modelspec'].phi[3]['coefficients'] = t_fir[ix]
+
+        stream_colors=[(248/255, 153/255, 29/255),
+                       (65/255, 207/255, 221/255)]
+
         ax = plt.subplot(rowcount,colcount*2,i*colcount*2+3)
-        ctx1['modelspec'].plot(mod_index=1, ax=ax, rec=ctx1['val'])
+        ctx1['modelspec'].plot(mod_index=1, ax=ax, rec=ctx1['val'],
+                               colors=stream_colors)
         ax.set_xlabel("")
         ax.set_ylabel("")
         ax.set_xticks([])

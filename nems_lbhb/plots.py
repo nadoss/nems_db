@@ -17,7 +17,7 @@ import nems.modelspec as ms
 from nems.utils import (find_module)
 import pandas as pd
 import scipy.ndimage.filters as sf
-import nems_db.db as nd
+import nems.db as nd
 import nems_lbhb.old_xforms.xforms as oxf
 import nems_lbhb.old_xforms.xform_helper as oxfh
 

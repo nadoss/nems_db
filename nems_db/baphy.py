@@ -480,10 +480,14 @@ def baphy_load_dataset(parmfilepath, **options):
     final_trial = np.argwhere((exptevents['name'] == tag_mask_stop)==True)[-1][0]
     ffstop.iloc[final_trial] = True
     # "start" of last TRIALSTOP event
-    final_trial_end = exptevents.iloc[final_trial]['end']
-    final_trial_end = np.floor(final_trial_end*options['rasterfs']) / options['rasterfs']
-    exptevents.loc[final_trial, 'end'] = final_trial_end
+    final_trial_end0 = exptevents["end"].max()
+    #final_trial_end0 = exptevents.iloc[final_trial]['end']
+    final_trial_end = np.floor(final_trial_end0*options['rasterfs']) / options['rasterfs']
+    end_events = (exptevents['end'] >= final_trial_end)
+    exptevents.loc[end_events, 'end'] = final_trial_end
 
+    print('Setting end for {} events from {} to {}'.format(
+        np.sum(end_events), final_trial_end0, final_trial_end))
     # set first True to False (the start of the first trial)
     first_true = np.argwhere(ffstop==True)[0][0]
     ffstop.iloc[first_true] = False
@@ -742,7 +746,7 @@ def baphy_load_dataset(parmfilepath, **options):
                 name = "LICK"
                 licklen = 0.1
                 e['end']=e['start'] + licklen
-            print('adding {} {}-{}'.format(name,e['start'], e['end']))
+            # print('adding {} {}-{}'.format(name,e['start'], e['end']))
             te = pd.DataFrame(index=[0], columns=(event_times.columns),
                               data=[[e['start'], e['end'], name]])
             event_times = event_times.append(te, ignore_index=True)
@@ -1411,7 +1415,6 @@ def baphy_load_recording(**options):
                 name='resp', recording=rec_name, chans=list(spike_dict.keys()),
                 epochs=event_times
                 )
-
         if i == 0:
             resp = t_resp
         else:
@@ -1421,7 +1424,11 @@ def baphy_load_recording(**options):
         if options['pupil']:
 
             # create pupil signal if it exists
-            rlen = int(t_resp.ntimes)
+            if i == 0:
+                rlen = int(t_resp.shape[1])
+            else:
+                rlen = int(resp.shape[1]) - int(pupil.shape[1])
+
             pcount = state_dict['pupiltrace'].shape[0]
             plen = state_dict['pupiltrace'].shape[1]
             if plen > rlen:
@@ -1443,6 +1450,14 @@ def baphy_load_recording(**options):
                 pupil = t_pupil
             else:
                 pupil = pupil.concatenate_time([pupil, t_pupil])
+
+            print("rlen={}  plen={}".format(resp.ntimes, pupil.ntimes))
+            max_this=t_resp.epochs['end'].max()
+            max_all=resp.epochs['end'].max()
+            print('resp max times: this={:.15f} all={:.15f}'.format(max_this,max_all))
+            max_this=t_pupil.epochs['end'].max()
+            max_all=pupil.epochs['end'].max()
+            print('pupil max times: this={:.15f} all={:.15f}'.format(max_this,max_all))
 
         if (options['pupil_eyespeed']) & ('pupil_eyespeed' in state_dict.keys()):
             # create pupil signal if it exists
