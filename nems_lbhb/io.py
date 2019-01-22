@@ -463,7 +463,6 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     pupil_eyespeed = options["pupil_eyespeed"]
     verbose = options["verbose"]
     options['pupil'] = options.get('pupil', True)
-    analysis_method = options.get('pupil_method', None)
     #rasterfs = options.get('rasterfs', 100)
     #pupil_offset = options.get('pupil_offset', 0.75)
     #pupil_deblink = options.get('pupil_deblink', True)
@@ -502,25 +501,20 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
                 exptevents, sortinfo, spikefs, rasterfs
                 )
 
-
-    # setting up check to see if CNN pupil exists
-    basename = os.path.basename(pupilfilepath).split('.')[0]
-    abs_path = os.path.dirname(pupilfilepath)
-    pupildata_path = os.path.join(abs_path, "sorted", basename + '.pickle')
-
-    if (~os.path.isfile(pupildata_path)) & (analysis_method=='cnn'):
-        log.info("WARNING: CNN pupil requested but file doesn't exist, will try loading pup.mat file...")
-        analysis_method = None
-
-    if analysis_method == 'cnn':
+    try:
+        basename = os.path.basename(pupilfilepath).split('.')[0]
+        abs_path = os.path.dirname(pupilfilepath)
+        pupildata_path = os.path.join(abs_path, "sorted", basename + '.pickle')
 
         with open(pupildata_path, 'rb') as fp:
             pupildata = pickle.load(fp)
 
+        options['pupil_eyespeed'] = False
+
         # hard code to use minor axis for now
         options['pupil_variable_name'] = 'minor_axis'
         log.info("Using default pupil_variable_name: " +
-                  options['pupil_variable_name'])
+                 options['pupil_variable_name'])
         log.info("Using CNN results for pupiltrace")
 
         pupil_diameter = pupildata['cnn']['a'] * 2
@@ -530,17 +524,20 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
         log.info("pupil_diameter.shape: " + str(pupil_diameter.shape))
 
         if pupil_eyespeed:
+            pupil_eyespeed = False
             log.info("eye speed does not yet exist using this pupil method")
 
-    elif analysis_method is None:
+    except:
         matdata = scipy.io.loadmat(pupilfilepath)
+
+        log.info("Attempted to load pupil from CNN analysis, but file didn't exist. Loading from pup.mat")
 
         p = matdata['pupil_data']
         params = p['params']
         if 'pupil_variable_name' not in options:
             options['pupil_variable_name'] = params[0][0]['default_var'][0][0][0]
             log.info("Using default pupil_variable_name: " +
-                  options['pupil_variable_name'])
+                     options['pupil_variable_name'])
         if 'pupil_algorithm' not in options:
             options['pupil_algorithm'] = params[0][0]['default'][0][0][0]
             log.info("Using default pupil_algorithm: " + options['pupil_algorithm'])
@@ -557,6 +554,7 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
             except:
                 pupil_eyespeed = False
                 log.info("eye_speed requested but file does not exist!")
+
 
     fs_approximate = 30  # approx video framerate
     if pupil_deblink:

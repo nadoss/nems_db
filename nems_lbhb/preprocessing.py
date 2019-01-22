@@ -37,9 +37,30 @@ def mask_high_repetion_stims(rec,epoch_regex='^STIM_'):
         raise ValueError("Fewer than min reps found for all stim")
         max_counts = full_rec.epochs['name'].value_counts().max()
         stims = (full_rec.epochs['name'].value_counts() >= max_counts)
-    full_rec = full_rec.or_mask(stims)
+    if 'mask' not in full_rec.signals.keys():
+        full_rec = full_rec.create_mask(True)
+    full_rec = full_rec.and_mask(stims)
 
     return full_rec
+
+
+def mask_tor(rec):
+    full_rec = rec.copy()
+    eps = [ep for ep in full_rec.epochs.name if ('TOR' in ep) & ('FILE' in ep)]
+    full_rec = full_rec.create_mask(True)
+    full_rec = full_rec.and_mask(eps)
+
+    return full_rec
+
+
+def mask_nat(rec):
+    full_rec = rec.copy()
+    eps = [ep for ep in full_rec.epochs.name if ('NAT' in ep) & ('FILE' in ep)]
+    full_rec = full_rec.create_mask(True)
+    full_rec = full_rec.and_mask(eps)
+
+    return full_rec
+
 
 def mask_subset_by_epoch(rec,epoch_list):
     full_rec = rec.copy()
