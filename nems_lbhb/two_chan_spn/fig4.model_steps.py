@@ -16,7 +16,7 @@ import nems_lbhb.plots as lplt
 import nems.recording as recording
 import nems.epoch as ep
 import nems.xforms as xforms
-import nems_lbhb.xform_wrappers as nw
+#import nems_lbhb.xform_wrappers as nw
 import nems.db as nd
 import nems.plots.api as nplt
 from nems.utils import find_module
@@ -39,7 +39,7 @@ modelname2 = "env.fs100-ld-sev_dlog.f-wc.2x3.c-stp.3-fir.3x15-lvl.1-dexp.1_init-
 #modelname2 = "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
 #modelname2 = "env.fs100-ld-sev_dlog.f-wc.2x2.c.n-stp.2-fir.2x15-lvl.1-dexp.1_init-basic"
 
-save_figs = True
+save_figs = False
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps_rev/"
 #if save_figs:
 plt.close('all')

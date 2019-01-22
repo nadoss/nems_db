@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# wrapper code for fitting models
+# code for loading baphy-specific data into xforms models. fit_wrappers
+# should have migrated out to xhelp!
 
 import os
 import random
@@ -12,7 +13,6 @@ import nems
 import nems.initializers
 import nems.epoch as ep
 import nems.priors
-import nems.preprocessing as preproc
 import nems.modelspec as ms
 import nems.plots.api as nplt
 import nems.metrics.api
@@ -217,7 +217,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     ]
 
     """
-
+    raise DeprecationWarning("Replaced by xhelp.fit_model_xforms")
     log.info('Initializing modelspec(s) for cell/batch %s/%d...',
              cellid, int(batch))
 
@@ -307,6 +307,7 @@ def fit_pop_model_xforms_baphy(cellid, batch, modelname, saveInDB=False):
 
     """
 
+    raise DeprecationWarning("Replaced by xhelp.fit_model_xforms")
     log.info("Preparing pop model: ({0},{1},{2})".format(
             cellid, batch, modelname))
 
@@ -396,6 +397,7 @@ def load_model_baphy_xform(cellid, batch=271,
 
     '''
 
+    raise DeprecationWarning("Replaced by xhelp.load_model_xform")
     kws = nems.utils.escaped_split(modelname, '_')
     old = False
     if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')

@@ -57,27 +57,57 @@ def getPrePostSilence(sig):
         PreStimSilence, PostStimSilence : integers
 
     """
-    fs = sig.fs
-
     d = sig.get_epoch_bounds('PreStimSilence')
     if d.size > 0:
-        PreStimSilence = np.mean(np.diff(d)) - 0.5/fs
+        PreStimSilence = np.mean(np.diff(d))
     else:
         PreStimSilence = 0
 
+    PostStimSilence = 0
     d = sig.get_epoch_bounds('PostStimSilence')
     if d.size > 0:
-        PostStimSilence = np.min(np.diff(d)) - 0.5/fs
         dd = np.diff(d)
         dd = dd[dd > 0]
-    else:
-        dd = np.array([])
-    if dd.size > 0:
-        PostStimSilence = np.min(dd) - 0.5/fs
-    else:
-        PostStimSilence = 0
+
+        if dd.size > 0:
+            PostStimSilence = np.min(dd)
 
     return PreStimSilence, PostStimSilence
+
+
+def normalizePrePostSilence(sig, PreStimSilence=0.5, PostStimSilence=0.5):
+    """
+    Shorten pre- and post-stim silence to specified valeues
+
+    input:
+        sig : Signal (required)
+        PreStimSilence : float
+        PostStimSilence : float
+    returns
+        sig : modified signal
+
+    """
+
+    PreStimSilence0, PostStimSilence0 = getPrePostSilence(sig)
+    epochs = sig.epochs.copy()
+
+    if PreStimSilence0 != PreStimSilence:
+        if PreStimSilence0 < PreStimSilence:
+            raise Warning('Adjusting PreStimSilence to be longer than in orginal signal')
+        d = sig.get_epoch_bounds('PreStimSilence')
+        for e in d:
+            ee = (epochs['start'] == e[0])
+            epochs.loc[ee, 'start'] = epochs.loc[ee, 'start'] + PreStimSilence0 - PreStimSilence
+
+    if PostStimSilence0 != PostStimSilence:
+        if PostStimSilence0 < PostStimSilence:
+            raise Warning('Adjusting PostStimSilence to be longer than in orginal signal')
+        d = sig.get_epoch_bounds('PostStimSilence')
+        for e in d:
+            ee = (epochs['end'] == e[0])
+            epochs.loc[ee, 'end'] = epochs.loc[ee, 'end'] - PostStimSilence0 + PostStimSilence
+
+    return sig._modified_copy(sig._data, epochs=epochs)
 
 
 def hi_lo_psth_jack(est=None, val=None, rec=None, **kwargs):

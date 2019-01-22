@@ -75,7 +75,7 @@ if __name__ == '__main__':
 
     # Mark completed in the queue. Note that this should happen last thing!
     # Otherwise the job might still crash after being marked as complete.
-    if queueid:
+    if db_exists & bool(queueid):
         nd.update_job_complete(queueid)
 
 

@@ -11,9 +11,10 @@ import pandas as pd
 import matplotlib.image as mpimg
 from PIL import Image
 
-import nems_lbhb.xform_wrappers as nw
+#import nems_lbhb.xform_wrappers as nw
 import nems.plots.api as nplt
 import nems.xforms as xforms
+import nems.xform_helper as xhelp
 import nems.modelspec as ms
 import nems.epoch as ep
 import nems_lbhb.plots as lplt
@@ -414,7 +415,7 @@ def model_split_psths(cellid, batch, modelname, state1 = 'pupil',
     global line_colors
     global fill_colors
 
-    xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname)
+    xf, ctx = xhelp.load_model_xform(cellid, batch, modelname)
 
     rec = ctx['val'][0].apply_mask()
     fs = rec[psth_name].fs
@@ -543,8 +544,8 @@ def model_per_time_wrapper(cellid, batch=307,
     for i, s in enumerate(state_list):
         modelnames.append(loader + s + basemodel + fitter)
 
-        xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelnames[i],
-                                            eval_model=False)
+        xf, ctx = xhelp.load_model_xform(cellid, batch, modelnames[i],
+                                         eval_model=False)
         ctx, l = xforms.evaluate(xf, ctx, start=0, stop=-2)
 
         contexts.append(ctx)
@@ -589,22 +590,22 @@ def _model_step_plot(cellid, batch, modelnames, factors, state_colors=None):
        modelnames
     factor0, factor1, factor2 = factors
 
-    xf_p0b0, ctx_p0b0 = nw.load_model_baphy_xform(cellid, batch, modelname_p0b0,
+    xf_p0b0, ctx_p0b0 = xhelp.load_model_xform(cellid, batch, modelname_p0b0,
                                                   eval_model=False)
     # ctx_p0b0, l = xforms.evaluate(xf_p0b0, ctx_p0b0, stop=-2)
 
     ctx_p0b0, l = xforms.evaluate(xf_p0b0, ctx_p0b0, start=0, stop=-2)
 
-    xf_p0b, ctx_p0b = nw.load_model_baphy_xform(cellid, batch, modelname_p0b,
+    xf_p0b, ctx_p0b = xhelp.load_model_xform(cellid, batch, modelname_p0b,
                                                 eval_model=False)
     ctx_p0b, l = xforms.evaluate(xf_p0b, ctx_p0b, start=0, stop=-2)
 
-    xf_pb0, ctx_pb0 = nw.load_model_baphy_xform(cellid, batch, modelname_pb0,
+    xf_pb0, ctx_pb0 = xhelp.load_model_xform(cellid, batch, modelname_pb0,
                                                 eval_model=False)
     #ctx_pb0['rec'] = ctx_p0b0['rec'].copy()
     ctx_pb0, l = xforms.evaluate(xf_pb0, ctx_pb0, start=0, stop=-2)
 
-    xf_pb, ctx_pb = nw.load_model_baphy_xform(cellid, batch, modelname_pb,
+    xf_pb, ctx_pb = xhelp.load_model_xform(cellid, batch, modelname_pb,
                                               eval_model=False)
     #ctx_pb['rec'] = ctx_p0b0['rec'].copy()
     ctx_pb, l = xforms.evaluate(xf_pb, ctx_pb, start=0, stop=-2)

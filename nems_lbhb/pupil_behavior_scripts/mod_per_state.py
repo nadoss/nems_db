@@ -81,7 +81,6 @@ import scipy.signal as ss
 import numpy as np
 import matplotlib.pyplot as plt
 import nems_lbhb.stateplots as stateplots
-import nems_lbhb.xform_wrappers as nw
 import nems.db as nd
 import nems_db.params
 
