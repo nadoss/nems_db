@@ -35,9 +35,12 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def init_pop_pca(est, modelspec, flip_pcs=False, **context):
+def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False, **context):
     """ fit up through the fir module of a population model using the pca
     signal"""
+
+    if IsReload:
+        return {}
 
     # preserve input modelspec. necessary?
     modelspec = copy.deepcopy(modelspec)
@@ -273,21 +276,27 @@ def fit_population_iteratively(
      modelspec     A modelspec object
 
     Optional Arguments:
-     fitter        A function of (sigma, costfn) that tests various points,
+    TODO: need to deal with the fact that you can't pass functions in an xforms-frieldly fucntion
+     fitter        (CURRENTLY NOT USED?)
+                   A function of (sigma, costfn) that tests various points,
                    in fitspace (i.e. sigmas) using the cost function costfn,
                    and hopefully returns a better sigma after some time.
-     mapper        A class that has two methods, pack and unpack, which define
+     mapper        (CURRENTLY NOT USED?)
+                   A class that has two methods, pack and unpack, which define
                    the mapping between modelspecs and a fitter's fitspace.
-     segmentor     An function that selects a subset of the data during the
+     segmentor     (CURRENTLY NOT USED?)
+                   An function that selects a subset of the data during the
                    fitting process. This is NOT the same as est/val data splits
      metric        A function of a Recording that returns an error value
                    that is to be minimized.
 
-     module_sets   A nested list specifying which model indices should be fit.
+     module_sets   (CURRENTLY NOT USED?)
+                   A nested list specifying which model indices should be fit.
                    Overall iteration will occurr len(module_sets) many times.
                    ex: [[0], [1, 3], [0, 1, 2, 3]]
 
-     invert        Boolean. Causes module_sets to specify the model indices
+     invert        (CURRENTLY NOT USED?)
+                   Boolean. Causes module_sets to specify the model indices
                    that should *not* be fit.
 
 
