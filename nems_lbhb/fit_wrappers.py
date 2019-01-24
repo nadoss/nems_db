@@ -113,7 +113,161 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False, **context):
                 #    v/=100 # kludge
                 modelspec[ifir]['phi'][k]=np.concatenate((-modelspec[ifir]['phi'][k],v))
 
+    respcount=est['resp'].shape[0]
+    fit_set_all, fit_set_slice = _figure_out_mod_split(modelspec)
+    cd_kwargs = {}
+    cd_kwargs.update({'tolerance': tolerance, 'max_iter': 100,
+                      'step_size': 0.1})
+
+    for s in range(respcount):
+        log.info('Pre-fit slice %d' , s)
+        modelspec = fit_population_slice(
+                est, modelspec, slice=s,
+                fit_set=fit_set_slice,
+                analysis_function=analysis.fit_basic,
+                metric=metrics.nmse,
+                fitter=coordinate_descent,
+                fit_kwargs=cd_kwargs)
+
     return {'modelspec': modelspec}
+
+
+def _figure_out_mod_split(modelspec):
+    """
+    determine where to split modelspec for pop vs. slice fit
+    :param modelspec:
+    :return:
+    """
+    bank_mod=find_module('filter_bank', modelspec, find_all_matches=True)
+    wc_mod=find_module('weight_channels', modelspec, find_all_matches=True)
+
+    if len(wc_mod)==2:
+        fit_set_all = list(range(wc_mod[1]))
+        fit_set_slice = list(range(wc_mod[1], len(modelspec)))
+    elif len(bank_mod)==1:
+        fit_set_all = list(range(bank_mod[0]))
+        fit_set_slice = list(range(bank_mod[0],len(modelspec)))
+    else:
+        raise ValueError("Can't figure out how to split all and slices")
+
+    return fit_set_all, fit_set_slice
+
+
+def _invert_slice(rec, modelspec, fit_set_slice, population_channel=None):
+    """
+    Try to invert actual response into population subspace
+    :param rec:
+    :param modelspec:
+    :return:
+    """
+    rec = rec.copy()
+
+    # get actual response
+    data = rec['resp']._data.copy()
+
+    # go backwards through slice modules and apply inverse for each
+    for s in reversed(fit_set_slice):
+        m = modelspec[s]
+        if 'levelshift' in m['fn']:
+            data -= m['phi']['level']
+        elif 'relu' in m['fn']:
+            data += m['phi']['offset']
+        elif 'weight_channels' in m['fn']:
+            C = m['phi']['coefficients']
+            Cinv = np.linalg.pinv(C)
+            data = np.matmul(Cinv, data)
+
+    # extract only the channel of interest
+    if population_channel is not None:
+        data = data[[population_channel], :]
+
+    # return data to new "response" signal
+    rec['resp'] = rec['resp']._modified_copy(data=data)
+    return rec
+
+
+def fit_population_channel(rec, modelspec,
+                           fit_set_all, fit_set_slice,
+                           analysis_function=analysis.fit_basic,
+                           metric=metrics.nmse,
+                           fitter=scipy_minimize, fit_kwargs={}):
+
+    # guess at number of subspace dimensions
+    dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[0]
+
+    # invert cell-specific modules
+    trec = _invert_slice(rec, modelspec, fit_set_slice)
+
+    tmodelspec = ms.ModelSpec()
+
+    for i in fit_set_all:
+        m = modelspec[i].copy()
+        tmodelspec.append(m)
+
+    tmodelspec = analysis_function(trec, tmodelspec, fitter=fitter,
+                                   metric=metric, fit_kwargs=fit_kwargs)
+
+    for i in fit_set_all:
+        for k, v in tmodelspec[i]['phi'].items():
+            modelspec[i]['phi'][k] = v
+
+    return modelspec
+
+
+def fit_population_channel_fast(rec, modelspec,
+                               fit_set_all, fit_set_slice,
+                               analysis_function=analysis.fit_basic,
+                               metric=metrics.nmse,
+                               fitter=scipy_minimize, fit_kwargs={}):
+
+    # guess at number of subspace dimensions
+    dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[1]
+
+    for d in range(dim_count):
+        # fit each dim separately
+        log.info('Updating dim %d/%d', d+1, dim_count)
+
+        # invert cell-specific modules
+        trec = _invert_slice(rec, modelspec, fit_set_slice,
+                             population_channel=d)
+
+        tmodelspec = ms.ModelSpec()
+
+        for i in fit_set_all:
+            m = copy.deepcopy(modelspec[i])
+            for k, v in m['phi'].items():
+                x = v.shape[0]
+                if x>=dim_count:
+                    x1 = int(x/dim_count) * d
+                    x2 = int(x/dim_count) * (d+1)
+
+                    m['phi'][k] = v[x1:x2]
+                    if 'bank_count' in m['fn_kwargs'].keys():
+                        m['fn_kwargs']['bank_count'] = 1
+                else:
+                    # single model-wide parameter, only fit for d==0
+                    if d==0:
+                        m['phi'][k] = v
+                    else:
+                        m['fn_kwargs'][k] = v  # keep fixed for d>0
+
+            tmodelspec.append(m)
+
+        tmodelspec = analysis_function(trec, tmodelspec, fitter=fitter,
+                                       metric=metric, fit_kwargs=fit_kwargs)
+
+        for i in fit_set_all:
+            for k, v in tmodelspec[i]['phi'].items():
+                x = modelspec[i]['phi'][k].shape[0]
+                if x>=dim_count:
+                    x1 = int(x/dim_count) * d
+                    x2 = int(x/dim_count) * (d+1)
+
+                    modelspec[i]['phi'][k][x1:x2] = v
+                else:
+                    modelspec[i]['phi'][k] = v
+
+    return modelspec
 
 
 def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
@@ -308,42 +462,10 @@ def fit_population_iteratively(
     if IsReload:
         return {}
 
-    """
-    tolerances=[0.001, 0.0001]
-    tol_iter=50
-    fit_iter=5
-    fitter='scipy_minimize'
-    est=ctx['est']
-    modelspecs=ctx['modelspecs']
-    cost_function=basic_cost
-    fitter=coordinate_descent
-    evaluator=ms.evaluate
-    segmentor=nems.segmentors.use_all_data
-    mapper=nems.fitters.mappers.simple_vector
-    metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp')
-    metaname='fit_basic'
-    fit_kwargs={}
-    module_sets=None
-    """
-
     modelspec = copy.deepcopy(modelspec)
     data = est.copy()
 
-    bank_mod=find_module('filter_bank', modelspec, find_all_matches=True)
-    wc_mod=find_module('weight_channels', modelspec, find_all_matches=True)
-
-    if len(wc_mod)==2:
-        fit_set_all = list(range(wc_mod[1]))
-        fit_set_slice = list(range(wc_mod[1], len(modelspec)))
-        if bank_mod:
-            # provice a trivial non-zero intial condition for each
-            # channel of the filterbank
-            modelspec[bank_mod[0]]['prior']['coefficients'][1]['mean'][:,1] = 0.1
-    elif len(bank_mod)==1:
-        fit_set_all = list(range(bank_mod[0]))
-        fit_set_slice = list(range(bank_mod[0],len(modelspec)))
-    else:
-        raise ValueError("Can't figure out how to split all and slices")
+    fit_set_all, fit_set_slice = _figure_out_mod_split(modelspec)
 
     if tolerances is None:
         tolerances = [1e-6]
@@ -364,12 +486,12 @@ def fit_population_iteratively(
     #print(modelspec)
 
     # Ensure that phi exists for all modules; choose prior mean if not found
-    for i, m in enumerate(modelspec):
-        if ('phi' not in m.keys()) and ('prior' in m.keys()):
-            m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
-            log.debug('Phi not found for module, using mean of prior: {}'
-                      .format(m))
-            modelspec[i] = m
+    #for i, m in enumerate(modelspec):
+    #    if ('phi' not in m.keys()) and ('prior' in m.keys()):
+    #        m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
+    #        log.debug('Phi not found for module, using mean of prior: {}'
+    #                  .format(m))
+    #        modelspec[i] = m
 
     error = np.inf
 
@@ -430,11 +552,16 @@ def fit_population_iteratively(
                         else:
                             print(m['fn'] + ": frozen")
 
-                    improved_modelspec = init.prefit_mod_subset(
-                            data, improved_modelspec, analysis.fit_basic,
+                    #improved_modelspec = init.prefit_mod_subset(
+                    #        data, improved_modelspec, analysis.fit_basic,
+                    #        metric=metric,
+                    #        fit_set=fit_set_all,
+                    #        fit_kwargs=sp_kwargs)
+                    improved_modelspec = fit_population_channel_fast(
+                            data, improved_modelspec, fit_set_all, fit_set_slice,
+                            analysis_function=analysis.fit_basic,
                             metric=metric,
-                            fit_set=fit_set_all,
-                            fit_kwargs=sp_kwargs)
+                            fitter=scipy_minimize, fit_kwargs=sp_kwargs)
 
             data = ms.evaluate(data, improved_modelspec)
             new_error = metric(data)
