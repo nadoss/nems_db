@@ -80,7 +80,7 @@ def _matching_cells(batch=289, siteid=None, alt_cells_available=None,
 
 def pop_selector(recording_uri_list, batch=None, cellid=None,
                  rand_match=False, cell_count=20, best_cells=False,
-                 whiten=True, **context):
+                 whiten=False, **context):
 
     rec = load_recording(recording_uri_list[0])
 
@@ -250,6 +250,7 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
     ]
 
     """
+    raise NotImplementedError("Replaced by xhelper function?")
     raise DeprecationWarning("Replaced by xhelp.fit_model_xforms")
     log.info('Initializing modelspec(s) for cell/batch %s/%d...',
              cellid, int(batch))
@@ -340,7 +341,7 @@ def fit_pop_model_xforms_baphy(cellid, batch, modelname, saveInDB=False):
 
     """
 
-    raise DeprecationWarning("Replaced by xhelp.fit_model_xforms")
+    raise NotImplementedError("Replaced by xhelper function?")
     log.info("Preparing pop model: ({0},{1},{2})".format(
             cellid, batch, modelname))
 
@@ -430,6 +431,7 @@ def load_model_baphy_xform(cellid, batch=271,
 
     '''
 
+    raise NotImplementedError("Replaced by xhelper function?")
     raise DeprecationWarning("Replaced by xhelp.load_model_xform")
     kws = nems.utils.escaped_split(modelname, '_')
     old = False

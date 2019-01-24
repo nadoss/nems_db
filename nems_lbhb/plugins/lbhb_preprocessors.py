@@ -99,6 +99,8 @@ def st(loadkey):
             this_sig = ['pupil_der']
         elif l.startswith('pxpd'):
             this_sig = ['p_x_pd']
+        elif l.startswith("pup2"):
+            this_sig = ["pupil2"]
         elif l.startswith("pup"):
             this_sig = ["pupil"]
         elif l.startswith("pxb"):
