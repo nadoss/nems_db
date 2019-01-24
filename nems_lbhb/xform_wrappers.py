@@ -32,22 +32,23 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def pop_selector(recording_uri_list, batch=None, cellid=None,
-                 rand_match=False, cell_count=20, best_cells=False, **context):
+def _matching_cells(batch=289, siteid=None, alt_cells_available=None,
+                    cell_count=None, best_cells=False):
 
-    rec = load_recording(recording_uri_list[0])
-    all_cells = rec.meta['cellid']
-    this_site = cellid
-    cellid = [c for c in all_cells if c.split("-")[0]==this_site]
-    site_cellid = cellid.copy()
+    pmodelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-fir.3x15-lvl.1-dexp.1_init-basic"
+    single_perf = nd.batch_comp(batch=batch, modelnames=[pmodelname], stat='r_test')
+    if alt_cells_available is not None:
+        all_cells = alt_cells_available
+    else:
+        all_cells = list(single_perf.index)
 
-    pmodelname="ozgf.fs100.ch18-ld-sev_dlog-wc.18x3.g-fir.3x15-lvl.1-dexp.1_init-basic"
-    single_perf=nd.batch_comp(batch=batch, modelnames=[pmodelname],
-                              cellids=all_cells, stat='r_test')
+    cellid = [c for c in all_cells if c.split("-")[0]==siteid]
     this_perf=np.array([single_perf[single_perf.index==c][pmodelname].values[0] for c in cellid])
-    sidx = np.argsort(this_perf)
 
-    if best_cells:
+    if cell_count is None:
+        pass
+    elif best_cells:
+        sidx = np.argsort(this_perf)
         keepidx=(this_perf >= this_perf[sidx[-cell_count]])
         cellid=list(np.array(cellid)[keepidx])
         this_perf = this_perf[keepidx]
@@ -55,37 +56,69 @@ def pop_selector(recording_uri_list, batch=None, cellid=None,
         cellid=cellid[:cell_count]
         this_perf = this_perf[:cell_count]
 
-    if rand_match:
-        out_cellid = [c for c in all_cells if c.split("-")[0]!=this_site]
-        out_perf=np.array([single_perf[single_perf.index==c][pmodelname].values[0] for c in out_cellid])
+    out_cellid = [c for c in all_cells if c.split("-")[0]!=siteid]
+    out_perf=np.array([single_perf[single_perf.index==c][pmodelname].values[0]
+                       if c in single_perf.index else 0.0
+                       for c in out_cellid])
 
-        alt_cellid=[]
-        alt_perf=[]
-        for i, c in enumerate(cellid):
-            d = np.abs(out_perf-this_perf[i])
-            w = np.argmin(d)
-            alt_cellid.append(out_cellid[w])
-            alt_perf.append(out_perf[w])
-            out_perf[w]=100 # prevent cell from getting picked again
-        log.info("Rand matched cellids: %s", alt_cellid)
-        log.info("Mean actual: %.3f", np.mean(this_perf))
-        print(this_perf)
-        log.info("Mean rand: %.3f", np.mean(np.array(alt_perf)))
-        print(np.array(alt_perf))
+    alt_cellid=[]
+    alt_perf=[]
+    for i, c in enumerate(cellid):
+        d = np.abs(out_perf-this_perf[i])
+        w = np.argmin(d)
+        alt_cellid.append(out_cellid[w])
+        alt_perf.append(out_perf[w])
+        out_perf[w]=100 # prevent cell from getting picked again
+    log.info("Rand matched cellids: %s", alt_cellid)
+    log.info("Mean actual: %.3f", np.mean(this_perf))
+    log.info(this_perf)
+    log.info("Mean rand: %.3f", np.mean(np.array(alt_perf)))
+    log.info(np.array(alt_perf))
+
+    return cellid, this_perf, alt_cellid, alt_perf
+
+
+def pop_selector(recording_uri_list, batch=None, cellid=None,
+                 rand_match=False, cell_count=20, best_cells=False,
+                 whiten=True, **context):
+
+    rec = load_recording(recording_uri_list[0])
+
+    cellid, this_perf, alt_cellid, alt_perf = _matching_cells(
+        batch=batch, siteid=cellid, alt_cells_available=rec['resp'].chans,
+        cell_count=cell_count, best_cells=best_cells)
+
+    if rand_match:
         rec['resp'] = rec['resp'].extract_channels(alt_cellid)
-        rec.meta['cellid'] = cellid
     else:
         rec['resp'] = rec['resp'].extract_channels(cellid)
-        rec.meta['cellid'] = cellid
+
+    if whiten:
+        # normalize mean and std of each channel
+        d=rec['resp'].as_continuous().copy()
+        d -= np.mean(d, axis=1, keepdims=True)
+        d /= np.std(d, axis=1, keepdims=True)
+        rec['resp'] = rec['resp']._modified_copy(data=d)
+
+    # preserve "actual" cellids for saving to database
+    rec.meta['cellid'] = cellid
 
     return {'rec': rec}
 
 
 def pop_file(stimfmt='ozgf', batch=None,
-             rasterfs=50, chancount=18, siteid="NAT1", **options):
+             rasterfs=50, chancount=18, siteid=None, **options):
+
+    if siteid in ['bbl086b','TAR009d','TAR010c','TAR017b']:
+        subsetstr = "NAT1"
+    elif siteid in ['AMT003c','AMT005c','bbl099g','bbl104h','BRT026c',
+            'BRT032e','BRT033b','BRT034f','BRT037b','BRT038b','BRT039c']:
+        subsetstr = "NAT3"
+    else:
+        raise ValueError('site not known for popfile')
 
     uri_path = '/auto/data/nems_db/recordings/'
-    recname="{}_{}.fs{}.ch{}".format(siteid, stimfmt, rasterfs, chancount)
+    recname="{}_{}.fs{}.ch{}".format(subsetstr, stimfmt, rasterfs, chancount)
 
     recording_uri = '{}{}/{}.tgz'.format(uri_path, batch, recname)
 
@@ -159,7 +192,7 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
     options["batch"] = batch
     options["cellid"] = cellid
     if load_pop_file:
-        recording_uri = pop_file(**options)
+        recording_uri = pop_file(siteid=cellid, **options)
     else:
         recording_uri = nb.baphy_load_recording_uri(**options)
 

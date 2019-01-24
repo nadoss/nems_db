@@ -108,12 +108,12 @@ def normalizePrePostSilence(sig, PreStimSilence=0.5, PostStimSilence=0.5):
         sig : modified signal
 
     """
-
+    fs = sig.fs
     PreStimSilence0, PostStimSilence0 = getPrePostSilence(sig)
     epochs = sig.epochs.copy()
 
     if PreStimSilence0 != PreStimSilence:
-        if PreStimSilence0 < PreStimSilence:
+        if PreStimSilence0 < PreStimSilence-1/fs:
             raise Warning('Adjusting PreStimSilence to be longer than in orginal signal')
         d = sig.get_epoch_bounds('PreStimSilence')
         for e in d:
@@ -121,7 +121,7 @@ def normalizePrePostSilence(sig, PreStimSilence=0.5, PostStimSilence=0.5):
             epochs.loc[ee, 'start'] = epochs.loc[ee, 'start'] + PreStimSilence0 - PreStimSilence
 
     if PostStimSilence0 != PostStimSilence:
-        if PostStimSilence0 < PostStimSilence:
+        if PostStimSilence0 < PostStimSilence-1/fs:
             raise Warning('Adjusting PostStimSilence to be longer than in orginal signal')
         d = sig.get_epoch_bounds('PostStimSilence')
         for e in d:
