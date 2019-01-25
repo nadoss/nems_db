@@ -56,11 +56,14 @@ modelname = "psth.fs20.pup-ld-st.pup.beh-ref-psthfr_stategain.S_jk.nf10-basic"
 batch=306
 cellid='fre192b-03-1_6236-1701'
 cellid='fre196b-35-1_1417-1233'
+cellid='fre192b-26-1_6236-7017' #strongly affected by init.nl1 vs init.nl2
+cellid='fre192c-39-1_7920-7049'
 modelname='env.fs100-SPOld-sev_dlog-fir.2x15-lvl.1-dexp.1_init.nl1-basic-SPOpf'
 modelname='env.fs100-SPOld-sev_dlog-fir.2x15-lvl.1-dexp.1_init.nl2-basic-SPOpf.SDB'
 modelname='env.fs100-SPOld-sev_dlog-wc.2x2.c-fir.2x15-lvl.1-dexp.1_init.nl1-basic-SPOpf.SDB'
 modelname='env.fs100-SPOld-subset.A+B-sev_dlog-fir.2x15-lvl.1-dexp.1_init.nl1-basic-SPOpf.SDB'
 modelname='SDB-env.fs100-SPOld-stSPO-sev_dlog-stategain.3x2.g-fir.2x15-lvl.1-dexp.1_init-basic-SPOpf'
+modelname='SDB-env.fs100-SPOld-sev_dlog-fir.2x15-lvl.1-dexp.1_init.nl1-basic-SPOpf'
 #Shuffled ver here
 
 #modelname='env.fs100-SPOld-sev_dlog-fir.2x15-lvl.1-dexp.1_init'

@@ -119,7 +119,7 @@ def plot_all_vals(val,modelspec,signames=['resp','pred'],channels=[0,0,1],subset
         [axi.set_prop_cycle(cycler('color', ['k','#1f77b4', 'r']) + cycler('linestyle', ['-', '-', '--'])) for axi in ax]
     else:
         #['resp', 'lin_model']:
-        [axi.set_prop_cycle(cycler('color', ['k','g']) + cycler(linestyle=['-', 'dotted'])+ cycler(linewidth=[1,2])) for axi in ax]
+        [axi.set_prop_cycle(cycler('color', ['k','g','r']) + cycler(linestyle=['-', 'dotted','-'])+ cycler(linewidth=[1,2,1])) for axi in ax]
     allsigs =np.hstack([s.as_continuous()[-1,:] for s in sigs])    
     yl=[np.nanmin(allsigs), np.nanmax(allsigs)]
     prestimtime=val['stim'].epochs.loc[0].end
@@ -161,16 +161,25 @@ def plot_all_vals(val,modelspec,signames=['resp','pred'],channels=[0,0,1],subset
     ax[nplt-1].legend(signames+ls)
     return fig
 
-def plot_linear_and_weighted_psths(val,SR,signame='resp',weights=None,subset=None):
+def plot_linear_and_weighted_psths(val,SR,signame='resp',weights=None,subset=None,addsig=None):
     #smooth and subtract SR
+    import copy
     fn = lambda x : np.atleast_2d(smooth(x.squeeze(), 3, 2) - SR/val[signame].fs)
     val[signame]=val[signame].transform(fn)
+    if addsig is not None:
+        fn = lambda x : np.atleast_2d(smooth(x.squeeze(), 3, 2) - SR/val[addsig].fs)
+        val[addsig]=val[addsig].transform(fn)
     lin_weights=[[1,1],[1,1]]
     epcs=val[signame].epochs[val[signame].epochs['name'] == 'PreStimSilence'].copy()
     epcs_offsets=[epcs['end'].iloc[0], 0]
-    val[signame+'_lin_model'], l_corrs=generate_weighted_model_signals(val[signame],lin_weights,epcs_offsets)    
+
+    inp=copy.deepcopy(val[signame])
+    out, l_corrs=generate_weighted_model_signals(inp,lin_weights,epcs_offsets)
+    val[signame+'_lin_model']=out
     if weights is None:
         sigz=[signame,signame+'_lin_model']
+        if addsig is not None:
+           sigz.append(addsig)
         plot_singles_on_dual=True
         w_corrs=None
     else:
@@ -194,7 +203,7 @@ def plot_linear_and_weighted_psths_(batch,cellid,weights=None,subset=None):
     
     val['resp']=add_condition_epochs(val['resp'])
 
-    fh, w_corrs, l_corrs = plot_linear_and_weighted_psths(val,SR,signame='resp',weights=weights,subset=subset)
+    fh, w_corrs, l_corrs = plot_linear_and_weighted_psths(val,SR,signame='resp',weights=weights,subset=subset,addsig='resp')
     return fh, w_corrs, l_corrs
 
 def plot_linear_and_weighted_psths_model(modelspec, val, rec, figures=None, IsReload=False, **context):
@@ -202,7 +211,20 @@ def plot_linear_and_weighted_psths_model(modelspec, val, rec, figures=None, IsRe
         figures = []
     if not IsReload:
         SR=0    #SR=get_SR(rec)
-        fig,_,_ = plot_linear_and_weighted_psths(val,SR,signame='pred',subset='C+I')
+        fig,_,_ = plot_linear_and_weighted_psths(val,SR,signame='pred',subset='C+I',addsig='resp')
+        phi = modelspec[1]['phi']
+        if 'g' in phi:
+            g=phi['g'].copy()
+            gn=g/g[:,:1] +1
+            yl=fig.axes[0].get_ylim()
+            th=fig.axes[0].text(fig.axes[0].get_xlim()[1], yl[1]+.2*np.diff(yl),
+                '     gain  \nA: {: .2f} \nB: {: .2f} \nA-B: {: .2f} '.format(
+                gn[0][2],gn[1][2],gn[0][2]-gn[1][2]),
+                verticalalignment='top',horizontalalignment='right')
+            th2=fig.axes[2].text(fig.axes[0].get_xlim()[1], yl[1]+0*np.diff(yl),
+                '     gain  \nA: {: .2f} \nB: {: .2f} \nA-B: {: .2f} '.format(
+                gn[0][1],gn[1][1],gn[0][1]-gn[1][1]),
+                verticalalignment='top',horizontalalignment='right')
         fig.axes[0].set_title('{}: {}'.format(modelspec[0]['meta']['cellid'],modelspec[0]['meta']['modelname']))
         # Needed to make into a Bytes because you can't deepcopy figures!
         figures.append(nplt.fig2BytesIO(fig))
@@ -210,6 +232,7 @@ def plot_linear_and_weighted_psths_model(modelspec, val, rec, figures=None, IsRe
     return {'figures': figures}
 
 def generate_weighted_model_signals(sig_in,weights,epcs_offsets):
+    sig_in=sig_in.copy()
     sig_out=sig_in.copy()
     sig_out._data = np.full(sig_out._data.shape, np.nan)
     types=['C','I']
@@ -242,7 +265,7 @@ def generate_weighted_model_signals(sig_in,weights,epcs_offsets):
         ff = np.isfinite(ins) & np.isfinite(outs)    
         cc = np.corrcoef(ins[ff], outs[ff])
         corrs[_type]=cc[0,1]
-    sig_in.epochs=orig_epcs
+    sig_in.epochs=orig_epcs.copy()
     sig_out.epochs=orig_epcs.copy()
     return sig_out, corrs
 
