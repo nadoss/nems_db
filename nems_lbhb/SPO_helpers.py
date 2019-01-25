@@ -150,7 +150,7 @@ def plot_all_vals(val,modelspec,signames=['resp','pred'],channels=[0,0,1],subset
         ax[0].set_title('{}: {}'.format(modelspec[0]['meta']['cellid'],modelspec[0]['meta']['modelname']))
     [axi.get_xaxis().set_visible(False) for axi in ax[:-1]]
     [axi.get_yaxis().set_ticks([]) for axi in ax]  
-    [axi.legend().set_visible(False) for axi in ax[:-1]]
+    [axi.get_legend().set_visible(False) for axi in ax[:-1]]
     [axi.set_xlim([.8-1, 4.5-1]) for axi in ax]
     yl_margin = .01*(yl[1]-yl[0])
     [axi.set_ylim((yl[0]-yl_margin, yl[1]+yl_margin)) for axi in ax]
