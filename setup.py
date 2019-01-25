@@ -10,11 +10,18 @@ with codecs.open('README.md', encoding='utf-8') as f:
     long_description = f.read()
 
 GENERAL_REQUIRES = [
+        'pandas','pymysql', 'sqlalchemy',
+        'numpy', 'scipy', 'matplotlib', 'mpld3', 'boto3',
+        'bcrypt', 'pillow'
+        ]
+# needed for web server:
+OTHER_REQUIRES = [
         'flask', 'flask_restful', 'pandas','pymysql', 'sqlalchemy',
         'numpy', 'scipy', 'matplotlib', 'mpld3', 'boto3', 'bokeh',
         'flask-socketio', 'eventlet', 'bcrypt', 'flask-WTF', 'flask-login',
         'flask-bcrypt', 'flask-assets', 'gevent', 'pillow'
         ]
+
 setup(
     name=NAME,
     version=VERSION,
