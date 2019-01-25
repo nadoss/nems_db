@@ -29,7 +29,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import nems.signal
 import nems.recording
-import nems_db.db as db
+import nems.db as db
 from nems.recording import Recording
 from nems.recording import load_recording
 
@@ -463,7 +463,6 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     pupil_eyespeed = options["pupil_eyespeed"]
     verbose = options["verbose"]
     options['pupil'] = options.get('pupil', True)
-    analysis_method = options.get('pupil_method', None)
     #rasterfs = options.get('rasterfs', 100)
     #pupil_offset = options.get('pupil_offset', 0.75)
     #pupil_deblink = options.get('pupil_deblink', True)
@@ -484,7 +483,12 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     if options["pupil_derivative"]:
         raise ValueError('pupil_derivative not implemented.')
 
+    # we want to use exptevents TRIALSTART events as the ground truth for the time when each trial starts.
+    # these times are set based on openephys data, since baphy doesn't log exact trial start times
     if exptevents is None:
+        # if exptevents hasn't been loaded and corrected for spike data yet, do that so that we have accurate trial
+        # start times.
+        # key exptevents are exptevents['name'].str.startswith('TRIALSTART')
         parmfilepath = pupilfilepath.replace(".pup.mat",".m")
         globalparams, exptparams, exptevents = baphy_parm_read(parmfilepath)
         pp, bb = os.path.split(parmfilepath)
@@ -497,25 +501,20 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
                 exptevents, sortinfo, spikefs, rasterfs
                 )
 
-
-    # setting up check to see if CNN pupil exists
-    basename = os.path.basename(pupilfilepath).split('.')[0]
-    abs_path = os.path.dirname(pupilfilepath)
-    pupildata_path = os.path.join(abs_path, "sorted", basename + '.pickle')
-
-    if (~os.path.isfile(pupildata_path)) & (analysis_method=='cnn'):
-        log.info("WARNING: CNN pupil requested but file doesn't exist, will try loading pup.mat file...")
-        analysis_method = None
-
-    if analysis_method == 'cnn':
+    try:
+        basename = os.path.basename(pupilfilepath).split('.')[0]
+        abs_path = os.path.dirname(pupilfilepath)
+        pupildata_path = os.path.join(abs_path, "sorted", basename + '.pickle')
 
         with open(pupildata_path, 'rb') as fp:
             pupildata = pickle.load(fp)
 
+        options['pupil_eyespeed'] = False
+
         # hard code to use minor axis for now
         options['pupil_variable_name'] = 'minor_axis'
         log.info("Using default pupil_variable_name: " +
-                  options['pupil_variable_name'])
+                 options['pupil_variable_name'])
         log.info("Using CNN results for pupiltrace")
 
         pupil_diameter = pupildata['cnn']['a'] * 2
@@ -525,17 +524,20 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
         log.info("pupil_diameter.shape: " + str(pupil_diameter.shape))
 
         if pupil_eyespeed:
+            pupil_eyespeed = False
             log.info("eye speed does not yet exist using this pupil method")
 
-    elif analysis_method is None:
+    except:
         matdata = scipy.io.loadmat(pupilfilepath)
+
+        log.info("Attempted to load pupil from CNN analysis, but file didn't exist. Loading from pup.mat")
 
         p = matdata['pupil_data']
         params = p['params']
         if 'pupil_variable_name' not in options:
             options['pupil_variable_name'] = params[0][0]['default_var'][0][0][0]
             log.info("Using default pupil_variable_name: " +
-                  options['pupil_variable_name'])
+                     options['pupil_variable_name'])
         if 'pupil_algorithm' not in options:
             options['pupil_algorithm'] = params[0][0]['default'][0][0][0]
             log.info("Using default pupil_algorithm: " + options['pupil_algorithm'])
@@ -552,6 +554,7 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
             except:
                 pupil_eyespeed = False
                 log.info("eye_speed requested but file does not exist!")
+
 
     fs_approximate = 30  # approx video framerate
     if pupil_deblink:
@@ -654,9 +657,14 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
     stop_e = list(stop_events['StopBin'])
 
     # calculate frame count and duration of each trial
-    duration = np.diff(timestamp) * 24*60*60
-    frame_count = np.diff(firstframe)
+    #svd/CRH fix: use start_e to determine trial duration
+    duration = np.diff(np.append(start_e, stop_e[-1]) / rasterfs)
 
+    # old method: use timestamps in pupil recording, which don't take into account correction for sampling bin size
+    # that may be coarser than the video sampling rate
+    #duration = np.diff(timestamp) * 24*60*60
+
+    frame_count = np.diff(firstframe)
 
     if pupil_eyespeed & options['pupil']:
         l = ['pupil', 'pupil_eyespeed']
@@ -679,6 +687,7 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
         all_fs = np.empty([ntrials])
 
         for ii in range(0, ntrials):
+
             if signal == 'pupil_eyespeed':
                 d = eye_speed[
                         int(firstframe[ii]):int(firstframe[ii]+frame_count[ii]), 0
@@ -703,6 +712,7 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
                 big_rs = big_rs[:start_e[ii+1]]
             elif ii == ntrials-1:
                 big_rs = big_rs[:stop_e[ii]]
+
             strialidx[ii+1] = len(big_rs)
 
         if pupil_median:

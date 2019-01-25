@@ -10,7 +10,7 @@ import os
 import sys
 sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
 
-import nems_db.db as nd
+import nems.db as nd
 import nems_db.params
 import numpy as np
 import matplotlib.pyplot as plt

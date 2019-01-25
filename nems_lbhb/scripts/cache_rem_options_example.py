@@ -2,7 +2,7 @@
 #ZPS 2018-10-01
 
 import pandas as pd
-import nems_db.db as nd
+import nems.db as nd
 from nems_lbhb.io import get_rem, cache_rem_options, load_rem_options
 from os.path import basename
 

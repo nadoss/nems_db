@@ -22,7 +22,7 @@ def env(loadkey, cellid=None, batch=None):
     """
 
     d = _load_dict(loadkey, cellid, batch)
-    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper', d]]
+    xfspec = [['nems_lbhb.xform_wrappers.baphy_load_wrapper', d]]
     return xfspec
 
 
@@ -32,7 +32,7 @@ def psth(loadkey, cellid=None, batch=None):
        extra parameters handled by loadkey parser in baphy_load_wrapper
     """
     d = _load_dict(loadkey, cellid, batch)
-    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper', d]]
+    xfspec = [['nems_lbhb.xform_wrappers.baphy_load_wrapper', d]]
     return xfspec
 
 
@@ -42,7 +42,7 @@ def ozgf(loadkey, cellid=None, batch=None):
        extra parameters handled by loadkey parser in baphy_load_wrapper
     """
     d = _load_dict(loadkey, cellid, batch)
-    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper', d]]
+    xfspec = [['nems_lbhb.xform_wrappers.baphy_load_wrapper', d]]
     return xfspec
 
 
@@ -52,14 +52,14 @@ def parm(loadkey, cellid=None, batch=None):
        extra parameters handled by loadkey parser in baphy_load_wrapper
     """
     d = _load_dict(loadkey, cellid, batch)
-    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper', d]]
+    xfspec = [['nems_lbhb.xform_wrappers.baphy_load_wrapper', d]]
     return xfspec
 
 
 def ns(loadkey, cellid=None, batch=None):
 
     d = _load_dict(loadkey, cellid, batch)
-    xfspec = [['nems_db.xform_wrappers.baphy_load_wrapper', d]]
+    xfspec = [['nems_lbhb.xform_wrappers.baphy_load_wrapper', d]]
     return xfspec
 
 
@@ -211,7 +211,7 @@ def SPOld(loadkey, recording_uri=None, cellid=None):
 #              ['nems.xforms.mask_all_but_targets', {}]]
 #
 #    return xfspec
-def loadpop(loadkey, cellid=None, batch=None):
+def loadpop(loadkey):
     ops = loadkey.split('.')[1:]
 
     rand_match = False
@@ -226,8 +226,8 @@ def loadpop(loadkey, cellid=None, batch=None):
             cell_count = int(op[2:])
             best_cells=True
 
-    xfspec = [['nems_db.xform_wrappers.pop_selector',
-              {'loadkey': loadkey, 'cellid': cellid, 'batch': batch,
+    xfspec = [['nems_lbhb.xform_wrappers.pop_selector',
+              {'loadkey': loadkey,
                'rand_match': rand_match, 'cell_count': cell_count,
                'best_cells': best_cells}]]
 

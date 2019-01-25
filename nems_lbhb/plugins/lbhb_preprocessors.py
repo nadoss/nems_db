@@ -99,6 +99,8 @@ def st(loadkey):
             this_sig = ['pupil_der']
         elif l.startswith('pxpd'):
             this_sig = ['p_x_pd']
+        elif l.startswith("pup2"):
+            this_sig = ["pupil2"]
         elif l.startswith("pup"):
             this_sig = ["pupil"]
         elif l.startswith("pxb"):
@@ -241,9 +243,26 @@ def hrc(load_key):
     Mask only data during stimuli that were repeated 10 or greater times.
     hrc = high rep count
     """
-    # c_preprocessing is in Charlie's auto users directory
     xfspec = [['nems_lbhb.preprocessing.mask_high_repetion_stims',
                {'epoch_regex':'^STIM_'}, ['rec'], ['rec']]]
+
+    return xfspec
+
+def tor(load_ley):
+    """
+    Mask only TORC data
+    """
+    xfspec = [['nems_lbhb.preprocessing.mask_tor',
+               {}, ['rec'], ['rec']]]
+
+    return xfspec
+
+def nat(load_ley):
+    """
+    Mask only NAT data
+    """
+    xfspec = [['nems_lbhb.preprocessing.mask_nat',
+               {}, ['rec'], ['rec']]]
 
     return xfspec
 

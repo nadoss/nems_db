@@ -21,9 +21,9 @@ from nems.recording import load_recording
 import nems.preprocessing as preproc
 import nems.epoch as ep
 import nems.modelspec as ms
-# import nems_db.baphy as nb
-#import nems_db.db as nd
-import nems_db.xform_wrappers as nw
+# import nems_lbhb.baphy as nb
+#import nems.db as nd
+import nems_lbhb.xform_wrappers as nw
 
 from nems import get_setting
 from nems.registry import KeywordRegistry

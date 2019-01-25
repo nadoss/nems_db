@@ -8,16 +8,16 @@ Created on Wed Apr 25 17:05:34 2018
 import numpy as np
 import matplotlib.pyplot as plt
 import copy
+import pandas as pd
+import scipy.ndimage.filters as sf
 
-import nems_db.xform_wrappers as nw
 import nems.plots.api as nplt
 import nems.xforms as xforms
+import nems.xform_helper as xhelp
 import nems.epoch as ep
 import nems.modelspec as ms
 from nems.utils import (find_module)
-import pandas as pd
-import scipy.ndimage.filters as sf
-import nems_db.db as nd
+import nems.db as nd
 import nems_lbhb.old_xforms.xforms as oxf
 import nems_lbhb.old_xforms.xform_helper as oxfh
 
@@ -43,8 +43,8 @@ plt.rcParams.update(params)
 
 
 def get_model_preds(cellid, batch, modelname):
-    xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname,
-                                        eval_model=False)
+    xf, ctx = xhelp.load_model_xform(cellid, batch, modelname,
+                                     eval_model=False)
     ctx, l = xforms.evaluate(xf, ctx, stop=-1)
     #ctx, l = oxf.evaluate(xf, ctx, stop=-1)
 
@@ -139,7 +139,7 @@ def compare_model_preds(cellid, batch, modelname1, modelname2,
     if wcidx:
         ax = plt.subplot(5, 4, 4)
         coefs = ms2[wcidx]['phi']['coefficients']
-        plt.imshow(coefs, clim=np.array([-1,1])*np.max(np.abs(coefs)))
+        plt.imshow(coefs, clim=np.array([-1,1])*np.max(np.abs(coefs)), cmap='bwr')
         plt.xlabel('in')
         plt.ylabel('out')
         plt.colorbar()
@@ -319,7 +319,7 @@ def quick_pred_comp(cellid, batch, modelname1, modelname2,
     #plt.ylim([yl[0], yl[1]*2])
     nplt.ax_remove_box(ax)
 
-    return ax
+    return ax, ctx1, ctx2
 
 
 def scatter_comp(beta1, beta2, n1='model1', n2='model2', hist_bins=20,

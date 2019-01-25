@@ -11,7 +11,7 @@ import sys
 import matplotlib.pyplot as plt
 
 #sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
-import nems_db.db as nd
+import nems.db as nd
 import nems_db.params
 import numpy as np
 
@@ -19,20 +19,21 @@ import nems_lbhb.stateplots as stateplots
 import nems.recording as recording
 import nems.epoch as ep
 import nems.xforms as xforms
-import nems_db.xform_wrappers as nw
+import nems.xform_helper as xhelp
+import nems_lbhb.xform_wrappers as nw
 
 cellid="chn002h-a1"
 batch=259
-uri=nw.generate_recording_uri(cellid,batch,"env100")
+uri=nw.generate_recording_uri(cellid,batch,"env.fs100")
 
 modelname1="env100_dlog_fir2x15_lvl1_dexp1_basic"
 #modelname2="env100_dlog_stp2_fir2x15_lvl1_dexp1_basic"
 modelname2="env100_dlog_wcc2x2_stp2_fir2x15_lvl1_dexp1_basic"
 modelname2="env100_dlog_wcc2x3_stp3_fir3x15_lvl1_dexp1_basic-shr"
-xf1, ctx1 = nw.load_model_baphy_xform(cellid, batch, modelname1,
+xf1, ctx1 = xhelp.load_model_xform(cellid, batch, modelname1,
                                       eval_model=False)
 ctx1, l = xforms.evaluate(xf1, ctx1, stop=-1)
-xf2, ctx2 = nw.load_model_baphy_xform(cellid, batch, modelname2,
+xf2, ctx2 = xhelp.load_model_xform(cellid, batch, modelname2,
                                       eval_model=False)
 ctx2, l = xforms.evaluate(xf2, ctx2, stop=-1)
 

@@ -18,9 +18,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import io
 
-#import nems_db.baphy as nb
-import nems_db.db as nd
-import nems_db.xform_wrappers as nw
+#import nems_lbhb.baphy as nb
+import nems.db as nd
+import nems_lbhb.xform_wrappers as nw
 from nems_lbhb.old_xforms.xform_wrappers import generate_recording_uri as ogru
 import nems_lbhb.old_xforms.xform_helper as oxfh
 import logging

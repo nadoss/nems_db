@@ -32,6 +32,37 @@ import logging
 log = logging.getLogger(__name__)
 
 
+def get_recording_file(cellid, batch, options={}):
+    """
+    DEPRECATED?
+    """
+    options["batch"] = batch
+    options["cellid"] = cellid
+    uri = nb.baphy_data_path(**options)
+
+    return uri
+
+
+def get_recording_uri(cellid, batch, options={}):
+    """
+    DEPRECATED?  but web functionality should be migrated to
+       baphy.baphy_load_recording_uri
+    """
+    opts = []
+    for i, k in enumerate(options):
+        if type(options[k]) is bool:
+            opts.append(k+'='+str(int(options[k])))
+        elif type(options[k]) is list:
+            pass
+        else:
+            opts.append(k+'='+str(options[k]))
+    optstring = "&".join(opts)
+
+    url = "http://hyrax.ohsu.edu:3000/baphy/{0}/{1}?{2}".format(
+                batch, cellid, optstring)
+    return url
+
+
 def pop_selector(recording_uri_list, batch=None, cellid=None,
                  rand_match=False, cell_count=20, best_cells=False, **context):
 
@@ -163,6 +194,7 @@ def generate_recording_uri(cellid=None, batch=None, loadkey=None,
     else:
         recording_uri = nb.baphy_load_recording_uri(**options)
 
+
     return recording_uri
 
 
@@ -192,8 +224,6 @@ def baphy_load_wrapper(cellid=None, batch=None, loadkey=None,
 def fit_model_xforms_baphy(cellid, batch, modelname,
                            autoPlot=True, saveInDB=False):
     """
-    DEPRECATED ? Now should work for xhelp.fit_model_xform()
-
     Fit a single NEMS model using data from baphy/celldb
     eg, 'ozgf100ch18_wc18x1_lvl1_fir15x1_dexp1_fit01'
     generates modelspec with 'wc18x1_lvl1_fir15x1_dexp1'
@@ -302,9 +332,6 @@ def fit_model_xforms_baphy(cellid, batch, modelname,
 def fit_pop_model_xforms_baphy(cellid, batch, modelname, saveInDB=False):
     """
     Fits a NEMS population model using baphy data
-
-    DEPRECATED ? Now should work for xhelp.fit_model_xform()
-
     """
 
     log.info("Preparing pop model: ({0},{1},{2})".format(
@@ -372,8 +399,6 @@ def load_model_baphy_xform(cellid, batch=271,
         modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
         eval_model=True, only=None):
     '''
-    DEPRECATED. Migrated to xhelp.load_model_xform()
-
     Load a model that was previously fit via fit_model_xforms_baphy.
 
     Parameters
@@ -529,9 +554,7 @@ def load_batch_modelpaths(batch, modelnames, cellids=None, eval_model=True):
 
 def quick_inspect(cellid="chn020f-b1", batch=271,
                   modelname="ozgf100ch18_wc18x1_fir15x1_lvl1_dexp1_fit01"):
-    """
-    DEPRECATED? pretty much replaced by xhelp.load_model_xform()
-    """
+
     xf, ctx = load_model_baphy_xform(cellid, batch, modelname, eval_model=True)
 
     modelspec = ctx['modelspec']

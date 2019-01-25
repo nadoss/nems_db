@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 log.disabled = True
 
 #sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
-import nems_db.db as nd
+import nems.db as nd
 import nems_db.params
 
 import nems_lbhb.stateplots as stateplots
@@ -18,8 +18,8 @@ import nems_lbhb.plots as lplt
 import nems.recording as recording
 import nems.epoch as ep
 import nems.xforms as xforms
-import nems_db.xform_wrappers as nw
-import nems_db.db as nd
+#import nems_lbhb.xform_wrappers as nw
+import nems.db as nd
 import nems.plots.api as nplt
 from nems.utils import find_module, ax_remove_box
 from nems.metrics.stp import stp_magnitude

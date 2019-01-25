@@ -12,13 +12,13 @@ sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
 import pandas as pd
 from scipy.signal import decimate
 
-import nems_db.db as nd
+import nems.db as nd
 import nems_db.params
 import numpy as np
 import matplotlib.pyplot as plt
 import nems_lbhb.stateplots as stateplots
-import nems_db.xform_wrappers as nw
-import nems_db.db as nd
+import nems_lbhb.xform_wrappers as nw
+import nems.db as nd
 import nems.recording as recording
 import nems.epoch as ep
 import nems.preprocessing as preproc

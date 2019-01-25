@@ -7,7 +7,7 @@ log = logging.getLogger(__name__)
 log.disabled = True
 
 #sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
-import nems_db.db as nd
+import nems.db as nd
 import nems_db.params
 import numpy as np
 import pandas as pd
@@ -19,8 +19,8 @@ import nems.recording as recording
 import nems.epoch as ep
 import nems.modelspec as ms
 import nems.xforms as xforms
-import nems_db.xform_wrappers as nw
-import nems_db.db as nd
+#import nems_lbhb.xform_wrappers as nw
+import nems.db as nd
 import nems.plots.api as nplt
 from nems.utils import find_module
 
@@ -36,9 +36,9 @@ if 1:
     modelnames=["env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic",
                 "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-stp.1-dexp.1_init-basic",
                 "env.fs100-ld-sev_dlog.f-stp.2-fir.2x15-lvl.1-dexp.1_init-basic",
-                "env.fs100-ld-sev_dlog.f-wc.2x2.c-stp.2-fir.2x15-lvl.1-dexp.1_init-basic",
-                "env.fs100-ld-sev_dlog.f-wc.2x3.c-stp.3-fir.3x15-lvl.1-dexp.1_init-basic",
-                "env.fs100-ld-sev_dlog.f-wc.2x4.c-stp.4-fir.4x15-lvl.1-dexp.1_init-basic"]
+                "env.fs100-ld-sev_dlog.f-wc.2x2.c.n-stp.2-fir.2x15-lvl.1-dexp.1_init-basic",
+                "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-basic",
+                "env.fs100-ld-sev_dlog.f-wc.2x4.c.n-stp.4-fir.4x15-lvl.1-dexp.1_init-basic"]
     # cleaner STP effects, predictions slightly worse
 #    modelnames=["env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-dexp.1_init-basic",
 #                "env.fs100-ld-sev_dlog.f-fir.2x15-lvl.1-stp.1-dexp.1_init-basic",

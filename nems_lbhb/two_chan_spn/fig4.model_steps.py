@@ -7,7 +7,7 @@ log = logging.getLogger(__name__)
 log.disabled = True
 
 #sys.path.append(os.path.abspath('/auto/users/svd/python/scripts/'))
-import nems_db.db as nd
+import nems.db as nd
 import nems_db.params
 import numpy as np
 
@@ -16,8 +16,8 @@ import nems_lbhb.plots as lplt
 import nems.recording as recording
 import nems.epoch as ep
 import nems.xforms as xforms
-import nems_db.xform_wrappers as nw
-import nems_db.db as nd
+#import nems_lbhb.xform_wrappers as nw
+import nems.db as nd
 import nems.plots.api as nplt
 from nems.utils import find_module
 
@@ -39,19 +39,20 @@ modelname2 = "env.fs100-ld-sev_dlog.f-wc.2x3.c-stp.3-fir.3x15-lvl.1-dexp.1_init-
 #modelname2 = "env.fs100-ld-sev_dlog.f-wc.2x3.c.n-stp.3-fir.3x15-lvl.1-dexp.1_init-basic"
 #modelname2 = "env.fs100-ld-sev_dlog.f-wc.2x2.c.n-stp.2-fir.2x15-lvl.1-dexp.1_init-basic"
 
-save_figs = True
+save_figs = False
 outpath = "/auto/users/svd/docs/current/two_band_spn/eps_rev/"
 #if save_figs:
 plt.close('all')
 
 #cellid="por077a-c1"
-cellid = "por074b-d2"
-cellid = "por074b-c2"
-cellid = "por020a-c1"
 #cellid = "chn003c-a1"
 cellid = "eno009d-a1"
 cellid = "eno027d-c1"
 cellid = "eno029d-c1"
+cellid = "por074b-d2"
+cellid = "por074b-c2"
+cellid = "por020a-c1"
+
 fh1, ctx1, ctx2 = lplt.compare_model_preds(cellid, batch, modelname1, modelname2)
 
 # xf2, ctx2 = lplt.get_model_preds(cellid, batch, modelname2)

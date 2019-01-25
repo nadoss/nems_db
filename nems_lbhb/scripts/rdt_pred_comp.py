@@ -1,7 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 from nems import xforms
-import nems_db.xform_wrappers as nw
+import nems_lbhb.xform_wrappers as nw
 from nems.gui.recording_browser import browse_recording, browse_context
 import nems.db as nd
 import nems.modelspec as ms
@@ -23,11 +23,11 @@ plt.rcParams.update(params)
 
 outpath='/auto/users/svd/docs/current/RDT/nems/'
 
+keywordstring = 'rdtgain.gen.NTARGETS-rdtmerge.stim-wc.18x2.g-fir.2x15-lvl.1'
 keywordstring = 'rdtgain.gen.NTARGETS-rdtmerge.stim-wc.18x2.g-fir.2x15-lvl.1-dexp.1'
 keywordstring = 'rdtgain.gen.NTARGETS-rdtmerge.stim-wc.18x1.g-fir.1x15-lvl.1'
 keywordstring = 'rdtgain.gen.NTARGETS-rdtmerge.stim-wc.18x1.g-fir.1x15-lvl.1-dexp.1'
 keywordstring = 'rdtgain.gen.NTARGETS-rdtmerge.stim-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
-keywordstring = 'rdtgain.gen.NTARGETS-rdtmerge.stim-wc.18x2.g-fir.2x15-lvl.1'
 
 loaders = ['rdtld-rdtshf.rep.str-rdtsev-rdtfmt',
            'rdtld-rdtshf.rep-rdtsev-rdtfmt',
@@ -92,6 +92,10 @@ for b, batch in enumerate(batches):
     plt.bar(x0[:-1]+d, h, bottom=h0, width=d*1.8)
     ylim = ax.get_ylim()
     plt.plot([0, 0], ylim, 'k--')
+    tx = x0[0]+d
+    ty = ylim[1]*0.95
+    t = "n={}/{}".format(np.sum(r['sigdiff']),r.shape[0])
+    plt.text(tx,ty, t)
     plt.xlabel('Rep/no-rep improvement')
 
 ax_mean.legend()
@@ -101,4 +105,5 @@ ax_mean.set_ylabel('mean pred corr.')
 #plt.suptitle('{}'.format(keywordstring))
 plt.tight_layout()
 
-fig.savefig(outpath+'pred_comp_'+keywordstring+'.png')
+#fig.savefig(outpath+'pred_comp_'+keywordstring+'.png')
+fig.savefig(outpath+'pred_comp_'+keywordstring+'.pdf')

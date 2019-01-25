@@ -1,4 +1,4 @@
-from nems_db import db
+from nems import db
 import hashlib
 
 

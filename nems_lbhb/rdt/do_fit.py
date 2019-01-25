@@ -18,7 +18,7 @@ import nems.analysis.test_prediction
 import nems.xforms
 import nems.plots.file
 
-from nems_db import db
+from nems import db
 
 
 def do_fit(batch, cell, wcg_n, fir_n, shuffle_phase, shuffle_stream):
