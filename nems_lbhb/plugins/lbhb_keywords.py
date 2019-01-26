@@ -1,4 +1,4 @@
-from nems.plugins.default_keywords import wc, fir, lvl, stp, dlog
+from nems.plugins.default_keywords import wc, lvl, firexp
 import re
 import logging
 import copy
@@ -111,6 +111,10 @@ def ctfir(kw):
                 'fn_kwargs': {'i': 'ctpred', 'o': 'ctpred'},
                 'prior': {
                     'coefficients': ('Normal', p_coefficients)},
+                'plot_fns': ['nems.plots.api.mod_output',
+                             'nems.plots.api.strf_heatmap',
+                             'nems.plots.api.strf_timeseries'],
+                'plot_fn_idx': 1,
                 }
 
 #    p_coefficients = {'beta': np.full((n_outputs * n_banks, n_coefs), 0.1)}
@@ -121,6 +125,12 @@ def ctfir(kw):
 #            }
 
     return template
+
+
+def ctfirexp(kw):
+    m = firexp(kw[2:])
+    m['fn_kwargs'].update({'i': 'ctpred', 'o': 'ctpred'})
+    return m
 
 
 def gcfir(kw):

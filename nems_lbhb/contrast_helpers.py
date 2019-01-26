@@ -304,9 +304,11 @@ def pass_nested_modelspec(modelspecs, IsReload=False, **context):
     Useful for stopping after initialization. Mimics return value
     of fit_basic, but without any fitting.
     '''
+    raise NotImplementedError
+    # TODO: Might not need this anymore.
     if not IsReload:
         if not isinstance(modelspecs, list):
-            modelspecs = [modelspecs]
+            modelspec = [modelspecs]
 
     return {'modelspecs': modelspecs}
 
@@ -475,9 +477,9 @@ def remove_dsig_bounds(modelspec):
 def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
 
     if dsig_idx == len(modelspec):
-        fit_portion = modelspec
+        fit_portion = modelspec.modules
     else:
-        fit_portion = modelspec[:dsig_idx]
+        fit_portion = modelspec.modules[:dsig_idx]
 
     # generate prediction from module preceeding dexp
 
@@ -551,9 +553,9 @@ def _init_logistic_sigmoid(rec, modelspec, dsig_idx):
 def _init_double_exponential(rec, modelspec, target_i):
 
     if target_i == len(modelspec):
-        fit_portion = modelspec
+        fit_portion = modelspec.modules
     else:
-        fit_portion = modelspec[:target_i]
+        fit_portion = modelspec.modules[:target_i]
 
     # generate prediction from modules preceeding dsig
 
@@ -653,7 +655,7 @@ def dsig_phi_to_prior(modelspec):
     return modelspec
 
 
-def init_contrast_model(est, modelspecs, IsReload=False,
+def init_contrast_model(est, modelspec, IsReload=False,
                         tolerance=10**-5.5, max_iter=700, copy_strf=False,
                         fitter='scipy_minimize', metric='nmse', **context):
     '''
@@ -666,9 +668,8 @@ def init_contrast_model(est, modelspecs, IsReload=False,
     est : NEMS recording
         The recording to use for prefitting and for determining initial values.
         Expects the estimation portion of the dataset by default.
-    modelspecs : list of lists of dictionaries
-        List (should be a singleton) of NEMS modelspecs containing the modules
-        to be initialized.
+    modelspec : ModelSpec
+        NEMS ModelSpec object.
     IsReload : boolean
         For use with xforms, specifies whether the model is being fit for
         the first time or if it is being loaded from a previous fit.
@@ -692,22 +693,21 @@ def init_contrast_model(est, modelspecs, IsReload=False,
 
     Returns
     -------
-    {'modelspecs': [modelspec]}
+    {'modelspec': modelspec}
 
     '''
-
 
     if IsReload:
         return {}
 
-    modelspec = copy.deepcopy(modelspecs[0])
+    modelspec = copy.deepcopy(modelspec)
 
     # If there's no dynamic_sigmoid module, try doing
     # the normal linear-nonlinear initialization instead.
     if not find_module('dynamic_sigmoid', modelspec):
         new_ms = nems.initializers.prefit_LN(est, modelspec, max_iter=max_iter,
                                              tolerance=tolerance)
-        return {'modelspecs': [new_ms]}
+        return {'modelspec': new_ms}
 
     # Set up kwargs for prefit function.
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
@@ -726,7 +726,7 @@ def init_contrast_model(est, modelspecs, IsReload=False,
                                  fit_kwargs=fit_kwargs)
 
     # then initialize the STP module (if there is one)
-    for i, m in enumerate(modelspec):
+    for i, m in enumerate(modelspec.modules):
         if 'stp' in m['fn']:
             m = priors.set_mean_phi([m])[0]  # Init phi for module
             modelspec[i] = m
@@ -762,7 +762,7 @@ def init_contrast_model(est, modelspecs, IsReload=False,
     # prefit values so that random sample fits incorporate the prefit info.
     modelspec = dsig_phi_to_prior(modelspec)
 
-    return {'modelspecs': [modelspec]}
+    return {'modelspec': modelspec}
 
 
 def _prefit_contrast_modules(est, modelspec, analysis_function,
@@ -778,13 +778,13 @@ def _prefit_contrast_modules(est, modelspec, analysis_function,
     # that will be fit here
     fit_idx = []
     fit_set = ['ctwc', 'ctfir', 'ctlvl', 'dsig']
-    for i, m in enumerate(modelspec):
+    for i, m in enumerate(modelspec.modules):
         for id in fit_set:
             if id in m['id']:
                 fit_idx.append(i)
                 log.info('Found module %d (%s) for subset prefit', i, id)
 
-    tmodelspec = copy.deepcopy(modelspec)
+    tmodelspec = modelspec.copy()
 
     if len(fit_idx) == 0:
         log.info('No modules matching fit_set for subset prefit')
@@ -809,10 +809,10 @@ def _prefit_contrast_modules(est, modelspec, analysis_function,
     # fit the subset of modules
     if metric is None:
         tmodelspec = analysis_function(est, tmodelspec, fitter=fitter,
-                                       fit_kwargs=fit_kwargs)[0]
+                                       fit_kwargs=fit_kwargs)
     else:
         tmodelspec = analysis_function(est, tmodelspec, fitter=fitter,
-                                       metric=metric, fit_kwargs=fit_kwargs)[0]
+                                       metric=metric, fit_kwargs=fit_kwargs)
 
     # reassemble the full modelspec with updated phi values from tmodelspec
     for i in fit_idx:
@@ -840,22 +840,24 @@ def _prefit_dsig_only(est, modelspec, analysis_function,
 
     # Remove ctwc, ctfir, and ctlvl if they exist
     temp = []
-    for i, m in enumerate(copy.deepcopy(modelspec)):
+    for i, m in enumerate(modelspec.modules):
         if 'ct' in m['id']:
             pass
         else:
             temp.append(m)
-
+    temp = ms.ModelSpec(raw=[temp])
     temp = prefit_mod_subset(est, temp, analysis_function,
                              fit_set=['dynamic_sigmoid'], fitter=fitter,
                              metric=metric, fit_kwargs=fit_kwargs)
 
     # Put ctwc, ctfir, and ctlvl back in where applicable
-    for i, m in enumerate(modelspec):
+    j = 0
+    for i, m in enumerate(modelspec.modules):
         if 'ct' in m['id']:
             pass
         else:
-            modelspec[i] = temp.pop(0)
+            modelspec[i] = temp[j]
+            j += 1
 
     # reset dynamic sigmoid parameters if they were frozen
     for p, v in dynamic_phi.items():
@@ -868,10 +870,10 @@ def _prefit_dsig_only(est, modelspec, analysis_function,
     return modelspec
 
 
-def strf_to_contrast(modelspecs, IsReload=False, **context):
+def strf_to_contrast(modelspec, IsReload=False, **context):
     modelspec = copy.deepcopy(modelspecs)[0]
     modelspec = _strf_to_contrast(modelspec)
-    return {'modelspecs': [modelspec]}
+    return {'modelspec': modelspec}
 
 
 def _strf_to_contrast(modelspec, absolute_value=True):
