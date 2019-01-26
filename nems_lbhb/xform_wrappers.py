@@ -80,7 +80,7 @@ def _matching_cells(batch=289, siteid=None, alt_cells_available=None,
 
 def pop_selector(recording_uri_list, batch=None, cellid=None,
                  rand_match=False, cell_count=20, best_cells=False,
-                 whiten=False, **context):
+                 whiten=True, **context):
 
     rec = load_recording(recording_uri_list[0])
 
