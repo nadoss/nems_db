@@ -11,14 +11,14 @@ import pandas as pd
 import matplotlib.image as mpimg
 from PIL import Image
 
-#import nems_lbhb.xform_wrappers as nw
 import nems.plots.api as nplt
 import nems.xforms as xforms
 import nems.xform_helper as xhelp
 import nems.modelspec as ms
 import nems.epoch as ep
-import nems_lbhb.plots as lplt
+import nems.preprocessing as preproc
 from nems.metrics.state import state_mod_index
+import nems_lbhb.plots as lplt
 
 font_size=8
 params = {'legend.fontsize': font_size-2,
@@ -515,7 +515,7 @@ def model_per_time_wrapper(cellid, batch=307,
                            loader= "psth.fs20.pup-ld-",
                            fitter = "_jk.nf20-basic",
                            basemodel = "-ref-psthfr_stategain.S",
-                           state_list=None,
+                           state_list=None, plot_halves=True,
                            colors=None):
     """
     batch = 307  # A1 SUA and MUA
@@ -548,18 +548,24 @@ def model_per_time_wrapper(cellid, batch=307,
                                          eval_model=False)
         ctx, l = xforms.evaluate(xf, ctx, start=0, stop=-2)
 
+        ctx['val'] = preproc.make_state_signal(
+            ctx['val'], state_signals=['each_half'], new_signalname='state_f')
+
         contexts.append(ctx)
+        #import pdb;
+        #pdb.set_trace()
 
     plt.figure()
-    if ('hlf' in state_list[0]) or ('fil' in state_list[0]):
+    #if ('hlf' in state_list[0]) or ('fil' in state_list[0]):
+    if plot_halves:
         files_only=True
     else:
         files_only=False
         
     for i, ctx in enumerate(contexts):
 
-        rec = ctx['val'][0].apply_mask()
-        modelspec = ctx['modelspecs'][0]
+        rec = ctx['val'].apply_mask()
+        modelspec = ctx['modelspec']
         epoch="REFERENCE"
         rec = ms.evaluate(rec, modelspec)
         if i == len(contexts)-1:
@@ -569,7 +575,7 @@ def model_per_time_wrapper(cellid, batch=307,
 
         ax = plt.subplot(len(contexts)+1, 1, 2+i)
         nplt.state_vars_psth_all(rec, epoch, psth_name='resp',
-                            psth_name2='pred', state_sig='state_raw',
+                            psth_name2='pred', state_sig='state_f',
                             colors=colors, channel=None, decimate_by=1,
                             ax=ax, files_only=files_only, modelspec=modelspec)
         ax.set_ylabel(state_list[i])
