@@ -509,8 +509,6 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
         with open(pupildata_path, 'rb') as fp:
             pupildata = pickle.load(fp)
 
-        options['pupil_eyespeed'] = False
-
         # hard code to use minor axis for now
         options['pupil_variable_name'] = 'minor_axis'
         log.info("Using default pupil_variable_name: " +
@@ -524,8 +522,12 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
         log.info("pupil_diameter.shape: " + str(pupil_diameter.shape))
 
         if pupil_eyespeed:
-            pupil_eyespeed = False
-            log.info("eye speed does not yet exist using this pupil method")
+            try:
+                eye_speed = pupildata['cnn']['eyespeed'][:-1, np.newaxis]
+                log.info("loaded eye_speed")
+            except:
+                pupil_eyespeed = False
+                log.info("eye_speed requested but file does not exist!")
 
     except:
         matdata = scipy.io.loadmat(pupilfilepath)
@@ -551,6 +553,7 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
         if pupil_eyespeed:
             try:
                 eye_speed = np.array(results[0]['eye_speed'][0][0])
+                log.info("loaded eye_speed")
             except:
                 pupil_eyespeed = False
                 log.info("eye_speed requested but file does not exist!")
