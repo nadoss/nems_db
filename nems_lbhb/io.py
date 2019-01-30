@@ -733,10 +733,13 @@ def load_pupil_trace(pupilfilepath, exptevents=None, **options):
         big_rs = big_rs[np.newaxis, :]
 
         if pupil_mm:
-            #convert measurements from pixels to mm
-            eye_width_px = matdata['pupil_data']['results'][0][0]['eye_width'][0][0][0]
-            eye_width_mm = matdata['pupil_data']['params'][0][0]['eye_width_mm'][0][0][0]
-            big_rs = big_rs*(eye_width_mm/eye_width_px)
+            try:
+                #convert measurements from pixels to mm
+                eye_width_px = matdata['pupil_data']['results'][0][0]['eye_width'][0][0][0]
+                eye_width_mm = matdata['pupil_data']['params'][0][0]['eye_width_mm'][0][0][0]
+                big_rs = big_rs*(eye_width_mm/eye_width_px)
+            except:
+                print("couldn't convert pupil to mm")
 
         if verbose:
             #plot framerate for each trial (for checking camera performance)
